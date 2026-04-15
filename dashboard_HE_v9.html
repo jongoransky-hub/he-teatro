@@ -692,6 +692,23 @@ const UMBRAL=500000;
 // ════════════════════════════════════════════
 // INIT — carga datos desde Google Sheets
 // ════════════════════════════════════════════
+// ── Helpers globales de normalización ──
+function normHora(v) {
+  if (!v) return '';
+  const s = String(v);
+  const m = s.match(/T(\d{2}:\d{2})/);
+  if (m) return m[1];
+  const m2 = s.match(/^(\d{2}:\d{2})/);
+  if (m2) return m2[1];
+  return s;
+}
+function normFecha(v) {
+  if (!v) return '';
+  const s = String(v);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s;
+}
+
 window.onload = async () => {
   const hoy = new Date();
   document.getElementById('tb-date').textContent = fmtF(hoy.toISOString().split('T')[0]);
@@ -700,28 +717,6 @@ window.onload = async () => {
   // Mostrar indicador de carga
   document.getElementById('tb-badge').textContent = "Cargando...";
   document.getElementById('tb-badge').style.display = 'block';
-
-  // ── Helper: Google Sheets a veces devuelve horas como "1899-12-30T15:00:00.000Z"
-  // Extraemos solo HH:MM del string ISO o dejamos el valor si ya es HH:MM
-  function normHora(v) {
-    if (!v) return '';
-    const s = String(v);
-    // Si viene como ISO date con 1899 (epoch de hora pura en Sheets)
-    const m = s.match(/T(\d{2}:\d{2})/);
-    if (m) return m[1];
-    // Si ya es HH:MM o HH:MM:SS
-    const m2 = s.match(/^(\d{2}:\d{2})/);
-    if (m2) return m2[1];
-    return s;
-  }
-
-  // ── Helper: normalizar fecha — Sheets a veces manda "2026-04-15T00:00:00.000Z"
-  function normFecha(v) {
-    if (!v) return '';
-    const s = String(v);
-    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] : s;
-  }
 
   try {
     // Cargar registros del mes desde el backend
@@ -929,6 +924,16 @@ async function recargarDatos(){
 function normNombre(n){
   return String(n||"").toUpperCase().replace(/[,\s\.]+/g,"");
 }
+
+function rolLabel(area){
+  const m = {
+    SONIDO:'Técnico', ILUMINACION:'Técnico', MAQUINARIA:'Técnico',
+    SALA:'Asist. de Sala', BOLETERIA:'Boletería',
+    MANTENIMIENTO:'Mantenimiento', LIMPIEZA:'Limpieza',
+  };
+  return m[area] || 'Técnico';
+}
+
 
 // ── Busca en PERSONAL el objeto cuyo nombre normalizado coincide con n ──
 function findPersonal(n){
@@ -1317,7 +1322,7 @@ function buildPersonal(){
       <div style="font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.n}${!p.validado?' <span style="color:var(--amber)">⚠ nuevo</span>':''}</div>
       <div class="p-areas">${(p.areas||[]).map(a=>`<span class="p-area">${a.replace(/_/g,' ')}</span>`).join('')}</div>
       <div class="mono">${p.teatro}</div>
-      <div class="mono" style="font-size:11px">${p.jefe?'Jefe':'Técnico'}</div>
+      <div class="mono" style="font-size:11px">${p.jefe?'Jefe':rolLabel((p.areas||[])[0])}</div>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
         ${!p.validado
           ?`<button class="btn amber" style="padding:3px 10px;font-size:11px" onclick="abrirValidar('${p.n.replace(/'/g,"\\'")}')">Validar</button>`
@@ -1730,5 +1735,3 @@ function abrirDetallPersona(nombre, teatro) {
   document.getElementById('modal-detalle-persona').style.display = 'flex';
 }
 </script>
-
-
