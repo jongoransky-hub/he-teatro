@@ -159,7 +159,10 @@ textarea{resize:none;height:60px;line-height:1.5}
     <span class="tb-title">Gestión HE</span>
     <span class="tb-sub" id="tb-sub">— Director</span>
   </div>
-  <div class="tb-right" id="tb-fecha"></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:10px">
+    <button onclick="recargarTodo()" id="btn-refresh-p3" style="background:rgba(200,245,66,.15);border:1px solid rgba(200,245,66,.3);color:var(--ac);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">↻ Actualizar</button>
+    <span id="tb-fecha"></span>
+  </div>
 </div>
 
 <div class="layout">
@@ -1221,6 +1224,50 @@ function showP3(id){
 }
 function cerrarModal(id){document.getElementById(id).style.display='none';}
 function fmt(n){return Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+async function recargarTodo(){
+  const btn = document.getElementById('btn-refresh-p3');
+  btn.textContent = '⏳ Cargando...';
+  btn.disabled = true;
+  try {
+    const [valRes, obrRes, perRes] = await Promise.all([
+      apiGet("getValores"),
+      apiGet("getObras"),
+      apiGet("getPersonal"),
+    ]);
+    if (valRes.ok && valRes.data && valRes.data.length > 0) {
+      VALORES = valRes.data.map(v => ({
+        id: v["ID"]||"", l: v["Concepto"]||"", t: v["Tipo"]||"HE",
+        a: (v["Áreas"]||v["Areas"]||"").split(",").map(x=>x.trim()).filter(Boolean),
+        v: parseFloat(v["Valor"])||0, jefe: v["Solo Jefe"]==="SI",
+      }));
+    }
+    if (obrRes.ok && obrRes.data && obrRes.data.length > 0) {
+      OBRAS = obrRes.data.map(o => ({
+        n: o["Nombre"]||"", teatro: o["Teatro"]||"",
+        tipo: o["Tipo"]||"cooperativa", activa: o["Activa"]!=="NO",
+        desde: (o["Desde"]||"").slice(0,7), hasta: (o["Hasta"]||"").slice(0,7)||null,
+        nota: o["Nota"]||"",
+      }));
+    }
+    if (perRes.ok && perRes.data && perRes.data.length > 0) {
+      PERSONAL3 = perRes.data.map(p => ({
+        n: p["Nombre"]||"",
+        a: [p["Áreas"]||p["Areas"]||p["Área"]||"", p["Área Secundaria"]||""].filter(Boolean),
+        t: p["Teatro"]||"", j: p["Es Jefe"]==="SI", ok: p["Activo"]!=="NO",
+      })).filter(p=>p.n);
+      PERSONAL.length = 0;
+      PERSONAL3.forEach(p => PERSONAL.push(p));
+    }
+    buildValores(); buildEditable(); buildObras(); buildPersonal3();
+    btn.textContent = '✓ Actualizado';
+    setTimeout(()=>{btn.textContent='↻ Actualizar';btn.disabled=false;}, 2000);
+  } catch(e) {
+    btn.textContent = '↻ Actualizar';
+    btn.disabled = false;
+  }
+}
+
 function fmtN(n){return Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtD(d){return d.toLocaleDateString('es-AR');}
 function fmtD2(v){if(!v)return'—';const[y,m,d]=v.split('-');return`${d}/${m}/${y}`;}
