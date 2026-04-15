@@ -766,6 +766,8 @@ window.onload = async () => {
           cargadoPor:      r["Cargado Por"] || null,
           // sinValidar: true si el flag está en SI, o si no hay flag pero la persona no está en nómina
           sinValidar:      sinValidarFlag === "SI",
+          aprobJefe:       r["Aprobado Jefe"] || "PENDIENTE",
+          notaJefe:        r["Nota Jefe"] || "",
           edits:           [],
           _id:             r["ID"] || "",
         };
@@ -891,6 +893,8 @@ async function recargarDatos(){
           overrideHorario: r["Override Horario"]==="SI",
           cargadoPor:      r["Cargado Por"]||null,
           sinValidar:      r["Sin Validar"]==="SI",
+          aprobJefe:       r["Aprobado Jefe"] || "PENDIENTE",
+          notaJefe:        r["Nota Jefe"] || "",
           edits:           [],
           _id:             r["ID"]||"",
         };
@@ -933,6 +937,18 @@ function rolLabel(area){
   };
   return m[area] || 'Técnico';
 }
+
+function aprobBadge(r) {
+  // Solo técnicos (Sonido/Iluminación/Maquinaria) necesitan aprobación de jefe
+  const area = (r.areas||[])[0]||'';
+  const necesitaJefe = ['SONIDO','ILUMINACION','MAQUINARIA'].includes(area);
+  if (!necesitaJefe) return '<span style="font-size:10px;color:var(--mu)">✓ Aprobación directa Admin</span>';
+  const estado = r.aprobJefe || 'PENDIENTE';
+  if (estado === 'APROBADO') return '<span style="background:var(--grbg);color:var(--green);border:1px solid var(--grbd);border-radius:999px;font-size:10px;font-weight:700;padding:2px 8px;font-family:\'DM Mono\',monospace">✓ Aprobado jefe</span>';
+  if (estado === 'RECHAZADO') return '<span style="background:var(--redbg);color:var(--red);border:1px solid var(--redbd);border-radius:999px;font-size:10px;font-weight:700;padding:2px 8px;font-family:\'DM Mono\',monospace">✗ Rechazado jefe</span>';
+  return '<span style="background:var(--ambg);color:var(--amber);border:1px solid var(--ambd);border-radius:999px;font-size:10px;font-weight:700;padding:2px 8px;font-family:\'DM Mono\',monospace">⏳ Pend. jefe</span>';
+}
+
 
 
 // ── Busca en PERSONAL el objeto cuyo nombre normalizado coincide con n ──
@@ -1724,6 +1740,10 @@ function abrirDetallPersona(nombre, teatro) {
         <div style="font-weight:600;font-size:13px;margin-bottom:2px">${r.tipoLabel||'—'}</div>
         <div style="font-size:12px;color:var(--mu)">${r.descripcion||'—'}</div>
         <div style="font-size:11px;color:var(--dm);margin-top:4px;font-family:'DM Mono',monospace">${r.teatro||''}·${r.sala||''} · ${r.obra||'—'} · CC: ${CC_LABEL[r.cc]?.split(' ')[0]||r.cc||'—'}</div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${aprobBadge(r)}
+          ${r.notaJefe?`<span style="font-size:11px;color:var(--amber)">Nota jefe: "${r.notaJefe}"</span>`:''}
+        </div>
         ${(r.edits||[]).length > 0 ? `<div style="font-size:11px;color:var(--green);margin-top:3px">Editado ${r.edits.length}× — último motivo: "${r.edits[r.edits.length-1]?.motivo||'—'}"</div>` : ''}
         <div style="margin-top:8px">
           <button class="btn ghost" style="padding:3px 8px;font-size:11px" onclick="cerrarModal('modal-detalle-persona');abrirEdit(${idx})">Editar este ticket</button>
