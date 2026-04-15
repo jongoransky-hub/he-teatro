@@ -195,6 +195,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
   </div>
   <div class="tb-right">
     <div class="tb-badge" id="tb-badge" onclick="showView('alertas')" style="display:none"></div>
+    <button onclick="recargarDatos()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif" id="btn-refresh">↻ Actualizar</button>
     <span class="tb-date" id="tb-date"></span>
   </div>
 </div>
@@ -826,6 +827,8 @@ window.onload = async () => {
   poblarObraSelects();
   normalizarNombresRegistros();
   buildAll();
+  // Auto-refresco cada 2 minutos
+  setInterval(() => recargarDatos(), 2 * 60 * 1000);
 };
 
 // Guardar edición de registro en el backend
@@ -857,6 +860,69 @@ function poblarObraSelects(){
 }
 
 function buildAll(){buildMetrics();buildEstado();buildAlertas();buildConsolidado();buildImputar();buildMails();buildRegistros();buildPersonal();buildCierreMes();}
+
+async function recargarDatos(){
+  const btn = document.getElementById('btn-refresh');
+  btn.textContent = '⏳ Cargando...';
+  btn.disabled = true;
+  try {
+    const hoy = new Date();
+    const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+    const [regRes, perRes] = await Promise.all([
+      apiGet("getRegistros", {mes: mesKey}),
+      apiGet("getPersonal"),
+    ]);
+    if (regRes.ok && Array.isArray(regRes.data)) {
+      registros = regRes.data.map(r => {
+        const areaRaw = r["Área(s)"]||r["Area(s)"]||r["Áreas"]||r["Areas"]||r["Área"]||r["Area"]||"";
+        const totalRaw = String(r["Total"]||"0").replace(/\./g,'').replace(',','.');
+        return {
+          nombre:          r["Nombre"]||"",
+          areas:           areaRaw?areaRaw.split(",").map(x=>x.trim()).filter(Boolean):[],
+          teatro:          r["Teatro"]||"",
+          sala:            r["Sala"]||"",
+          fecha:           normFecha(r["Fecha"]||""),
+          horaDesde:       normHora(r["Hora Desde"]||""),
+          horaHasta:       normHora(r["Hora Hasta"]||""),
+          tipoLabel:       r["Tipo HE"]||r["TipoHE"]||"",
+          tipoTipo:        r["Tipo (HE/PKG)"]||"HE",
+          horas:           parseFloat(r["Horas"])||null,
+          cantidad:        parseFloat(r["Cantidad"])||null,
+          total:           parseFloat(totalRaw)||0,
+          obra:            r["Obra"]||"",
+          descripcion:     r["Descripción"]||r["Descripcion"]||"",
+          cc:              r["Centro de Costo"]||null,
+          salaAsume:       r["Sala Asume"]==="SI",
+          overrideHorario: r["Override Horario"]==="SI",
+          cargadoPor:      r["Cargado Por"]||null,
+          sinValidar:      r["Sin Validar"]==="SI",
+          edits:           [],
+          _id:             r["ID"]||"",
+        };
+      });
+    }
+    if (perRes.ok && Array.isArray(perRes.data) && perRes.data.length > 0) {
+      PERSONAL = perRes.data.map(p => ({
+        n:        p["Nombre"]||"",
+        areas:    [p["Áreas"]||p["Areas"]||p["Área"]||p["Area"]||"", p["Área Secundaria"]||""].filter(Boolean),
+        teatro:   p["Teatro"]||"",
+        jefe:     p["Es Jefe"]==="SI",
+        activo:   p["Activo"]!=="NO",
+        validado: p["Validado"]!=="NO",
+      })).filter(p=>p.n);
+    }
+    normalizarNombresRegistros();
+    registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});
+    buildAll();
+    btn.textContent = '✓ Actualizado';
+    setTimeout(()=>{btn.textContent='↻ Actualizar';btn.disabled=false;}, 2000);
+  } catch(e) {
+    btn.textContent = '↻ Actualizar';
+    btn.disabled = false;
+    console.error('Error al recargar:', e);
+  }
+}
+
 
 // ── Normaliza nombre para matching: quita comas, espacios extra, mayúsculas ──
 // "SOLDAN SILVIO" → "SOLDANSILVIO"  |  "SOLDAN, SILVIO" → "SOLDANSILVIO"
@@ -1664,4 +1730,5 @@ function abrirDetallPersona(nombre, teatro) {
   document.getElementById('modal-detalle-persona').style.display = 'flex';
 }
 </script>
+
 
