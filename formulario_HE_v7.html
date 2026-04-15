@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>HE — Teatro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f0f0f;--sf:#1a1a1a;--s2:#222;--bd:#2e2e2e;
+  --ac:#c8f542;--ad:#0f0f0f;--tx:#f0f0f0;--mu:#888;
+  --dm:#444;--red:#ff5a5a;--rbg:rgba(255,90,90,.08);
+  --amber:#f5a623;--ambg:rgba(245,166,35,.08);
+  --r:12px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;padding-bottom:96px;font-size:15px}
+
+.hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:16px 20px 14px;position:sticky;top:0;z-index:20}
+.hdr-row{display:flex;align-items:center;gap:10px}
+.dot{width:9px;height:9px;background:var(--ac);border-radius:50%;flex-shrink:0}
+.hdr h1{font-size:14px;font-weight:600;flex:1}
+.hdr-name{font-size:11px;color:var(--mu);font-family:'DM Mono',monospace;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hdr-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.08em;text-transform:uppercase;margin-top:5px}
+.prog{display:flex;gap:4px;margin-top:12px}
+.pb{flex:1;height:2.5px;background:var(--bd);border-radius:2px;transition:background .3s}
+.pb.on{background:var(--ac)}.pb.done{background:var(--dm)}
+
+.sec{display:none;padding:24px 20px 0;animation:fi .18s ease}
+.sec.vis{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1}}
+.stag{font-family:'DM Mono',monospace;font-size:10px;color:var(--dm);letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px}
+
+.field{margin-bottom:20px}
+.field label{display:block;font-size:12px;color:var(--mu);font-weight:500;margin-bottom:8px}
+input,select,textarea{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-family:'DM Sans',sans-serif;font-size:15px;padding:14px 16px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:44px}
+input[type=date],input[type=time]{color-scheme:dark}
+textarea{resize:none;height:90px;line-height:1.5}
+
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{padding:11px 18px;background:var(--s2);border:1px solid var(--bd);border-radius:999px;font-size:13px;color:var(--mu);cursor:pointer;transition:all .12s;user-select:none;font-weight:500}
+.pill:active{transform:scale(.96)}
+.pill.sel{background:var(--ac);border-color:var(--ac);color:var(--ad);font-weight:600}
+.pill.wide{flex:1;text-align:center}
+
+.char-count{font-size:11px;font-family:'DM Mono',monospace;text-align:right;margin-top:5px;color:var(--dm);transition:color .2s}
+.char-count.ok{color:var(--ac)}.char-count.warn{color:var(--red)}
+
+.val-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:18px 20px;margin-top:4px;margin-bottom:18px;display:none}
+.val-card.vis{display:block}
+.val-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.val-num{font-size:30px;font-weight:600;color:var(--ac);font-variant-numeric:tabular-nums}
+.val-det{font-size:12px;color:var(--mu);margin-top:4px;font-family:'DM Mono',monospace}
+
+.hora-row{display:grid;grid-template-columns:1fr 20px 1fr;gap:6px;align-items:center}
+.hora-sep{color:var(--dm);text-align:center;font-size:14px}
+
+.res-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.res-row{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 16px;border-bottom:1px solid var(--bd);font-size:13px;gap:12px}
+.res-row:last-child{border-bottom:none}
+.res-l{color:var(--mu);flex-shrink:0}
+.res-v{font-weight:500;text-align:right;line-height:1.4;word-break:break-word;max-width:65%}
+.res-total-row{padding:14px 16px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+.res-total{font-size:22px;font-weight:600;color:var(--ac)}
+
+/* ALERTS */
+.alert{background:var(--rbg);border:1px solid rgba(255,90,90,.25);border-radius:var(--rs);padding:11px 14px;font-size:13px;color:var(--red);margin-bottom:16px;display:none;line-height:1.5}
+.alert.vis{display:block}
+.alert-warn{background:var(--ambg);border:1px solid rgba(245,166,35,.3);border-radius:var(--rs);padding:11px 14px;font-size:13px;color:var(--amber);margin-bottom:16px;display:none;line-height:1.5}
+.alert-warn.vis{display:block}
+/* inline overlap warning with confirm option */
+.overlap-confirm{margin-top:8px}
+.overlap-confirm button{background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.4);border-radius:var(--rs);color:var(--amber);font-size:12px;padding:7px 14px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-right:8px}
+
+.prof{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:16px 20px;margin-bottom:20px}
+.prof-name{font-size:18px;font-weight:600;margin-bottom:2px}
+.prof-sub{font-size:13px;color:var(--mu)}
+.prof-change{font-size:12px;color:var(--dm);margin-top:10px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+.banner{background:rgba(200,245,66,.06);border:1px solid rgba(200,245,66,.2);border-radius:var(--r);padding:14px 16px;margin-bottom:20px;font-size:13px;line-height:1.6;color:var(--mu)}
+.banner strong{color:var(--tx)}
+.banner-jefe{background:rgba(200,245,66,.1);border-color:rgba(200,245,66,.4)}
+
+.proxy-note{background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:12px 14px;margin-bottom:18px;font-size:13px;color:var(--mu)}
+
+.sdiv{height:1px;background:var(--bd);margin:4px 0 20px;opacity:.4}
+.note{font-size:12px;color:var(--dm);margin-top:6px;line-height:1.5}
+
+/* HISTORIAL */
+.hist-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.hist-mes{font-size:16px;font-weight:600}
+.hist-tot{font-family:'DM Mono',monospace;font-size:14px;color:var(--ac)}
+.ticket{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.ticket-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+.ticket-fecha{font-family:'DM Mono',monospace;font-size:11px;color:var(--mu)}
+.ticket-monto{font-weight:600;color:var(--ac)}
+.ticket-tipo{font-size:13px;font-weight:500;margin-bottom:3px}
+.ticket-desc{font-size:12px;color:var(--mu);line-height:1.4}
+.ticket-obra{font-size:11px;color:var(--dm);margin-top:4px;font-family:'DM Mono',monospace}
+.ticket-proxy{font-size:11px;color:var(--amber);margin-top:2px}
+.empty-hist{text-align:center;padding:40px 20px;color:var(--dm);font-size:14px}
+
+.cierre-banner{background:rgba(200,245,66,.08);border:2px solid var(--ac);border-radius:var(--r);padding:18px 20px;margin-bottom:20px;text-align:center}
+.cierre-title{font-size:16px;font-weight:600;margin-bottom:6px}
+.cierre-sub{font-size:13px;color:var(--mu);margin-bottom:14px;line-height:1.5}
+.btn-cierre{background:var(--ac);color:var(--ad);border:none;border-radius:var(--rs);padding:13px 24px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);padding:12px 20px;display:flex;gap:10px;z-index:20}
+.btn{flex:1;padding:15px;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;border:none;cursor:pointer;transition:all .12s}
+.btn:active{transform:scale(.97)}
+.btn-back{background:var(--s2);color:var(--mu);border:1px solid var(--bd);flex:.5}
+.btn-next{background:var(--ac);color:var(--ad)}
+.btn-hist{background:var(--s2);color:var(--tx);border:1px solid var(--bd);font-size:12px;padding:10px 14px;flex:0;white-space:nowrap;border-radius:var(--r)}
+
+.success{display:none;padding:60px 20px;text-align:center}
+.success.vis{display:block}
+.s-icon{width:68px;height:68px;background:var(--ac);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;font-size:28px;color:var(--ad);font-weight:700}
+.s-title{font-size:22px;font-weight:600;margin-bottom:8px}
+.s-sub{font-size:14px;color:var(--mu);line-height:1.6;margin-bottom:28px}
+.btn-nuevo{width:100%;padding:15px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);font-size:15px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:10px}
+.btn-hist-link{width:100%;padding:15px;background:transparent;border:1px solid var(--bd);border-radius:var(--r);color:var(--mu);font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+.hist-view{display:none;padding:24px 20px 0}
+.hist-view.vis{display:block}
+</style>
+</head>
+<body>
+
+<div class="hdr" id="hdr">
+  <div class="hdr-row">
+    <div class="dot"></div>
+    <h1>Horas Extras</h1>
+    <span class="hdr-name" id="hdr-name"></span>
+  </div>
+  <div class="hdr-tag" id="hdr-tag">REGISTRO</div>
+  <div class="prog" id="prog"></div>
+</div>
+
+<!-- ── PASO 0: REGISTRO ── -->
+<div class="sec vis" id="sec0">
+  <div class="stag">¿Quién sos?</div>
+  <div class="banner"><strong>Seleccioná tu nombre de la lista.</strong><br>Si no aparecés, avisale a tu jefe de área para que te agreguen.</div>
+
+  <div id="sec0-loading" style="text-align:center;padding:32px 0;color:var(--mu)">
+    <div style="font-size:28px;margin-bottom:10px">⏳</div>
+    <div style="font-size:13px">Cargando lista de personal...</div>
+  </div>
+
+  <div id="sec0-form" style="display:none">
+    <div class="field">
+      <label>Tu nombre</label>
+      <select id="reg-nombre-sel" onchange="onSelPersona()" style="font-size:15px;padding:14px 16px">
+        <option value="">— Seleccioná tu nombre —</option>
+      </select>
+    </div>
+
+    <div id="sec0-perfil-preview" style="display:none">
+      <div class="banner banner-jefe" id="sec0-preview-banner"></div>
+    </div>
+
+    <div id="jefe-ok" style="display:none">
+      <div class="banner banner-jefe">✓ Sos <strong>jefe de área</strong>. Verás las tarifas de jefe cuando corresponda.</div>
+    </div>
+    <div id="patino-ok" style="display:none">
+      <div class="banner banner-jefe">✓ Perfil especial: tenés rubros de <strong>Mantenimiento y Limpieza</strong>.</div>
+    </div>
+  </div>
+
+  <div id="sec0-error" style="display:none">
+    <div class="alert vis">No se pudo cargar la lista de personal. Verificá tu conexión y recargá la página.</div>
+    <button onclick="location.reload()" style="margin-top:12px;background:var(--ac);color:var(--ad);border:none;border-radius:var(--rs);padding:12px 20px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%">Reintentar</button>
+  </div>
+
+  <div class="alert" id="alert0">Seleccioná tu nombre de la lista.</div>
+</div>
+
+<!-- ── PASO 1: CUÁNDO ── -->
+<div class="sec" id="sec1">
+  <div class="stag">Paso 1 — Cuándo</div>
+  <div class="prof" id="prof-chip"></div>
+
+  <div id="proxy-block" style="display:none">
+    <div class="field">
+      <label>¿Cargás por alguien de tu sector?</label>
+      <div class="pills">
+        <div class="pill wide sel" id="pill-yo" onclick="setProxy(false,this)">No, cargo para mí</div>
+        <div class="pill wide" id="pill-otro" onclick="setProxy(true,this)">Sí, cargo por otro</div>
+      </div>
+    </div>
+    <div id="proxy-nombre-f" style="display:none">
+      <div class="field">
+        <label>Nombre de la persona</label>
+        <input type="text" id="proxy-nombre" placeholder="APELLIDO, Nombre" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="proxy-note">El ticket quedará a nombre de esa persona. Se registra que lo cargaste vos.</div>
+    </div>
+    <div class="sdiv"></div>
+  </div>
+
+  <div class="field">
+    <label>Fecha</label>
+    <input type="date" id="fecha" onchange="checkSolapamiento()">
+  </div>
+  <div class="field">
+    <label>Horario trabajado</label>
+    <div class="hora-row">
+      <select id="hora-desde" onchange="checkSolapamiento();calcularHoras()" style="background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-size:15px;padding:13px 10px;width:100%;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;outline:none">
+        <option value="">Entrada</option>
+      </select>
+      <div class="hora-sep">→</div>
+      <select id="hora-hasta" onchange="checkSolapamiento();calcularHoras()" style="background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-size:15px;padding:13px 10px;width:100%;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;outline:none">
+        <option value="">Salida</option>
+      </select>
+    </div>
+    <div class="note">Horarios en intervalos de 30 minutos. Para HE tipo paquete es referencial.</div>
+  </div>
+
+  <!-- Alertas de solapamiento -->
+  <div class="alert" id="alert-overlap"></div>
+  <div class="alert-warn" id="warn-overlap">
+    <div id="warn-overlap-txt"></div>
+    <div class="overlap-confirm">
+      <button onclick="confirmDuplicate()">Confirmar de todas formas</button>
+    </div>
+  </div>
+
+  <div class="alert" id="alert1">Ingresá la fecha y el horario completo.</div>
+</div>
+
+<!-- ── PASO 2: DÓNDE / PARA QUIÉN ── -->
+<div class="sec" id="sec2">
+  <div class="stag">Paso 2 — Teatro y producción</div>
+  <div class="field">
+    <label>Teatro</label>
+    <div class="pills" id="teatro-pills">
+      <div class="pill wide" onclick="selTeatro('MET',this)">Teatro Metropolitan</div>
+      <div class="pill wide" onclick="selTeatro('PLP',this)">Paseo La Plaza</div>
+    </div>
+  </div>
+  <div class="field" id="sala-met-f" style="display:none">
+    <label>Sala</label>
+    <div class="pills">
+      <div class="pill" onclick="sP('sala','MET General',this)">MET General</div>
+      <div class="pill" onclick="sP('sala','MET 1',this)">MET 1</div>
+      <div class="pill" onclick="sP('sala','MET 2',this)">MET 2</div>
+      <div class="pill" onclick="sP('sala','Sala VIP',this)">Sala VIP</div>
+    </div>
+  </div>
+  <div class="field" id="sala-plp-f" style="display:none">
+    <label>Sala</label>
+    <div class="pills">
+      <div class="pill" onclick="sP('sala','PLP General',this)">Paseo La Plaza general</div>
+      <div class="pill" onclick="sP('sala','Picasso',this)">Picasso</div>
+      <div class="pill" onclick="sP('sala','Neruda',this)">Neruda</div>
+      <div class="pill" onclick="sP('sala','Casals',this)">Casals</div>
+      <div class="pill" onclick="sP('sala','Storni',this)">Storni</div>
+      <div class="pill" onclick="sP('sala','Otra',this)">Otra</div>
+    </div>
+  </div>
+  <div class="sdiv"></div>
+  <div class="field">
+    <label>Obra / Producción</label>
+    <select id="obra"><option value="">— Para qué producción —</option></select>
+    <div class="note">Lista actualizada mensualmente por dirección.</div>
+  </div>
+  <div class="field">
+    <label>Solicitado por</label>
+    <div class="pills">
+      <div class="pill" onclick="sP('autorizo','Eventos',this)">Eventos</div>
+      <div class="pill" onclick="sP('autorizo','Cronograma',this)">Cronograma</div>
+      <div class="pill" onclick="sP('autorizo','Producción',this)">Producción</div>
+      <div class="pill" onclick="sP('autorizo','Dirección',this)">Dirección</div>
+    </div>
+  </div>
+  <div class="alert" id="alert2">Completá teatro, sala, producción y quién lo solicitó.</div>
+</div>
+
+<!-- ── PASO 3: QUÉ HICISTE ── -->
+<div class="sec" id="sec3">
+  <div class="stag">Paso 3 — Qué hiciste</div>
+  <div class="field">
+    <label>Descripción de la tarea</label>
+    <textarea id="descripcion" placeholder="Ej: Cobertura reemplazo Agostina boletería función Vitama / Montaje maquinaria Habitación Macbeth / Grabación consola luces Cuestión de Género / Reemplazo Gerardo sereno / Limpieza camarines anticipada previo estreno / Evento corporativo Sala VIP nombre del evento…" oninput="checkDesc()"></textarea>
+    <div class="char-count" id="char-count">0 / 20 mínimo</div>
+  </div>
+
+  <div class="field" id="montaje-f" style="display:none">
+    <label>¿Es durante un montaje?</label>
+    <div class="pills">
+      <div class="pill wide" onclick="sP('esMontaje','SI',this);poblarTipos()">Sí, es montaje</div>
+      <div class="pill wide" onclick="sP('esMontaje','NO',this);poblarTipos()">No</div>
+    </div>
+    <div class="note">La tarifa de jefe aplica solo en montajes.</div>
+  </div>
+
+  <div class="field">
+    <label>Tipo de HE</label>
+    <select id="tipo-he" onchange="onTipo()"><option value="">— Seleccioná el tipo —</option></select>
+  </div>
+
+  <div class="field" id="cant-f" style="display:none">
+    <label>Cantidad</label>
+    <input type="number" id="cantidad" value="1" min="1" max="30" onchange="calcular()">
+  </div>
+
+  <div class="val-card" id="val-card">
+    <div class="val-tag">Total calculado</div>
+    <div class="val-num" id="val-num">$0</div>
+    <div class="val-det" id="val-det"></div>
+  </div>
+  <div class="alert" id="alert3">Completá la descripción (mínimo 20 caracteres) y el tipo de HE.</div>
+</div>
+
+<!-- ── PASO 4: CONFIRMAR ── -->
+<div class="sec" id="sec4">
+  <div class="stag">Paso 4 — Confirmá y enviá</div>
+  <div class="res-card" id="resumen"></div>
+  <div class="field">
+    <label>Observaciones adicionales (opcional)</label>
+    <textarea id="obs" placeholder="Cualquier aclaración extra…" style="height:70px"></textarea>
+  </div>
+  <div class="alert" id="alert4"></div>
+</div>
+
+<!-- ── SUCCESS ── -->
+<div class="success" id="success">
+  <div class="s-icon">✓</div>
+  <div class="s-title">¡Registrado!</div>
+  <div class="s-sub" id="s-sub">Tu HE quedó guardada.</div>
+  <div class="res-card" id="success-det" style="text-align:left;margin-bottom:16px"></div>
+  <button class="btn-nuevo" onclick="reiniciar()">Registrar otra HE</button>
+  <button class="btn-hist-link" onclick="showHist()">Ver mi historial del mes →</button>
+</div>
+
+<!-- ── HISTORIAL ── -->
+<div class="hist-view" id="hist-view">
+  <div class="stag">Mi historial</div>
+  <div id="cierre-cnt"></div>
+  <div class="hist-header">
+    <div class="hist-mes" id="hist-mes"></div>
+    <div class="hist-tot" id="hist-tot"></div>
+  </div>
+  <div id="hist-list"></div>
+</div>
+
+<!-- NAV -->
+<div class="nav" id="nav">
+  <button class="btn btn-back" id="btn-back" onclick="back()" style="display:none">← Atrás</button>
+  <button class="btn btn-next" id="btn-next" onclick="next()">Continuar →</button>
+  <button class="btn btn-hist" id="btn-hist" onclick="showHist()" style="display:none">Historial</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// BACKEND — Google Apps Script
+// ═══════════════════════════════════════════════════
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLU3Adp7TbOR_hwPd2fsR72Fwo9-qOT8lYNeuUnk16o9vsxnr-SZRHVRIyamXmXhxE/exec";
+
+async function apiGet(action, params={}) {
+  try {
+    const url = new URL(SCRIPT_URL);
+    url.searchParams.set("action", action);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+    const res = await fetch(url.toString());
+    return await res.json();
+  } catch(e) { return {ok:false, error:e.toString()}; }
+}
+
+async function apiPost(action, data) {
+  // Usamos GET con payload codificado para evitar bloqueo CORS en iOS Safari.
+  // El Apps Script detecta el parámetro "payload" y lo procesa como POST.
+  try {
+    const payload = encodeURIComponent(JSON.stringify({action, data}));
+    const url = `${SCRIPT_URL}?payload=${payload}`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch(e) { return {ok:false, error:e.toString()}; }
+}
+
+// ═══════════════════════════════════════════════════
+// JEFES
+// ═══════════════════════════════════════════════════
+const JEFES = {
+  'PABLO ABAL':      {area:'SONIDO',     teatros:['MET','PLP']},
+  'LEO MUÑOZ':       {area:'ILUMINACION',teatros:['MET']},
+  'HORACIO LA ROSA': {area:'ILUMINACION',teatros:['PLP']},
+  'JUAN GAMBETTA':   {area:'MAQUINARIA', teatros:['MET']},
+  'DAMIAN LANZA':    {area:'MAQUINARIA', teatros:['PLP']},
+};
+const ESPECIALES = {
+  'ANDRES PATIÑO': {areas:['MANTENIMIENTO','LIMPIEZA']},
+};
+
+// ═══════════════════════════════════════════════════
+// RUBROS POR SECTOR (valores Feb 2026)
+// ═══════════════════════════════════════════════════
+const R = {
+  // Técnicos generales compartidos
+  TEC_STD: [
+    {l:'H Extra',                              t:'HE', v:13044.38},
+    {l:'H Extra Terceros',                     t:'HE', v:18634.83},
+    {l:'H Extra Madrugada (1:15–7am)',         t:'HE', v:15653.26},
+    {l:'H Extra Madrugada Terceros',           t:'HE', v:22361.79},
+    {l:'HS Programación',                      t:'HE', v:18634.83},
+    {l:'HS Programación Terceros',             t:'HE', v:22361.79},
+    {l:'HS Programación Trasnoche',            t:'HE', v:23107.19},
+  ],
+  TEC_JEFE: [
+    {l:'H Extra Jefe (solo montajes)',         t:'HE', v:15653.26},
+    {l:'H Extra Jefe Terceros (solo montajes)',t:'HE', v:22361.79},
+    {l:'H Extra Madrugada Jefe',               t:'HE', v:15653.26},
+    {l:'H Extra Madrugada Jefe Terceros',      t:'HE', v:22361.79},
+  ],
+  PKG_TEC: [
+    {l:'Técnicos — Early Show',                t:'PKG',v:20441.16},
+    {l:'Técnicos — Asistencia Armado/Desarme', t:'PKG',v:67254.34},
+    {l:'Función Adulto Matinee',               t:'PKG',v:67254.34},
+    {l:'Técnicos — Infantiles',                t:'PKG',v:84916.43},
+    {l:'Técnicos — Citación mínima (3hs)',     t:'PKG',v:39133.14},
+    {l:'Técnicos — Trasnoche',                 t:'PKG',v:53783.84},
+    {l:'Técnicos — Evento corto',              t:'PKG',v:75545.59},
+    {l:'Técnicos — Evento largo',              t:'PKG',v:125910.56},
+    {l:'Técnicos — Evento corto c/Proyección', t:'PKG',v:90655.95},
+    {l:'Técnicos — Evento largo c/Proyección', t:'PKG',v:139761.21},
+    {l:'Técnicos — Trasnoche c/Proyección',    t:'PKG',v:72608.74},
+  ],
+  PKG_LUCES: [
+    {l:'Luces — Montaje M',  t:'PKG',v:307991.47},
+    {l:'Luces — Montaje L',  t:'PKG',v:554203.51},
+    {l:'Luces — Montaje XL', t:'PKG',v:733573.66},
+  ],
+  PKG_SONIDO: [
+    {l:'Adicional Sonidista x Proyección',       t:'PKG',v:18823.66},
+    {l:'Adicional Terceros Sonidista x Proyección',t:'PKG',v:18823.66},
+  ],
+  // Maquinaria: igual a TEC pero sin proyección
+  PKG_MAQ: [
+    {l:'Técnicos — Early Show',                t:'PKG',v:20441.16},
+    {l:'Técnicos — Asistencia Armado/Desarme', t:'PKG',v:67254.34},
+    {l:'Función Adulto Matinee',               t:'PKG',v:67254.34},
+    {l:'Técnicos — Infantiles',                t:'PKG',v:84916.43},
+    {l:'Técnicos — Citación mínima (3hs)',     t:'PKG',v:39133.14},
+    {l:'Técnicos — Trasnoche',                 t:'PKG',v:53783.84},
+    {l:'Técnicos — Evento corto',              t:'PKG',v:75545.59},
+    {l:'Técnicos — Evento largo',              t:'PKG',v:125910.56},
+  ],
+  SALA: [
+    {l:'Asistente de Sala — HS',               t:'HE', v:9516.34},
+    {l:'Asistente de Sala — Early Show',        t:'PKG',v:20441.16},
+    {l:'Asistente de Sala — Evento corto',      t:'PKG',v:43764.87},
+    {l:'Asistente de Sala — Evento largo',      t:'PKG',v:63186.54},
+    {l:'Asistente de Sala — Trasnoche',         t:'PKG',v:31398.77},
+    {l:'Infantil — Hasta 4 funciones',          t:'PKG',v:53391.57},
+  ],
+  SALA_JEFE: [
+    {l:'Jefe de Sala — HS',                    t:'HE', v:9516.34},
+  ],
+  BOLETERIA: [
+    {l:'HS Boletería',                         t:'HE', v:13641.28},
+  ],
+  BOLETERIA_JEFE: [
+    {l:'HS Boletería Jefe',                    t:'HE', v:15653.26},
+  ],
+  MANTENIMIENTO: [
+    {l:'HE Mantenimiento',                     t:'HE', v:9425.64},
+  ],
+  LIMPIEZA: [
+    {l:'HE Limpieza',                          t:'HE', v:7010.77},
+  ],
+};
+
+function getValores(area, esJefe, esMontaje, esPatino) {
+  if (esPatino) return [...R.MANTENIMIENTO, ...R.LIMPIEZA];
+  switch(area) {
+    case 'ILUMINACION':
+      if (esJefe && esMontaje)
+        return [...R.TEC_JEFE, ...R.TEC_STD, ...R.PKG_TEC, ...R.PKG_LUCES];
+      return [...R.TEC_STD, ...R.PKG_TEC, ...R.PKG_LUCES];
+    case 'SONIDO':
+      if (esJefe && esMontaje)
+        return [...R.TEC_JEFE, ...R.TEC_STD, ...R.PKG_SONIDO, ...R.PKG_TEC];
+      return [...R.TEC_STD, ...R.PKG_SONIDO, ...R.PKG_TEC];
+    case 'MAQUINARIA':
+      if (esJefe && esMontaje)
+        return [...R.TEC_JEFE, ...R.TEC_STD, ...R.PKG_MAQ];
+      return [...R.TEC_STD, ...R.PKG_MAQ];
+    case 'SALA':
+      if (esJefe) return [...R.SALA_JEFE, ...R.SALA];
+      return [...R.SALA];
+    case 'BOLETERIA':
+      if (esJefe) return [...R.BOLETERIA_JEFE, ...R.BOLETERIA];
+      return [...R.BOLETERIA];
+    case 'MANTENIMIENTO': return [...R.MANTENIMIENTO];
+    case 'LIMPIEZA':      return [...R.LIMPIEZA];
+    default: return [...R.TEC_STD, ...R.PKG_TEC];
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// OBRAS (con fecha de fin)
+// ═══════════════════════════════════════════════════
+const OBRAS = [
+  {n:'Vitama',                   tipo:'PROPIA',  fin:null},
+  {n:'Habitación Macbeth',       tipo:'PROPIA',  fin:null},
+  {n:'Cuestión de Género',       tipo:'PROPIA',  fin:null},
+  {n:'Las Cautivas',             tipo:'PROPIA',  fin:'2026-03-15'},
+  {n:'En Otras Palabras',        tipo:'PROPIA',  fin:null},
+  {n:'El Cuarto de Verónica',    tipo:'PROPIA',  fin:null},
+  {n:'Votemos',                  tipo:'PROPIA',  fin:null},
+  {n:'Othelo',                   tipo:'PROPIA',  fin:null},
+  {n:'Momi',                     tipo:'PROPIA',  fin:null},
+  {n:'Edificio / Mantenimiento', tipo:'PROPIA',  fin:null},
+  {n:'K Rental',                 tipo:'TERCERO', fin:null},
+  {n:'K Prod. Comercial',        tipo:'TERCERO', fin:null},
+  {n:'Bossi Live',               tipo:'TERCERO', fin:null},
+  {n:'Petroleo',                 tipo:'TERCERO', fin:null},
+  {n:'Juampi González',          tipo:'TERCERO', fin:null},
+  {n:'Eventos',                  tipo:'TERCERO', fin:null},
+  {n:'Otro tercero',             tipo:'TERCERO', fin:null},
+];
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+const S = {
+  nombre:'', area:'', teatro:'', esJefe:false, esPatino:false,
+  proxyActivo:false, proxyNombre:'',
+  fecha:'', horaDesde:'', horaHasta:'',
+  sala:'', obra:'', autorizo:'',
+  esMontaje:'', descripcion:'',
+  tipoLabel:'', tipoTipo:'', valUnit:0,
+  horas:0, cantidad:1, total:0, obs:'',
+  overrideWarning:false,
+};
+let rPills = {area:'', teatro:''};
+let step = 0;
+const STEPS = 4;
+const UMBRAL_MENSUAL = 500000; // alerta si supera este monto en el mes
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// INIT — carga obras y valores desde Google Sheets
+// ═══════════════════════════════════════════════════
+// Lista de personal cargada del Sheet
+let PERSONAL_SHEET = [];
+
+window.onload = async () => {
+  document.getElementById('fecha').valueAsDate = new Date();
+
+  try {
+    const [perRes, obrRes] = await Promise.all([
+      apiGet("getPersonal"),
+      apiGet("getObras"),
+    ]);
+
+    // Personal → poblar dropdown
+    if (perRes.ok && Array.isArray(perRes.data) && perRes.data.length > 0) {
+      PERSONAL_SHEET = perRes.data
+        .filter(p => p["Activo"] !== "NO")
+        .sort((a,b) => (a["Nombre"]||"").localeCompare(b["Nombre"]||""));
+      poblarSelectorPersonal();
+    } else {
+      mostrarErrorPersonal();
+    }
+
+    // Obras
+    if (obrRes.ok && Array.isArray(obrRes.data) && obrRes.data.length > 0) {
+      OBRAS.length = 0;
+      obrRes.data.forEach(o => {
+        OBRAS.push({
+          n:      o["Nombre"],
+          teatro: o["Teatro"],
+          tipo:   (o["Tipo"]||"propia").toUpperCase() === "PROPIA" ? "PROPIA" :
+                  (o["Tipo"]||"").toUpperCase() === "COOPERATIVA" ? "COOPERATIVA" : "TERCERO",
+          desde:  o["Desde"] || "",
+          fin:    o["Hasta"] || null,
+        });
+      });
+    }
+  } catch(e) {
+    console.warn("Backend no disponible:", e);
+    mostrarErrorPersonal();
+  }
+
+  // Si hay perfil guardado y el nombre sigue en el Sheet, saltar al paso 1
+  const saved = localStorage.getItem('he_perfil');
+  if (saved) {
+    try {
+      const p = JSON.parse(saved);
+      if (p.nombre && (PERSONAL_SHEET.some(x => x["Nombre"] === p.nombre) || PERSONAL_SHEET.length === 0)) {
+        Object.assign(S, p);
+        step = 1;
+      }
+    } catch(e) {}
+  }
+
+  poblarObras();
+  poblarHoras();
+  render();
+};
+
+function poblarSelectorPersonal() {
+  document.getElementById('sec0-loading').style.display = 'none';
+  document.getElementById('sec0-form').style.display = 'block';
+
+  const sel = document.getElementById('reg-nombre-sel');
+  sel.innerHTML = '<option value="">— Seleccioná tu nombre —</option>';
+
+  // Agrupar por área
+  const areas = {};
+  PERSONAL_SHEET.forEach(p => {
+    const area = p["Áreas"] || p["Areas"] || p["Área"] || "Otro";
+    if (!areas[area]) areas[area] = [];
+    areas[area].push(p);
+  });
+
+  const areaLabel = {
+    SALA:'Asist. de Sala', BOLETERIA:'Boletería', SONIDO:'Sonido',
+    ILUMINACION:'Iluminación', MAQUINARIA:'Maquinaria',
+    MANTENIMIENTO:'Mantenimiento', LIMPIEZA:'Limpieza'
+  };
+
+  Object.entries(areas).sort().forEach(([area, personas]) => {
+    const og = document.createElement('optgroup');
+    og.label = areaLabel[area] || area;
+    personas.forEach(p => {
+      const op = document.createElement('option');
+      op.value = p["Nombre"];
+      op.textContent = p["Nombre"];
+      og.appendChild(op);
+    });
+    sel.appendChild(og);
+  });
+
+  // Preseleccionar si hay perfil guardado
+  const saved = localStorage.getItem('he_perfil');
+  if (saved) {
+    try {
+      const p = JSON.parse(saved);
+      if (p.nombre) { sel.value = p.nombre; if (sel.value) onSelPersona(); }
+    } catch(e) {}
+  }
+}
+
+function mostrarErrorPersonal() {
+  document.getElementById('sec0-loading').style.display = 'none';
+  document.getElementById('sec0-error').style.display = 'block';
+}
+
+function onSelPersona() {
+  const nombre = document.getElementById('reg-nombre-sel').value;
+  if (!nombre) {
+    document.getElementById('sec0-perfil-preview').style.display = 'none';
+    document.getElementById('jefe-ok').style.display = 'none';
+    document.getElementById('patino-ok').style.display = 'none';
+    return;
+  }
+  const p = PERSONAL_SHEET.find(x => x["Nombre"] === nombre);
+  if (!p) return;
+
+  const area  = p["Áreas"] || p["Areas"] || p["Área"] || "";
+  const area2 = p["Área Secundaria"] || p["Area Secundaria"] || "";
+  const teatro = p["Teatro"] || "";
+  const esJefe  = p["Es Jefe"] === "SI";
+  const esPatino = (area === "MANTENIMIENTO" && area2 === "LIMPIEZA");
+
+  const areaLabel = {
+    SALA:'Asist. de Sala', BOLETERIA:'Boletería', SONIDO:'Sonido',
+    ILUMINACION:'Iluminación', MAQUINARIA:'Maquinaria',
+    MANTENIMIENTO:'Mantenimiento', LIMPIEZA:'Limpieza'
+  };
+  const teatroLabel = {MET:'Teatro Metropolitan', PLP:'Paseo La Plaza', AMBOS:'Ambos teatros'}[teatro] || teatro;
+  const areaStr = [areaLabel[area]||area, area2 ? (areaLabel[area2]||area2) : ''].filter(Boolean).join(' + ');
+
+  document.getElementById('sec0-perfil-preview').style.display = 'block';
+  document.getElementById('sec0-preview-banner').innerHTML =
+    `<strong>${nombre}</strong><br><span style="font-size:12px;color:var(--mu)">${areaStr} · ${teatroLabel}${esJefe?' · Jefe de área':''}</span>`;
+  document.getElementById('jefe-ok').style.display  = esJefe   ? 'block' : 'none';
+  document.getElementById('patino-ok').style.display = esPatino ? 'block' : 'none';
+}
+
+function poblarHoras() {
+  // Genera opciones cada 30 minutos: 00:00, 00:30, 01:00 ... 23:30
+  const opts = ['<option value="">Entrada</option>'];
+  const optsH = ['<option value="">Salida</option>'];
+  for (let h = 0; h < 24; h++) {
+    for (let m of [0, 30]) {
+      const hh = String(h).padStart(2,'0');
+      const mm = String(m).padStart(2,'0');
+      const v = `${hh}:${mm}`;
+      const lbl = `${hh}:${mm}`;
+      opts.push(`<option value="${v}">${lbl}</option>`);
+      optsH.push(`<option value="${v}">${lbl}</option>`);
+    }
+  }
+  document.getElementById('hora-desde').innerHTML = opts.join('');
+  document.getElementById('hora-hasta').innerHTML = optsH.join('');
+}
+
+function calcularHoras() {
+  const d = document.getElementById('hora-desde').value;
+  const h = document.getElementById('hora-hasta').value;
+  if (d && h) {
+    const mins = (toMins(h) - toMins(d) + 1440) % 1440;
+    S.horas = Math.round(mins / 60 * 100) / 100;
+  }
+}
+
+function poblarObras() {
+  const sel = document.getElementById('obra');
+  const hoy = new Date();
+  const activas = OBRAS.filter(o => !o.fin || new Date(o.fin) >= hoy);
+  sel.innerHTML = '<option value="">— Para qué producción —</option>';
+  ['PROPIA','TERCERO'].forEach(tipo => {
+    const lst = activas.filter(o => o.tipo === tipo);
+    if (!lst.length) return;
+    const og = document.createElement('optgroup');
+    og.label = tipo === 'PROPIA' ? 'Producciones propias' : 'Producciones externas / Terceros';
+    lst.forEach(o => {
+      const op = document.createElement('option');
+      op.value = o.n; op.textContent = o.n; og.appendChild(op);
+    });
+    sel.appendChild(og);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PILLS
+// ═══════════════════════════════════════════════════
+function rP(g, v, el) {
+  document.querySelectorAll(`#reg-${g} .pill`).forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel'); rPills[g] = v;
+}
+function sP(g, v, el) {
+  const c = el.closest('.pills');
+  if (c) c.querySelectorAll('.pill').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel'); S[g] = v;
+  if (g === 'esMontaje') poblarTipos();
+}
+function selTeatro(v, el) {
+  document.querySelectorAll('#teatro-pills .pill').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel'); S.teatro = v; S.sala = '';
+  document.getElementById('sala-met-f').style.display = v==='MET' ? 'block':'none';
+  document.getElementById('sala-plp-f').style.display = v==='PLP' ? 'block':'none';
+  document.querySelectorAll('#sala-met-f .pill,#sala-plp-f .pill').forEach(p=>p.classList.remove('sel'));
+}
+function setProxy(on, el) {
+  document.querySelectorAll('#proxy-block .pills .pill').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel'); S.proxyActivo = on;
+  document.getElementById('proxy-nombre-f').style.display = on ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// JEFE CHECK
+// ═══════════════════════════════════════════════════
+function checkJefeReg() {
+  const n = document.getElementById('reg-nombre').value.trim();
+  const a = rPills.area;
+  const esJ = !!(JEFES[n] && JEFES[n].area === a);
+  const esP = !!ESPECIALES[n];
+  document.getElementById('jefe-ok').style.display  = esJ ? 'block' : 'none';
+  document.getElementById('patino-ok').style.display = esP ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// ALERTAS DE SOLAPAMIENTO
+// ═══════════════════════════════════════════════════
+function toMins(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+
+function checkSolapamiento() {
+  const fecha  = document.getElementById('fecha').value;
+  const desde  = document.getElementById('hora-desde').value;
+  const hasta  = document.getElementById('hora-hasta').value;
+  if (!fecha || !desde || !hasta) return;
+
+  const h = getHistorial();
+  const mDesde = toMins(desde);
+  const mHasta = toMins(hasta) + (toMins(hasta) < mDesde ? 1440 : 0);
+  const nombreActivo = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
+
+  const bloqueantes = [];
+  const advertencias = [];
+
+  h.forEach(t => {
+    if (t.fecha !== fecha) return;
+    const tNombre = t.nombre || '';
+    if (tNombre.toUpperCase() !== nombreActivo.toUpperCase()) return;
+
+    const tD = toMins(t.horaDesde || '00:00');
+    const tH = toMins(t.horaHasta || '00:00') + (toMins(t.horaHasta||'00:00') < tD ? 1440 : 0);
+    const solapa = mDesde < tH && mHasta > tD;
+
+    if (solapa) {
+      // ¿mismo teatro?
+      if (t.teatro && t.teatro !== S.teatro && S.teatro) {
+        bloqueantes.push(`Conflicto: ya tiene una HE en ${t.teatro} (${t.horaDesde}–${t.horaHasta}). No podés estar en dos teatros al mismo tiempo.`);
+      } else {
+        advertencias.push(`Ya existe una HE en el mismo horario: "${t.tipoLabel}" (${t.horaDesde}–${t.horaHasta}). ¿Es una tarea diferente simultánea?`);
+      }
+    }
+    // Duplicado exacto
+    if (t.tipoLabel === S.tipoLabel && t.obra === S.obra && t.fecha === fecha) {
+      advertencias.push(`Esta misma HE ya fue registrada hoy para la misma producción. ¿Es un registro duplicado?`);
+    }
+  });
+
+  const elBloq = document.getElementById('alert-overlap');
+  const elWarn = document.getElementById('warn-overlap');
+  elBloq.classList.remove('vis'); elWarn.classList.remove('vis');
+
+  if (bloqueantes.length) {
+    elBloq.textContent = bloqueantes[0]; elBloq.classList.add('vis');
+    S._overlapBlocked = true;
+  } else {
+    S._overlapBlocked = false;
+    if (advertencias.length && !S.overrideWarning) {
+      document.getElementById('warn-overlap-txt').textContent = advertencias[0];
+      elWarn.classList.add('vis');
+      S._overlapWarned = true;
+    } else {
+      S._overlapWarned = false;
+    }
+  }
+}
+
+function confirmDuplicate() {
+  S.overrideWarning = true;
+  document.getElementById('warn-overlap').classList.remove('vis');
+  S._overlapWarned = false;
+}
+
+// ═══════════════════════════════════════════════════
+// TIPOS HE
+// ═══════════════════════════════════════════════════
+function poblarTipos() {
+  const esMontaje = S.esMontaje === 'SI';
+  const lista = getValores(S.area, S.esJefe, esMontaje, S.esPatino);
+  const sel = document.getElementById('tipo-he');
+  sel.innerHTML = '<option value="">— Seleccioná el tipo —</option>';
+  const hs  = lista.filter(x => x.t === 'HE');
+  const pkg = lista.filter(x => x.t === 'PKG');
+  [['Por hora', hs], ['Valor fijo (paquete)', pkg]].forEach(([lbl, lst]) => {
+    if (!lst.length) return;
+    const og = document.createElement('optgroup'); og.label = lbl;
+    lst.forEach(x => {
+      const o = document.createElement('option');
+      o.value = `${x.t}|${x.v}|${x.l}`; o.textContent = x.l; og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+  document.getElementById('val-card').classList.remove('vis');
+}
+
+function onTipo() {
+  const val = document.getElementById('tipo-he').value;
+  if (!val) { document.getElementById('val-card').classList.remove('vis'); return; }
+  const [tipo, monto, label] = val.split('|');
+  S.tipoTipo = tipo; S.valUnit = parseFloat(monto); S.tipoLabel = label;
+  document.getElementById('cant-f').style.display = tipo === 'PKG' ? 'block' : 'none';
+  calcular();
+}
+
+function calcular() {
+  if (!S.valUnit) return;
+  const card = document.getElementById('val-card');
+  if (S.tipoTipo === 'HE') {
+    const d = document.getElementById('hora-desde').value;
+    const h = document.getElementById('hora-hasta').value;
+    if (!d || !h) { card.classList.remove('vis'); return; }
+    let mins = (toMins(h) - toMins(d) + 1440) % 1440;
+    S.horas = Math.round(mins / 60 * 100) / 100;
+    S.total = Math.round(S.valUnit * S.horas);
+    document.getElementById('val-det').textContent = `${S.horas}hs × $${fmt(S.valUnit)}`;
+  } else {
+    S.cantidad = parseInt(document.getElementById('cantidad').value) || 1;
+    S.total = Math.round(S.valUnit * S.cantidad);
+    document.getElementById('val-det').textContent = `${S.cantidad} × $${fmt(S.valUnit)}`;
+  }
+  document.getElementById('val-num').textContent = '$' + fmt2(S.total);
+  card.classList.add('vis');
+  checkUmbral();
+}
+
+function checkUmbral() {
+  const h = getHistorial();
+  const hoy = new Date();
+  const mes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+  const totalMes = h
+    .filter(t => t.fecha && t.fecha.startsWith(mes) && (t.nombre||'').toUpperCase() === S.nombre.toUpperCase())
+    .reduce((a,t) => a + (t.total||0), 0);
+  if (totalMes + S.total > UMBRAL_MENSUAL) {
+    showA('alert3', `⚠ Con este registro superarías $${fmt2(UMBRAL_MENSUAL)} este mes (acumulado: $${fmt2(totalMes)}). Carla recibirá una alerta en su dashboard.`);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// DESCRIPCIÓN
+// ═══════════════════════════════════════════════════
+function checkDesc() {
+  const v = document.getElementById('descripcion').value.trim();
+  const cc = document.getElementById('char-count');
+  cc.textContent = `${v.length} / 20 mínimo`;
+  cc.className = 'char-count ' + (v.length >= 20 ? 'ok' : v.length > 8 ? '' : 'warn');
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════
+function render() {
+  document.getElementById('sec0').classList.toggle('vis', step === 0);
+  for (let i=1; i<=4; i++) document.getElementById(`sec${i}`).classList.toggle('vis', step === i);
+  document.getElementById('success').classList.remove('vis');
+  document.getElementById('hist-view').classList.remove('vis');
+
+  const tags = ['PRIMER USO','CUÁNDO','TEATRO · PRODUCCIÓN','QUÉ HICISTE','CONFIRMACIÓN'];
+  document.getElementById('hdr-tag').textContent = tags[step] || '';
+  document.getElementById('hdr-name').textContent = step > 0 ? S.nombre : '';
+
+  const prog = document.getElementById('prog');
+  prog.style.display = step === 0 ? 'none' : 'flex';
+  prog.innerHTML = '';
+  for (let i=1; i<=STEPS; i++) {
+    const d = document.createElement('div');
+    d.className = 'pb' + (i===step?' on':i<step?' done':'');
+    prog.appendChild(d);
+  }
+  document.getElementById('btn-back').style.display = step > 1 ? 'block' : 'none';
+  document.getElementById('btn-hist').style.display = step >= 1 ? 'block' : 'none';
+  document.getElementById('btn-next').textContent =
+    step === 0 ? 'Guardar perfil →' : step < STEPS ? 'Continuar →' : 'Enviar ✓';
+
+  if (step === 1) {
+    document.getElementById('prof-chip').innerHTML = `
+      <div class="prof-name">${S.nombre}</div>
+      <div class="prof-sub">${S.area.replace('_',' ')} · ${S.teatro||'—'}${S.esJefe?' · Jefe de área':''}${S.esPatino?' · Mant. & Limp.':''}</div>
+      <div class="prof-change" onclick="borrarPerfil()">No soy yo — cambiar perfil</div>`;
+    document.getElementById('proxy-block').style.display = S.esJefe ? 'block' : 'none';
+  }
+  if (step === 2) {
+    // pre-select teatro del perfil
+    document.querySelectorAll('#teatro-pills .pill').forEach(p => {
+      const isMet = p.textContent.includes('Metropolitan');
+      if ((isMet && S.teatro==='MET') || (!isMet && S.teatro==='PLP')) p.classList.add('sel');
+    });
+    if (S.teatro === 'MET') document.getElementById('sala-met-f').style.display = 'block';
+    if (S.teatro === 'PLP') document.getElementById('sala-plp-f').style.display = 'block';
+  }
+  if (step === 3) {
+    document.getElementById('montaje-f').style.display = S.esJefe ? 'block' : 'none';
+    if (!S.esJefe) poblarTipos();
+  }
+  if (step === 4) buildResumen();
+}
+
+function buildResumen() {
+  const nombreReal = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
+  const rows = [
+    ['Nombre', nombreReal + (S.proxyActivo ? ` (cargado por ${S.nombre})` : '')],
+    ['Área', S.area.replace('_',' ') + (S.esJefe ? ' · Jefe' : '')],
+    ['Fecha', fmtF(S.fecha)],
+    ['Horario', S.horaDesde && S.horaHasta ? `${S.horaDesde} → ${S.horaHasta}` : '—'],
+    ['Teatro · Sala', `${S.teatro} · ${S.sala}`],
+    ['Producción', document.getElementById('obra').value || '—'],
+    ['Solicitado por', S.autorizo || '—'],
+    ['Descripción', S.descripcion || '—'],
+    ['Tipo HE', S.tipoLabel || '—'],
+    S.tipoTipo === 'HE' ? ['Horas', `${S.horas}hs`] : ['Cantidad', S.cantidad],
+  ];
+  document.getElementById('resumen').innerHTML =
+    rows.map(([l,v]) => `<div class="res-row"><span class="res-l">${l}</span><span class="res-v">${v}</span></div>`).join('') +
+    `<div class="res-total-row"><span class="res-l">Total</span><span class="res-total">$${fmt2(S.total)}</span></div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// HISTORIAL
+// ═══════════════════════════════════════════════════
+function getHistorial() {
+  try { return JSON.parse(localStorage.getItem('he_historial') || '[]'); } catch { return []; }
+}
+function saveTicket(t) {
+  const h = getHistorial(); h.unshift(t);
+  localStorage.setItem('he_historial', JSON.stringify(h));
+}
+
+function showHist() {
+  const h = getHistorial();
+  document.querySelectorAll('.sec').forEach(s => s.classList.remove('vis'));
+  document.getElementById('success').classList.remove('vis');
+  document.getElementById('nav').querySelector('#btn-next').style.display = 'none';
+  document.getElementById('btn-back').style.display = 'none';
+  document.getElementById('btn-hist').style.display = 'none';
+  document.getElementById('hist-view').classList.add('vis');
+
+  const hoy = new Date();
+  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
+  const cc = document.getElementById('cierre-cnt');
+  if (hoy.getDate() >= ultimoDia - 2) {
+    cc.innerHTML = `<div class="cierre-banner">
+      <div class="cierre-title">Fin de mes — ¿cerrás tu registro?</div>
+      <div class="cierre-sub">Estás en los últimos días del mes.<br>Podés enviar tu resumen consolidado a Carla ahora.</div>
+      <button class="btn-cierre" onclick="cierreMes()">Enviar resumen del mes</button>
+    </div>`;
+  } else cc.innerHTML = '';
+
+  const mes = hoy.toLocaleString('es-AR', {month:'long', year:'numeric'});
+  document.getElementById('hist-mes').textContent = mes.charAt(0).toUpperCase() + mes.slice(1);
+
+  const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+  const delMes = h.filter(t => t.fecha && t.fecha.startsWith(mesKey));
+  const totalMes = delMes.reduce((a,t) => a + (t.total||0), 0);
+  document.getElementById('hist-tot').textContent = '$' + fmt2(totalMes);
+
+  const umbralOk = totalMes <= UMBRAL_MENSUAL;
+  document.getElementById('hist-tot').style.color = umbralOk ? 'var(--ac)' : 'var(--amber)';
+
+  const list = document.getElementById('hist-list');
+  if (!delMes.length) {
+    list.innerHTML = '<div class="empty-hist">No hay registros este mes todavía.</div>'; return;
+  }
+  list.innerHTML = delMes.map(t => `
+    <div class="ticket">
+      <div class="ticket-top">
+        <div class="ticket-fecha">${fmtF(t.fecha)}${t.horaDesde?' '+t.horaDesde+'→'+t.horaHasta:''}</div>
+        <div class="ticket-monto">$${fmt2(t.total)}</div>
+      </div>
+      <div class="ticket-tipo">${t.tipoLabel||'—'}</div>
+      <div class="ticket-desc">${t.descripcion||''}</div>
+      <div class="ticket-obra">${t.teatro||''} · ${t.sala||''} · ${t.obra||''}</div>
+      ${t.cargadoPor ? `<div class="ticket-proxy">Cargado por ${t.cargadoPor}</div>` : ''}
+    </div>`).join('');
+}
+
+function cierreMes() {
+  const h = getHistorial();
+  const hoy = new Date();
+  const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+  const delMes = h.filter(t => t.fecha && t.fecha.startsWith(mesKey));
+  const total = delMes.reduce((a,t) => a+(t.total||0), 0);
+  // → POST a Google Apps Script
+  console.log('CIERRE MES', {nombre: S.nombre, mes: mesKey, registros: delMes.length, total, items: delMes});
+  alert(`Resumen enviado a Carla.\n${delMes.length} registros · Total $${fmt2(total)}`);
+}
+
+// ═══════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════
+function next() {
+  if (!validate()) return;
+  if (step === 0) {
+    const nombre = document.getElementById('reg-nombre-sel').value;
+    if (!nombre) { showA('alert0','Seleccioná tu nombre de la lista.'); return; }
+    const p = PERSONAL_SHEET.find(x => x["Nombre"] === nombre);
+    const area   = p ? (p["Áreas"]||p["Areas"]||p["Área"]||"") : "";
+    const area2  = p ? (p["Área Secundaria"]||p["Area Secundaria"]||"") : "";
+    const teatro = p ? (p["Teatro"]||"") : "";
+    const esJefe  = p ? p["Es Jefe"] === "SI" : false;
+    const esPatino = area === "MANTENIMIENTO" && area2 === "LIMPIEZA";
+    S.nombre   = nombre;
+    S.area     = area;
+    S.teatro   = teatro === "AMBOS" ? "MET" : teatro; // default MET para AMBOS
+    S.esJefe   = esJefe;
+    S.esPatino = esPatino;
+    localStorage.setItem('he_perfil', JSON.stringify({
+      nombre:S.nombre, area:S.area, teatro:S.teatro, esJefe:S.esJefe, esPatino:S.esPatino
+    }));
+    step = 1; render(); return;
+  }
+  if (step === 1) {
+    S.fecha      = document.getElementById('fecha').value;
+    S.horaDesde  = document.getElementById('hora-desde').value;
+    S.horaHasta  = document.getElementById('hora-hasta').value;
+    if (S.proxyActivo) S.proxyNombre = document.getElementById('proxy-nombre').value.trim();
+  }
+  if (step === 2) S.obra = document.getElementById('obra').value;
+  if (step === 3) S.descripcion = document.getElementById('descripcion').value.trim();
+  if (step < STEPS) { step++; render(); } else enviar();
+}
+
+function back() {
+  if (document.getElementById('hist-view').classList.contains('vis')) {
+    document.getElementById('hist-view').classList.remove('vis');
+    document.getElementById('nav').querySelector('#btn-next').style.display = '';
+    document.getElementById('btn-hist').style.display = 'block';
+    step = 1; render(); return;
+  }
+  if (step > 1) { step--; render(); }
+}
+
+function validate() {
+  const id = `alert${step}`;
+  const el = document.getElementById(id); if (el) el.classList.remove('vis');
+
+  if (step === 0) {
+    const nombre = document.getElementById('reg-nombre-sel').value;
+    if (!nombre) { showA('alert0','Seleccioná tu nombre de la lista.'); return false; }
+    return true;
+  }
+  if (step === 1) {
+    const f = document.getElementById('fecha').value;
+    const d = document.getElementById('hora-desde').value;
+    const h = document.getElementById('hora-hasta').value;
+    if (!f || !d || !h) { showA('alert1','Ingresá la fecha y el horario completo.'); return false; }
+    if (S._overlapBlocked) { showA('alert1','Resolvé el conflicto de horario antes de continuar.'); return false; }
+    if (S.proxyActivo && !document.getElementById('proxy-nombre').value.trim()) {
+      showA('alert1','Ingresá el nombre de la persona.'); return false;
+    }
+    return true;
+  }
+  if (step === 2) {
+    const o = document.getElementById('obra').value;
+    if (!S.teatro || !S.sala || !o || !S.autorizo) {
+      showA('alert2','Completá teatro, sala, producción y quién lo solicitó.'); return false;
+    }
+    return true;
+  }
+  if (step === 3) {
+    const desc = document.getElementById('descripcion').value.trim();
+    if (desc.length < 20) {
+      showA('alert3','Descripción muy corta. Contá qué hiciste, para qué evento o a quién cubriste.'); return false;
+    }
+    if (!S.tipoLabel || S.total === 0) {
+      showA('alert3','Seleccioná el tipo de HE.'); return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+function showA(id, msg) { const e = document.getElementById(id); if(e){ e.textContent=msg; e.classList.add('vis'); } }
+function borrarPerfil() {
+  if (confirm('¿Cambiar el perfil guardado en este dispositivo?')) {
+    localStorage.removeItem('he_perfil');
+    // Resetear selector y volver al paso 0
+    const sel = document.getElementById('reg-nombre-sel');
+    if (sel) sel.value = '';
+    onSelPersona();
+    step = 0; render();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// ENVIAR
+// ═══════════════════════════════════════════════════
+async function enviar() {
+  S.obs  = document.getElementById('obs').value;
+  S.obra = document.getElementById('obra').value;
+  const nombreReal = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
+
+  // Obtener tipo de obra para el CC
+  const obraObj = OBRAS.find(o => o.n === S.obra);
+  const tipoObra = obraObj?.tipo?.toLowerCase() || "propia";
+  const cc = tipoObra === "tercero" ? "otro_tercero" :
+             S.teatro === "PLP" ? "rosepa" : "vitama";
+
+  const ticket = {
+    nombre:      nombreReal,
+    areas:       [S.area].filter(Boolean),
+    area:        S.area, // fallback singular
+    esJefe:      S.esJefe,
+    teatro:      S.teatro,
+    fecha:       S.fecha,
+    horaDesde:   S.horaDesde,
+    horaHasta:   S.horaHasta,
+    sala:        S.sala,
+    obra:        S.obra,
+    tipoObra:    tipoObra,
+    autorizo:    S.autorizo,
+    descripcion: S.descripcion,
+    tipoLabel:   S.tipoLabel,
+    tipoTipo:    S.tipoTipo,
+    horas:       S.tipoTipo === 'HE' ? S.horas : null,
+    cantidad:    S.tipoTipo === 'PKG' ? S.cantidad : null,
+    valUnit:     S.valUnit,
+    total:       S.total,
+    cc:          cc,
+    salaAsume:   false,
+    overrideHorario: S.overrideWarning || false,
+    overrideOverlap: false,
+    cargadoPor:  S.proxyActivo ? S.nombre : null,
+    sinValidar:  false,
+    obs:         S.obs,
+  };
+
+  // Guardar en localStorage primero (por si falla la red)
+  saveTicket(ticket);
+
+  // Enviar al backend
+  try {
+    const result = await apiPost("addRegistro", ticket);
+    if (!result.ok) console.warn("Backend respondió con error:", result.error);
+  } catch(e) {
+    console.warn("No se pudo enviar al backend, guardado solo localmente:", e);
+  }
+
+  document.getElementById('nav').style.display = 'none';
+  document.querySelector('.hdr').style.display = 'none';
+  document.querySelectorAll('.sec').forEach(s => s.classList.remove('vis'));
+  document.getElementById('s-sub').textContent =
+    S.proxyActivo ? `Registrado a nombre de ${S.proxyNombre}.` : 'Tu HE quedó guardada. Carla la ve en su panel.';
+  const det = document.getElementById('success-det');
+  det.innerHTML = [
+    ['Nombre', nombreReal + (S.proxyActivo ? ` (por ${S.nombre})` : '')],
+    ['Teatro · Sala', `${S.teatro} · ${S.sala}`],
+    ['Producción', S.obra],
+    ['Tipo HE', S.tipoLabel],
+    ['Descripción', S.descripcion],
+    ['Total', '$'+fmt2(S.total)],
+  ].map(([l,v]) => `<div class="res-row"><span class="res-l">${l}</span><span class="res-v">${v}</span></div>`).join('');
+  document.getElementById('success').classList.add('vis');
+}
+
+function reiniciar() { location.reload(); }
+
+// ═══════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════
+function fmt(n)  { return n.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmt2(n) { return n.toLocaleString('es-AR'); }
+function fmtF(v) { if(!v) return '—'; const[y,m,d]=v.split('-'); return `${d}/${m}/${y}`; }
+</script>
+</body>
+</html>

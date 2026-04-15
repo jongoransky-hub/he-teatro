@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Gestión HE — Director</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0f0f0f;--sf:#1a1a1a;--s2:#222;--bd:#2e2e2e;
+  --ac:#c8f542;--ad:#0f0f0f;--tx:#f0f0f0;--mu:#888;--dm:#444;
+  --red:#ff5a5a;--redbg:rgba(255,90,90,.09);--redbd:rgba(255,90,90,.3);
+  --amber:#f5a623;--ambg:rgba(245,166,35,.09);--ambd:rgba(245,166,35,.3);
+  --green:#4caf50;--grbg:rgba(76,175,80,.09);--grbd:rgba(76,175,80,.3);
+  --blue:#64b5f6;--blbg:rgba(100,181,246,.09);--blbd:rgba(100,181,246,.3);
+  --purple:#ce93d8;--pubg:rgba(206,147,216,.09);--pubd:rgba(206,147,216,.3);
+  --r:12px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;font-size:14px}
+
+.topbar{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.tb-left{display:flex;align-items:center;gap:10px}
+.dot{width:9px;height:9px;background:var(--ac);border-radius:50%}
+.tb-title{font-size:14px;font-weight:600}
+.tb-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.06em;text-transform:uppercase}
+.tb-right{font-family:'DM Mono',monospace;font-size:11px;color:var(--mu)}
+
+.layout{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 52px)}
+@media(max-width:680px){.layout{grid-template-columns:1fr}}
+.sidebar{background:var(--sf);border-right:1px solid var(--bd);padding:12px 0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
+@media(max-width:680px){.sidebar{display:none}}
+.main{padding:20px;overflow-y:auto}
+
+.nav-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;padding:10px 14px 4px}
+.nav-item{display:flex;align-items:center;padding:8px 14px;margin:1px 6px;border-radius:var(--rs);cursor:pointer;color:var(--mu);font-size:13px;font-weight:500;transition:background .1s}
+.nav-item:hover{background:var(--s2)}
+.nav-item.active{background:var(--ac);color:var(--ad)}
+.ndiv{height:1px;background:var(--bd);margin:6px 10px}
+
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
+.card-head{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-title{font-size:13px;font-weight:600}
+.card-body{padding:16px}
+
+/* VALORES */
+.val-table{width:100%;border-collapse:collapse}
+.val-table th{text-align:left;font-size:10px;font-weight:600;color:var(--mu);letter-spacing:.07em;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid var(--bd);white-space:nowrap}
+.val-table td{padding:8px 10px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:middle}
+.val-table tr:last-child td{border-bottom:none}
+.val-table tr:hover td{background:var(--s2)}
+.val-tipo{font-family:'DM Mono',monospace;font-size:10px;padding:2px 7px;border-radius:999px;font-weight:700}
+.val-tipo.HE{background:var(--blbg);color:var(--blue)}
+.val-tipo.PKG{background:var(--grbg);color:var(--green)}
+.val-monto{font-weight:600;font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.area-tag{font-size:10px;padding:1px 6px;border-radius:999px;background:var(--s2);color:var(--mu);font-family:'DM Mono',monospace;white-space:nowrap;display:inline-block;margin:1px}
+.val-input{background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:5px 8px;color:var(--tx);font-family:'DM Mono',monospace;font-size:12px;width:130px;outline:none;text-align:right}
+.val-input:focus{border-color:var(--ac)}
+
+/* OBRAS */
+.obras-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.obras-grid{grid-template-columns:1fr}}
+.obra-item{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bd);gap:10px;flex-wrap:wrap}
+.obra-item:last-child{border-bottom:none}
+.obra-item:hover{background:var(--s2)}
+.obra-nombre{font-size:13px;font-weight:500;flex:1;min-width:140px}
+.obra-tipo-sel{font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:4px 8px;color:var(--tx);font-family:'DM Sans',sans-serif;cursor:pointer;outline:none}
+.obra-tipo-sel:focus{border-color:var(--ac)}
+.obra-badge{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:700;white-space:nowrap;font-family:'DM Mono',monospace}
+.obra-badge.propia{background:var(--grbg);color:var(--green)}
+.obra-badge.cooperativa{background:var(--pubg);color:var(--purple)}
+.obra-badge.tercero{background:var(--ambg);color:var(--amber)}
+.obra-estado{font-size:11px;color:var(--mu);font-family:'DM Mono',monospace;white-space:nowrap}
+
+/* UPDATE */
+.update-panel{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin-bottom:16px}
+.update-panel h3{font-size:13px;font-weight:600;margin-bottom:12px}
+.update-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.pct-input{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs);padding:8px 12px;color:var(--tx);font-size:15px;font-family:'DM Mono',monospace;width:90px;outline:none;text-align:center}
+.pct-input:focus{border-color:var(--ac)}
+.preview-box{background:var(--grbg);border:1px solid var(--grbd);border-radius:var(--rs);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--green);margin-top:10px}
+
+/* VIGENCIA */
+.vigencia-bar{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+.vig-item .vig-lbl{font-size:11px;color:var(--mu);margin-bottom:2px}
+.vig-item .vig-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--ac)}
+
+/* HISTORIAL */
+.hist-item{border-left:2px solid var(--bd);padding:8px 0 8px 14px;margin-bottom:10px}
+.hist-fecha{font-family:'DM Mono',monospace;font-size:11px;color:var(--mu);margin-bottom:3px}
+.hist-desc{font-size:13px}
+.hist-pct{font-weight:600;color:var(--ac)}
+
+/* PERSONAL */
+.p-table{width:100%;border-collapse:collapse}
+.p-table th{text-align:left;font-size:10px;font-weight:600;color:var(--mu);letter-spacing:.07em;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid var(--bd)}
+.p-table td{padding:8px 10px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:middle}
+.p-table tr:last-child td{border-bottom:none}
+.p-table tr:hover td{background:var(--s2)}
+
+/* EXPORT */
+.export-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px;margin-bottom:16px}
+.export-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;transition:all .15s;cursor:default}
+.export-card:hover{border-color:var(--ac)}
+.export-card-icon{font-size:20px;margin-bottom:8px}
+.export-card-title{font-size:13px;font-weight:600;margin-bottom:3px}
+.export-card-desc{font-size:11px;color:var(--mu);line-height:1.4;margin-bottom:10px}
+.export-card-btns{display:flex;gap:6px}
+
+/* BTN */
+.btn{padding:7px 14px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;border:1px solid;font-family:'DM Sans',sans-serif;transition:all .1s}
+.btn:active{transform:scale(.97)}
+.btn.ac{background:var(--ac);border-color:var(--ac);color:var(--ad)}
+.btn.ghost{background:transparent;border-color:var(--bd);color:var(--mu)}
+.btn.green{background:var(--grbg);border-color:var(--grbd);color:var(--green)}
+.btn.red{background:var(--redbg);border-color:var(--redbd);color:var(--red)}
+.btn.amber{background:var(--ambg);border-color:var(--ambd);color:var(--amber)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;font-family:'DM Mono',monospace}
+.badge.green{background:var(--grbg);color:var(--green)}
+.badge.red{background:var(--redbg);color:var(--red)}
+.badge.amber{background:var(--ambg);color:var(--amber)}
+
+/* FILTERS */
+.fbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.fp{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--mu);transition:all .1s}
+.fp:hover{border-color:var(--ac)}.fp.active{background:var(--ac);border-color:var(--ac);color:var(--ad)}
+
+/* FIELDS */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--mu);margin-bottom:5px;font-weight:500}
+input,select,textarea{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-family:'DM Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+textarea{resize:none;height:60px;line-height:1.5}
+
+.view-p3{display:none}.view-p3.active{display:block}
+.empty{text-align:center;padding:32px;color:var(--mu);font-size:13px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--sf);border-radius:var(--r);padding:22px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:14px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+.input-month{width:auto;min-width:150px;padding:6px 10px;font-size:12px}
+.sep{height:1px;background:var(--bd);margin:6px 0 14px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <div class="dot"></div>
+    <span class="tb-title">Gestión HE</span>
+    <span class="tb-sub" id="tb-sub">— Director</span>
+  </div>
+  <div class="tb-right" id="tb-fecha"></div>
+</div>
+
+<div class="layout">
+<div class="sidebar">
+  <div class="nav-lbl">Valores</div>
+  <div class="nav-item active" id="nav-valores" onclick="showP3('valores')">Tabla de valores</div>
+  <div class="nav-item" id="nav-actualizar" onclick="showP3('actualizar')">Actualizar valores</div>
+  <div class="nav-item" id="nav-historial" onclick="showP3('historial')">Historial de cambios</div>
+  <div class="ndiv"></div>
+  <div class="nav-lbl">Obras</div>
+  <div class="nav-item" id="nav-obras" onclick="showP3('obras')">Gestión de obras</div>
+  <div class="ndiv"></div>
+  <div class="nav-lbl">Personal</div>
+  <div class="nav-item" id="nav-personal" onclick="showP3('personal')">Gestión de personal</div>
+  <div class="ndiv"></div>
+  <div class="nav-lbl">Distribución</div>
+  <div class="nav-item" id="nav-exportar" onclick="showP3('exportar')">Exportar y compartir</div>
+</div>
+
+<div class="main">
+
+<!-- ═══ VALORES ═══ -->
+<div class="view-p3 active" id="view-p3-valores">
+  <div class="vigencia-bar">
+    <div class="vig-item"><div class="vig-lbl">Período vigente</div><div class="vig-val" id="vig-periodo">Feb–Mar 2026</div></div>
+    <div class="vig-item"><div class="vig-lbl">Último incremento</div><div class="vig-val" id="vig-pct">3.5%</div></div>
+    <div class="vig-item"><div class="vig-lbl">Total conceptos</div><div class="vig-val" id="vig-total"></div></div>
+    <button class="btn ac" onclick="showP3('actualizar')">Actualizar →</button>
+  </div>
+  <div class="fbar" id="fbar-valores">
+    <div class="fp active" onclick="fValores('',this)">Todos</div>
+    <div class="fp" onclick="fValores('SONIDO',this)">Sonido</div>
+    <div class="fp" onclick="fValores('ILUMINACION',this)">Iluminación</div>
+    <div class="fp" onclick="fValores('MAQUINARIA',this)">Maquinaria</div>
+    <div class="fp" onclick="fValores('SALA',this)">Sala</div>
+    <div class="fp" onclick="fValores('BOLETERIA',this)">Boletería</div>
+    <div class="fp" onclick="fValores('MANTENIMIENTO',this)">Mant.</div>
+    <div class="fp" onclick="fValores('LIMPIEZA',this)">Limp.</div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Valores vigentes — Feb/Mar 2026</span>
+      <div class="btn-row">
+        <button class="btn ghost" onclick="exportarReporte('todos','xlsx')">XLSX</button>
+        <button class="btn ghost" onclick="exportarReporte('todos','pdf')">PDF</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="val-table"><thead><tr>
+        <th>Concepto</th><th>Tipo</th><th>Áreas</th><th>Valor actual</th><th>Solo jefe</th>
+      </tr></thead><tbody id="tbody-valores"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ACTUALIZAR ═══ -->
+<div class="view-p3" id="view-p3-actualizar">
+  <div class="card"><div class="card-body">
+
+    <div class="update-panel">
+      <h3>A — Incremento % general (todos los conceptos)</h3>
+      <div class="update-row">
+        <span style="font-size:12px;color:var(--mu);min-width:140px">Porcentaje de incremento</span>
+        <input type="number" class="pct-input" id="pct-general" placeholder="3.5" step="0.1" min="0" oninput="previewGeneral()">
+        <span style="font-size:13px;color:var(--mu)">%</span>
+      </div>
+      <div id="preview-general" class="preview-box" style="display:none"></div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn ac" onclick="aplicarGeneral()">Aplicar a todos</button>
+        <button class="btn ghost" onclick="document.getElementById('pct-general').value='';document.getElementById('preview-general').style.display='none'">Limpiar</button>
+      </div>
+    </div>
+
+    <div class="update-panel">
+      <h3>B — Ajuste individual por concepto</h3>
+      <p style="font-size:12px;color:var(--mu);margin-bottom:12px">Editá el valor de cada concepto. Los cambios se guardan al presionar "Confirmar".</p>
+      <div style="overflow-x:auto">
+        <table class="val-table"><thead><tr>
+          <th>Concepto</th><th>Tipo</th><th>Valor actual</th><th>Nuevo valor</th><th>Δ%</th>
+        </tr></thead><tbody id="tbody-editable"></tbody></table>
+      </div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn ac" onclick="confirmarIndividual()">Confirmar cambios</button>
+        <button class="btn ghost" onclick="buildEditable()">Deshacer</button>
+      </div>
+    </div>
+
+    <div class="update-panel">
+      <h3>Período de vigencia</h3>
+      <div class="update-row">
+        <span style="font-size:12px;color:var(--mu);min-width:80px">Desde</span>
+        <input type="month" id="vig-desde" class="input-month">
+        <span style="font-size:12px;color:var(--mu);min-width:50px;margin-left:10px">Hasta</span>
+        <input type="month" id="vig-hasta" class="input-month">
+      </div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn green" onclick="guardarVigencia()">Guardar período</button>
+      </div>
+    </div>
+
+  </div></div>
+</div>
+
+<!-- ═══ HISTORIAL ═══ -->
+<div class="view-p3" id="view-p3-historial">
+  <div class="card">
+    <div class="card-head"><span class="card-title">Historial de actualizaciones</span></div>
+    <div class="card-body" id="historial-body"></div>
+  </div>
+</div>
+
+<!-- ═══ OBRAS ═══ -->
+<div class="view-p3" id="view-p3-obras">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Gestión de obras</span>
+      <button class="btn ac" onclick="abrirModalObra()">+ Agregar obra</button>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--bd)">
+      <div class="fbar" style="margin:0" id="fbar-obras">
+        <div class="fp active" onclick="fObras('todas',this)">Todas</div>
+        <div class="fp" onclick="fObras('MET',this)">MET</div>
+        <div class="fp" onclick="fObras('PLP',this)">PLP</div>
+        <div class="fp" onclick="fObras('activas',this)">Activas</div>
+        <div class="fp" onclick="fObras('inactivas',this)">Inactivas</div>
+        <div class="fp" onclick="fObras('propia',this)">Propias</div>
+        <div class="fp" onclick="fObras('cooperativa',this)">Cooperativas</div>
+        <div class="fp" onclick="fObras('tercero',this)">Terceros</div>
+      </div>
+    </div>
+    <div class="obras-grid" style="padding:0">
+      <div style="border-right:1px solid var(--bd)">
+        <div style="padding:10px 16px;border-bottom:1px solid var(--bd);font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace">Teatro Metropolitan</div>
+        <div id="obras-met"></div>
+      </div>
+      <div>
+        <div style="padding:10px 16px;border-bottom:1px solid var(--bd);font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace">Paseo La Plaza</div>
+        <div id="obras-plp"></div>
+      </div>
+    </div>
+    <div style="padding:10px 16px;border-top:1px solid var(--bd);font-size:12px;color:var(--mu)">
+      Podés cambiar el tipo de cada obra con el selector. Los cambios aplican inmediatamente a la imputación de HE.
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PERSONAL ═══ -->
+<div class="view-p3" id="view-p3-personal">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Gestión de personal</span>
+      <button class="btn ac" onclick="abrirModalPersona()">+ Agregar</button>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--bd);display:flex;gap:8px;flex-wrap:wrap">
+      <select id="fp-p-area" onchange="buildPersonal3()" style="width:auto;min-width:130px;font-size:12px;padding:6px 10px">
+        <option value="">Todas las áreas</option>
+        <option value="SALA">Sala</option><option value="BOLETERIA">Boletería</option>
+        <option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option>
+        <option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option>
+        <option value="LIMPIEZA">Limpieza</option>
+      </select>
+      <select id="fp-p-teatro" onchange="buildPersonal3()" style="width:auto;min-width:110px;font-size:12px;padding:6px 10px">
+        <option value="">Ambos teatros</option>
+        <option value="MET">MET</option><option value="PLP">PLP</option>
+      </select>
+      <select id="fp-p-estado" onchange="buildPersonal3()" style="width:auto;min-width:110px;font-size:12px;padding:6px 10px">
+        <option value="activos">Activos</option>
+        <option value="inactivos">Inactivos</option>
+        <option value="todos">Todos</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="p-table">
+        <thead><tr>
+          <th style="cursor:pointer;user-select:none" onclick="sortPersonal('n')">Nombre <span id="sp-n">↕</span></th>
+          <th style="cursor:pointer;user-select:none" onclick="sortPersonal('a')">Área(s) <span id="sp-a">↕</span></th>
+          <th style="cursor:pointer;user-select:none" onclick="sortPersonal('t')">Teatro <span id="sp-t">↕</span></th>
+          <th style="cursor:pointer;user-select:none" onclick="sortPersonal('j')">Rol <span id="sp-j">↕</span></th>
+          <th>Estado</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="tbody-personal3"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EXPORTAR ═══ -->
+<div class="view-p3" id="view-p3-exportar">
+  <div class="card"><div class="card-body">
+    <p style="font-size:12px;color:var(--mu);margin-bottom:16px">Reportes de valores vigentes para distribución interna. Período: <span id="export-periodo" style="color:var(--ac);font-family:'DM Mono',monospace"></span></p>
+    <div class="export-grid">
+      <div class="export-card">
+        <div class="export-card-icon">📋</div>
+        <div class="export-card-title">Completo</div>
+        <div class="export-card-desc">Todos los rubros, todas las áreas</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('todos','xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('todos','pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">🔧</div>
+        <div class="export-card-title">Solo técnicos</div>
+        <div class="export-card-desc">Sonido, Iluminación, Maquinaria</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('tecnicos','xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('tecnicos','pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">🎭</div>
+        <div class="export-card-title">Asistentes de Sala</div>
+        <div class="export-card-desc">Todos los ítems de sala</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('sala','xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('sala','pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">🌙</div>
+        <div class="export-card-title">HE Terceros</div>
+        <div class="export-card-desc">Ítems con tarifa de terceros</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('terceros','xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('terceros','pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">🏠</div>
+        <div class="export-card-title">Mant. y Limpieza</div>
+        <div class="export-card-desc">Mantenimiento y Limpieza</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('mant','xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('mant','pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">🎟</div>
+        <div class="export-card-title">Boletería</div>
+        <div class="export-card-desc">HS Boletería</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('boleteria','xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('boleteria','pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">👥</div>
+        <div class="export-card-title">Lista de personal</div>
+        <div class="export-card-desc">Nómina completa con áreas y roles</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarPersonal('xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarPersonal('pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">💼</div>
+        <div class="export-card-title">RRHH / Jefes de área</div>
+        <div class="export-card-desc">Versión interna completa por área</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('rrhh','xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarReporte('rrhh','pdf')">PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">🗒</div>
+        <div class="export-card-title">Listado de obras</div>
+        <div class="export-card-desc">Obras activas por teatro y tipo</div>
+        <div class="export-card-btns">
+          <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarObras('xlsx')">XLSX</button>
+          <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarObras('pdf')">PDF</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- MODAL PERSONA -->
+<div class="modal-overlay" id="modal-persona" style="display:none" onclick="if(event.target===this)cerrarModal('modal-persona')">
+  <div class="modal">
+    <h3>Agregar persona</h3>
+    <div class="field"><label>Apellido y nombre</label><input type="text" id="mp-nombre" oninput="this.value=this.value.toUpperCase()"></div>
+    <div class="field"><label>Teatro</label><select id="mp-teatro"><option value="MET">MET</option><option value="PLP">PLP</option><option value="AMBOS">Ambos</option></select></div>
+    <div class="field"><label>Área principal</label><select id="mp-area"><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
+    <div class="field"><label>Área secundaria (opcional)</label><select id="mp-area2"><option value="">— Ninguna —</option><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
+    <div class="field"><label>Rol</label><select id="mp-rol"><option value="TECNICO">Técnico</option><option value="JEFE">Jefe de área</option></select></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-persona')">Cancelar</button>
+      <button class="btn ac" onclick="guardarPersona()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OBRA -->
+<div class="modal-overlay" id="modal-obra" style="display:none" onclick="if(event.target===this)cerrarModal('modal-obra')">
+  <div class="modal">
+    <h3>Agregar obra</h3>
+    <div class="field"><label>Nombre de la obra</label><input type="text" id="mo-nombre" placeholder="Nombre de la obra"></div>
+    <div class="field"><label>Teatro</label><select id="mo-teatro"><option value="MET">Teatro Metropolitan</option><option value="PLP">Paseo La Plaza</option></select></div>
+    <div class="field"><label>Tipo</label>
+      <select id="mo-tipo">
+        <option value="propia">Producción propia</option>
+        <option value="cooperativa">Cooperativa de terceros</option>
+        <option value="tercero">Producción de terceros</option>
+      </select>
+    </div>
+    <div class="field"><label>Fecha de inicio (aproximada)</label>
+      <div style="display:flex;gap:8px">
+        <select id="mo-desde-mes" style="flex:1">
+          <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+          <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+          <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+        <select id="mo-desde-anio" style="width:90px">
+          <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Fecha de cierre estimada (opcional)</label>
+      <div style="display:flex;gap:8px">
+        <select id="mo-hasta-mes" style="flex:1">
+          <option value="">— Sin fecha de cierre —</option>
+          <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+          <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+          <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+        <select id="mo-hasta-anio" style="width:90px">
+          <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-obra')">Cancelar</button>
+      <button class="btn ac" onclick="guardarObra()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════
+// BACKEND — Google Apps Script
+// ════════════════════════════════════
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLU3Adp7TbOR_hwPd2fsR72Fwo9-qOT8lYNeuUnk16o9vsxnr-SZRHVRIyamXmXhxE/exec";
+
+async function apiGet(action, params={}) {
+  try {
+    const url = new URL(SCRIPT_URL);
+    url.searchParams.set("action", action);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+    const res = await fetch(url.toString());
+    return await res.json();
+  } catch(e) { return {ok:false, error:e.toString()}; }
+}
+
+async function apiPost(action, data) {
+  // Usamos GET con payload codificado para evitar bloqueo CORS en iOS Safari.
+  // El Apps Script detecta el parámetro "payload" y lo procesa como POST.
+  try {
+    const payload = encodeURIComponent(JSON.stringify({action, data}));
+    const url = `${SCRIPT_URL}?payload=${payload}`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch(e) { return {ok:false, error:e.toString()}; }
+}
+
+// ════════════════════════════════════
+// VALORES HE — Feb/Mar 2026 (CORREGIDOS)
+// ════════════════════════════════════
+let VALORES = [
+  // POR HORA — TÉCNICOS
+  {id:'he_extra',       l:'H Extra',                              t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:13044.38, jefe:false},
+  {id:'he_extra_jefe',  l:'H Extra Jefe (solo montajes)',         t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:15653.26, jefe:true},
+  {id:'he_3ros',        l:'H Extra Terceros',                     t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:18634.83, jefe:false},
+  {id:'he_3ros_jefe',   l:'H Extra Terceros Jefe (solo montajes)',t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:22361.79, jefe:true},
+  {id:'he_madrugada',   l:'H Extra Madrugada (1:15–7am)',         t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:15653.26, jefe:false},
+  {id:'he_madrugada_3', l:'H Extra Madrugada Terceros',           t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:22361.79, jefe:false},
+  // JEFE MADRUGADA: 20% más que madrugada estándar
+  {id:'he_madrugada_j', l:'H Extra Madrugada Jefe',               t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:18783.91, jefe:true},
+  // JEFE MADRUGADA TERCEROS: 20% más que madrugada terceros
+  {id:'he_madrugada_j3',l:'H Extra Madrugada Jefe Terceros',      t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:26834.15, jefe:true},
+  {id:'he_prog',        l:'HS Programación',                      t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:18634.83, jefe:false},
+  {id:'he_prog_3',      l:'HS Programación Terceros',             t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:22361.79, jefe:false},
+  {id:'he_prog_tras',   l:'HS Programación Trasnoche',            t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:23107.19, jefe:false},
+  // PAQUETES — TÉCNICOS
+  {id:'pkg_early',      l:'Técnicos — Early Show',                t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:20441.16, jefe:false},
+  {id:'pkg_armado',     l:'Técnicos — Armado/Desarme',            t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:67254.34, jefe:false},
+  {id:'pkg_matinee',    l:'Función Adulto Matinee',               t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:67254.34, jefe:false},
+  {id:'pkg_infantil',   l:'Técnicos — Infantiles',                t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:84916.43, jefe:false},
+  {id:'pkg_citmin',     l:'Técnicos — Citación mínima (3hs)',     t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:39133.14, jefe:false},
+  {id:'pkg_trasnoche',  l:'Técnicos — Trasnoche',                 t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:53783.84, jefe:false},
+  {id:'pkg_ev_corto',   l:'Técnicos — Evento corto',              t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:75545.59, jefe:false},
+  {id:'pkg_ev_largo',   l:'Técnicos — Evento largo',              t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:125910.56,jefe:false},
+  {id:'pkg_ev_corto_p', l:'Técnicos — Evento corto c/Proyección', t:'PKG',a:['SONIDO','ILUMINACION'],              v:90655.95, jefe:false},
+  {id:'pkg_ev_largo_p', l:'Técnicos — Evento largo c/Proyección', t:'PKG',a:['SONIDO','ILUMINACION'],              v:139761.21,jefe:false},
+  {id:'pkg_tras_p',     l:'Técnicos — Trasnoche c/Proyección',    t:'PKG',a:['SONIDO','ILUMINACION'],              v:72608.74, jefe:false},
+  // SONIDO específicos
+  {id:'pkg_son_proy',   l:'Adicional Sonidista x Proyección',     t:'PKG',a:['SONIDO'],                           v:18823.66, jefe:false},
+  {id:'pkg_son_3proy',  l:'Adicional Terceros Sonidista x Proy.', t:'PKG',a:['SONIDO'],                           v:18823.66, jefe:false},
+  // ILUMINACIÓN específicos (Montajes — solo jefes)
+  {id:'pkg_luces_m',    l:'Luces — Montaje M',                    t:'PKG',a:['ILUMINACION'],                      v:307991.47,jefe:true},
+  {id:'pkg_luces_l',    l:'Luces — Montaje L',                    t:'PKG',a:['ILUMINACION'],                      v:554203.51,jefe:true},
+  {id:'pkg_luces_xl',   l:'Luces — Montaje XL',                   t:'PKG',a:['ILUMINACION'],                      v:733573.66,jefe:true},
+  // SALA
+  {id:'he_sala_hs',     l:'Asistente de Sala — HS',               t:'HE', a:['SALA'],                             v:9516.34,  jefe:false},
+  {id:'pkg_sala_early', l:'Asistente de Sala — Early Show',        t:'PKG',a:['SALA'],                             v:20441.16, jefe:false},
+  {id:'pkg_sala_corto', l:'Asistente de Sala — Evento corto',      t:'PKG',a:['SALA'],                             v:43764.87, jefe:false},
+  {id:'pkg_sala_largo', l:'Asistente de Sala — Evento largo',      t:'PKG',a:['SALA'],                             v:63186.54, jefe:false},
+  {id:'pkg_sala_tras',  l:'Asistente de Sala — Trasnoche',         t:'PKG',a:['SALA'],                             v:31398.77, jefe:false},
+  {id:'pkg_infantil_4', l:'Infantil — Hasta 4 funciones',          t:'PKG',a:['SALA'],                             v:53391.57, jefe:false},
+  // BOLETERÍA (sin jefe — no existe ese rubro)
+  {id:'he_bol',         l:'HS Boletería',                          t:'HE', a:['BOLETERIA'],                        v:13641.28, jefe:false},
+  // MANTENIMIENTO (sin jefe — no existe ese rubro)
+  {id:'he_mant',        l:'HE Mantenimiento',                      t:'HE', a:['MANTENIMIENTO'],                    v:9425.64,  jefe:false},
+  // LIMPIEZA (sin jefe — no existe ese rubro)
+  {id:'he_limp',        l:'HE Limpieza',                           t:'HE', a:['LIMPIEZA'],                         v:7010.77,  jefe:false},
+];
+
+// ════════════════════════════════════
+// OBRAS COMPLETAS
+// ════════════════════════════════════
+// tipos: 'propia' | 'cooperativa' | 'tercero'
+let OBRAS = [
+  // ── MET ──
+  {n:'Desde el Jardín',             teatro:'MET', tipo:'propia',      activa:true, desde:'2026-01', hasta:null},
+  {n:'Cuestión de Género',          teatro:'MET', tipo:'propia',      activa:true, desde:'2025-10', hasta:null},
+  {n:'Teatro Metropolitan (Vitama)',teatro:'MET', tipo:'propia',      activa:true, desde:'2025-01', hasta:null, nota:'Edilicio/ingresos propios'},
+  {n:'Modelo Vivo o Muerto',        teatro:'MET', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Suavecita',                   teatro:'MET', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Habitación Macbeth',          teatro:'MET', tipo:'cooperativa', activa:true, desde:'2025-09', hasta:null},
+  {n:'Un Poyo Rojo',                teatro:'MET', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Madre Ficción',               teatro:'MET', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Othelo',                      teatro:'MET', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Frame Fatale',                teatro:'MET', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Las Cautivas',                teatro:'MET', tipo:'cooperativa', activa:true, desde:'2025-11', hasta:null},
+  {n:'Pequeño Pez (infantil)',       teatro:'MET', tipo:'tercero',     activa:true, desde:'2026-01', hasta:null},
+  {n:'Wainraich Íntimo',            teatro:'MET', tipo:'tercero',     activa:true, desde:'2026-01', hasta:null},
+  {n:'Noelia Pace — La Medium',     teatro:'MET', tipo:'tercero',     activa:true, desde:'2026-01', hasta:null},
+  {n:'Maldita Felicidad',           teatro:'MET', tipo:'tercero',     activa:true, desde:'2026-01', hasta:null},
+  {n:'La Última Sesión de Freud',   teatro:'MET', tipo:'tercero',     activa:true, desde:'2026-01', hasta:null},
+  {n:'Cocomelon (infantil)',         teatro:'MET', tipo:'tercero',     activa:true, desde:'2026-01', hasta:null},
+  {n:'Misery',                      teatro:'MET', tipo:'tercero',     activa:true, desde:'2026-02', hasta:null},
+  // ── PLP ──
+  {n:'El Jefe del Jefe',            teatro:'PLP', tipo:'propia',      activa:true, desde:'2026-01', hasta:null},
+  {n:'Enciende tu Motor',           teatro:'PLP', tipo:'propia',      activa:true, desde:'2026-01', hasta:null},
+  {n:'Favio Posca — Transensual',   teatro:'PLP', tipo:'propia',      activa:true, desde:'2026-05', hasta:null},
+  {n:'Paseo La Plaza (Rosepa)',     teatro:'PLP', tipo:'propia',      activa:true, desde:'2025-01', hasta:null, nota:'Edilicio/ingresos propios'},
+  {n:'Agotados',                    teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'El Funeral de los Objetos',   teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Las Hijas',                   teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Bebé Reno',                   teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-04', hasta:null},
+  {n:'Mi Amiga y Yo',               teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Ni Media Palabra',            teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-04', hasta:null},
+  {n:'Nanutria — Opiniones Varias', teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Lucas Lauriente',             teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-01', hasta:null},
+  {n:'Urano — No Viniste a Encajar',teatro:'PLP', tipo:'cooperativa', activa:true, desde:'2026-05', hasta:null},
+  {n:'Historias Innecesarias — Damián Kuc',teatro:'PLP',tipo:'tercero',activa:true,desde:'2026-04',hasta:'2026-07'},
+  {n:'Rosana — Vivir Sin Miedo',    teatro:'PLP', tipo:'tercero',     activa:true, desde:'2026-04', hasta:'2026-04'},
+  {n:'Los Ravioli — Piyama Party',  teatro:'PLP', tipo:'tercero',     activa:true, desde:'2026-05', hasta:null},
+  {n:'FESJAJá — Varios artistas',   teatro:'PLP', tipo:'tercero',     activa:true, desde:'2026-05', hasta:'2026-05'},
+  {n:'Jonatan Loidi — El Camino del 5%',teatro:'PLP',tipo:'tercero',  activa:true, desde:'2026-04', hasta:'2026-05'},
+  {n:'Golda Meir — Cuestión de Estado',teatro:'PLP',tipo:'tercero',   activa:true, desde:'2026-04', hasta:'2026-04'},
+  {n:'Fio Vitelli — SOS Estoy Bien pero no tanto',teatro:'PLP',tipo:'tercero',activa:true,desde:'2026-05',hasta:null},
+  {n:'Somos lo que Cantamos',       teatro:'PLP', tipo:'tercero',     activa:true, desde:'2026-05', hasta:'2026-05'},
+  {n:'Carmen, Osvaldo y toda la familia',teatro:'PLP',tipo:'tercero', activa:true, desde:'2026-01', hasta:null},
+  {n:'Hermana Beba — Mina Bien',    teatro:'PLP', tipo:'tercero',     activa:true, desde:'2026-04', hasta:'2026-04'},
+  {n:'Impro al 2020',               teatro:'PLP', tipo:'tercero',     activa:true, desde:'2026-04', hasta:'2026-04'},
+  {n:'La Bobe',                     teatro:'PLP', tipo:'tercero',     activa:true, desde:'2026-04', hasta:'2026-04'},
+];
+
+// ════════════════════════════════════
+// PERSONAL
+// ════════════════════════════════════
+let PERSONAL = [
+  // SALA PLP
+  {n:'PAGLIARI, AGUSTINA',  a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'ABAL, LUNA',          a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'ABAL, MACARENA',      a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'PAGLIARI, CAROLINA',  a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'ASADO, SILVIA',       a:['SALA','BOLETERIA'], t:'PLP',   j:false, ok:true},
+  {n:'FERRIOL, DAIANA',     a:['SALA','BOLETERIA'], t:'PLP',   j:false, ok:true},
+  {n:'FORTIS, GABRIELA',    a:['SALA','BOLETERIA'], t:'PLP',   j:false, ok:true},
+  {n:'ORELLANA, FERNANDA',  a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'PEREIRA, ROMINA',     a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'VERA PEREZ, PAULA',   a:['SALA','BOLETERIA'], t:'PLP',   j:false, ok:true},
+  {n:'RIFICI, EVA',         a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'RIFICI, MARIEL',      a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'RODRIGUEZ, LEANDRO',  a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'ROJAS, GABRIELA',     a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'ROSSI, MARIA LAURA',  a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'SANCHEZ MALCOLM, M EUGENIA',a:['SALA'],       t:'PLP',   j:false, ok:true},
+  {n:'ALVAREZ, DIEGO',      a:['SALA'],             t:'PLP',   j:false, ok:true},
+  {n:'PORTILLO, BRIAN',     a:['SALA'],             t:'PLP',   j:false, ok:true},
+  // BOLETERÍA PLP
+  {n:'VELA GALVAN, ARIEL',  a:['BOLETERIA'],        t:'PLP',   j:false, ok:true},
+  // ILUMINACIÓN PLP
+  {n:'LA ROSA, HORACIO',    a:['ILUMINACION'],      t:'AMBOS', j:true,  ok:true},
+  {n:'PELOZO, DAVID',       a:['ILUMINACION'],      t:'PLP',   j:false, ok:true},
+  {n:'GOMEZ, SERGIO',       a:['ILUMINACION'],      t:'PLP',   j:false, ok:true},
+  {n:'LA ROSA, LAUTARO',    a:['ILUMINACION'],      t:'PLP',   j:false, ok:true},
+  {n:'MUÑOZ, DAMIAN',       a:['ILUMINACION'],      t:'PLP',   j:false, ok:true},
+  {n:'MUÑOZ, LEONARDO',     a:['ILUMINACION'],      t:'PLP',   j:false, ok:true},
+  {n:'PELOZO, RAUL',        a:['ILUMINACION'],      t:'PLP',   j:false, ok:true},
+  {n:'PEREZ, FACUNDO',      a:['ILUMINACION'],      t:'PLP',   j:false, ok:true},
+  // SONIDO AMBOS
+  {n:'ABAL, PABLO',         a:['SONIDO'],           t:'AMBOS', j:true,  ok:true},
+  {n:'ABAL, TOMAS',         a:['SONIDO'],           t:'AMBOS', j:false, ok:true},
+  {n:'BICA, DANIEL',        a:['SONIDO'],           t:'AMBOS', j:false, ok:true},
+  {n:'FERREYRA, CARLOS',    a:['SONIDO'],           t:'AMBOS', j:false, ok:true},
+  {n:'MASCALI, ARIEL',      a:['SONIDO'],           t:'AMBOS', j:false, ok:true},
+  // SONIDO PLP
+  {n:'ALVAREZ, FEDERICO',   a:['SONIDO'],           t:'PLP',   j:false, ok:true},
+  {n:'SOSA, HELEN',         a:['SONIDO'],           t:'PLP',   j:false, ok:true},
+  {n:'DEASMUNDIS, ADRIAN',  a:['SONIDO'],           t:'PLP',   j:false, ok:true},
+  // SALA MET
+  {n:'VILLALBA, ANAHI',     a:['SALA'],             t:'MET',   j:false, ok:true},
+  {n:'SALVIONI, PAULINA',   a:['SALA'],             t:'MET',   j:false, ok:true},
+  {n:'CHIODI, MACARENA',    a:['SALA'],             t:'MET',   j:false, ok:true},
+  {n:'BUCCHINO, AGOSTINA',  a:['SALA','BOLETERIA'], t:'MET',   j:false, ok:true},
+  {n:'ARAGONES, PATRICIA',  a:['SALA'],             t:'MET',   j:false, ok:true},
+  {n:'SOTTOSANTI, ROMINA',  a:['SALA'],             t:'MET',   j:false, ok:true},
+  {n:'SALOMON, VERONICA',   a:['SALA'],             t:'MET',   j:false, ok:true},
+  {n:'SALOMON, AYELEN',     a:['SALA'],             t:'MET',   j:false, ok:true},
+  {n:'RODRIGUEZ, DANIEL',   a:['SALA','BOLETERIA'], t:'MET',   j:false, ok:true},
+  // BOLETERÍA MET
+  {n:'DI NAPOLI, MARIANO',  a:['BOLETERIA'],        t:'MET',   j:false, ok:true},
+  {n:'CAETANO, MICAELA',    a:['BOLETERIA'],        t:'MET',   j:false, ok:true},
+  // ILUMINACIÓN MET
+  {n:'LEO MUÑOZ',           a:['ILUMINACION'],      t:'MET',   j:true,  ok:true},
+  {n:'DALMASSO, ROBERTO',   a:['ILUMINACION'],      t:'MET',   j:false, ok:true},
+  {n:'SERRAN, SEBASTIAN',   a:['ILUMINACION'],      t:'MET',   j:false, ok:true},
+  {n:'GONZALEZ, PATRICIO',  a:['ILUMINACION'],      t:'MET',   j:false, ok:true},
+  {n:'GONZALEZ, MARIANO',   a:['ILUMINACION'],      t:'MET',   j:false, ok:true},
+  // SONIDO MET
+  {n:'PIROMALLI, LEANDRO',  a:['SONIDO'],           t:'MET',   j:false, ok:true},
+  {n:'NAPOLI, CLARA',       a:['SONIDO'],           t:'MET',   j:false, ok:true},
+  {n:'DE MILO, SANTIAGO',   a:['SONIDO'],           t:'MET',   j:false, ok:true},
+  {n:'TAPIA, MARTIN',       a:['SONIDO'],           t:'MET',   j:false, ok:true},
+  {n:'GIMENEZ, GABRIEL',    a:['SONIDO'],           t:'MET',   j:false, ok:true},
+  {n:'MONTALBETTI, DANIELA',a:['SONIDO'],           t:'MET',   j:false, ok:true},
+  // MAQUINARIA MET
+  {n:'GAMBETTA, JUAN',      a:['MAQUINARIA'],       t:'MET',   j:true,  ok:true},
+  {n:'ARGAÑARAZ, NICOLAS',  a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'BARRETO, HUGO',       a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'PERCHLIK, EMANUEL',   a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'RIOS, CARLOS',        a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'LENCINA, ANDRES',     a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'ARAUJO, MARTIN',      a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'RUIZ, ERNESTO',       a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'LAZARTE, GUSTAVO',    a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'MATTIANICH, BRUNO',   a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  {n:'MEDINA, SEBASTIAN',   a:['MAQUINARIA'],       t:'MET',   j:false, ok:true},
+  // MAQUINARIA PLP
+  {n:'LANZA, DAMIAN',       a:['MAQUINARIA'],       t:'PLP',   j:true,  ok:true},
+  // MANTENIMIENTO
+  {n:'PATIÑO, ANDRES',      a:['MANTENIMIENTO','LIMPIEZA'],t:'MET',j:false,ok:true},
+  {n:'VARGAS, DAVID',       a:['MANTENIMIENTO','LIMPIEZA'],t:'PLP',j:false,ok:true},
+  {n:'SOSA, GERARDO',       a:['MANTENIMIENTO'],    t:'MET',   j:false, ok:true},
+  // LIMPIEZA
+  {n:'MACIEL, IRMA',        a:['LIMPIEZA'],         t:'MET',   j:false, ok:true},
+  {n:'SANTILLAN, ROCIO',    a:['LIMPIEZA'],         t:'MET',   j:false, ok:true},
+  {n:'BENITEZ, ILDA',       a:['LIMPIEZA'],         t:'MET',   j:false, ok:true},
+];
+
+// ════════════════════════════════════
+// HISTORIAL
+// ════════════════════════════════════
+let HISTORIAL = [
+  {fecha:'2026-02-01',tipo:'general',pct:3.5,desde:'2026-02',hasta:'2026-03',nota:'Actualización bimestral Feb–Mar 2026'},
+  {fecha:'2025-12-01',tipo:'general',pct:2.5,desde:'2025-12',hasta:'2026-01',nota:'Actualización bimestral Dic 2025–Ene 2026'},
+];
+
+let VIG_DESDE='2026-02', VIG_HASTA='2026-03';
+let filtroValores='', filtroObras='todas', filtroPersonal='activos';
+let PERSONAL3 = PERSONAL; // alias — ambas variables apuntan al mismo array
+
+// ════════════════════════════════════
+// INIT
+// ════════════════════════════════════
+window.onload = async () => {
+  const hoy = new Date();
+  document.getElementById('tb-fecha').textContent = fmtD(hoy);
+  document.getElementById('tb-sub').textContent = `— ${hoy.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase()}`;
+
+  // Indicador de carga
+  const subEl = document.getElementById('tb-sub');
+  const origSub = subEl.textContent;
+  subEl.textContent = origSub + ' · cargando...';
+
+  try {
+    const [valRes, obrRes, perRes, histRes] = await Promise.all([
+      apiGet("getValores"),
+      apiGet("getObras"),
+      apiGet("getPersonal"),
+      apiGet("getHistorial"),
+    ]);
+
+    // Valores desde el Sheet
+    if (valRes.ok && valRes.data && valRes.data.length > 0) {
+      VALORES = valRes.data.map(v => ({
+        id:   v["ID"] || "",
+        l:    v["Concepto"] || "",
+        t:    v["Tipo"] || "HE",
+        a:    (v["Áreas"] || v["Areas"] || "").split(",").map(x => x.trim()).filter(Boolean),
+        v:    parseFloat(v["Valor"]) || 0,
+        jefe: v["Solo Jefe"] === "SI",
+      }));
+      // Tomar vigencia del primer valor
+      VIG_DESDE = valRes.data[0]?.["Vigencia Desde"] || VIG_DESDE;
+      VIG_HASTA = valRes.data[0]?.["Vigencia Hasta"] || VIG_HASTA;
+    }
+
+    // Obras desde el Sheet
+    if (obrRes.ok && obrRes.data && obrRes.data.length > 0) {
+      OBRAS = obrRes.data.map(o => {
+        // Normalizar fechas — pueden venir como "2026-01-01" (del Sheet) o "2026-01"
+        const normFecha = v => {
+          if (!v) return "";
+          const s = String(v);
+          // Si viene YYYY-MM-DD, recortar a YYYY-MM
+          if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,7);
+          // Si viene YYYY-MM, dejarlo
+          if (/^\d{4}-\d{2}$/.test(s)) return s;
+          return "";
+        };
+        return {
+          n:      o["Nombre"] || "",
+          teatro: o["Teatro"] || "",
+          tipo:   o["Tipo"] || "cooperativa",
+          activa: o["Activa"] !== "NO",
+          desde:  normFecha(o["Desde"]),
+          hasta:  normFecha(o["Hasta"]) || null,
+          nota:   o["Nota"] || "",
+        };
+      });
+    }
+
+    // Personal desde el Sheet — mapeo robusto
+    if (perRes.ok && perRes.data && perRes.data.length > 0) {
+      PERSONAL3 = perRes.data.map(p => ({
+        n:  p["Nombre"] || "",
+        a:  [p["Áreas"]||p["Areas"]||p["Área"]||p["Area"]||"", p["Área Secundaria"]||p["Area Secundaria"]||""].filter(Boolean),
+        t:  p["Teatro"] || "",
+        j:  p["Es Jefe"] === "SI" || p["EsJefe"] === "SI",
+        ok: p["Activo"] !== "NO",
+      })).filter(p => p.n);
+      // Mantener PERSONAL sincronizado con PERSONAL3
+      PERSONAL.length = 0;
+      PERSONAL3.forEach(p => PERSONAL.push(p));
+    }
+
+    // Historial desde el Sheet
+    if (histRes.ok && histRes.data && histRes.data.length > 0) {
+      HISTORIAL = histRes.data.map(h => ({
+        fecha: (h["Timestamp"] || "").slice(0, 10),
+        tipo:  h["Tipo"] || "",
+        pct:   parseFloat(h["Porcentaje"]) || null,
+        desde: h["Vigencia Desde"] || "",
+        hasta: h["Vigencia Hasta"] || "",
+        nota:  h["Detalle"] || "",
+      })).filter(h => h.fecha);
+    }
+
+    subEl.textContent = origSub + ' · ✓ conectado';
+    setTimeout(() => { subEl.textContent = origSub; }, 2000);
+
+  } catch(e) {
+    console.warn("Backend no disponible, usando datos locales:", e);
+    subEl.textContent = origSub + ' · ⚠ offline';
+    setTimeout(() => { subEl.textContent = origSub; }, 3000);
+  }
+
+  document.getElementById('vig-desde').value = VIG_DESDE;
+  document.getElementById('vig-hasta').value = VIG_HASTA;
+  document.getElementById('vig-total').textContent = VALORES.length;
+  actualizarVigDisplay();
+  buildValores(); buildEditable(); buildHistorial(); buildObras(); buildPersonal3();
+};
+
+function actualizarVigDisplay(){
+  document.getElementById('vig-periodo').textContent=`${fmtM(VIG_DESDE)}–${fmtM(VIG_HASTA)}`;
+  document.getElementById('export-periodo') && (document.getElementById('export-periodo').textContent=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`);
+}
+
+// ════════════════════════════════════
+// VALORES
+// ════════════════════════════════════
+function buildValores(){
+  const f=filtroValores;
+  const rows=VALORES.filter(v=>!f||v.a.includes(f));
+  document.getElementById('tbody-valores').innerHTML=rows.map(v=>`
+    <tr>
+      <td style="font-weight:500">${v.l}</td>
+      <td><span class="val-tipo ${v.t}">${v.t}</span></td>
+      <td>${v.a.map(x=>`<span class="area-tag">${x.replace('_',' ')}</span>`).join('')}</td>
+      <td class="val-monto">$${fmt(v.v)}</td>
+      <td style="text-align:center;font-size:11px;color:var(--mu)">${v.jefe?'✓':''}</td>
+    </tr>`).join('');
+}
+
+function fValores(a,el){
+  document.querySelectorAll('#fbar-valores .fp').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');filtroValores=a;buildValores();
+}
+
+function buildEditable(){
+  document.getElementById('tbody-editable').innerHTML=VALORES.map((v,i)=>`
+    <tr>
+      <td style="font-size:12px;max-width:240px">${v.l}</td>
+      <td><span class="val-tipo ${v.t}">${v.t}</span></td>
+      <td class="val-monto">$${fmt(v.v)}</td>
+      <td><input class="val-input" type="number" id="ev_${i}" value="${v.v.toFixed(2)}" step="0.01" oninput="updDelta(${i})"></td>
+      <td class="val-monto" id="ed_${i}" style="font-size:12px"></td>
+    </tr>`).join('');
+}
+
+function updDelta(i){
+  const n=parseFloat(document.getElementById(`ev_${i}`).value)||VALORES[i].v;
+  const p=((n-VALORES[i].v)/VALORES[i].v*100).toFixed(1);
+  const el=document.getElementById(`ed_${i}`);
+  el.textContent=`${p>0?'+':''}${p}%`;
+  el.style.color=p>0?'var(--ac)':p<0?'var(--red)':'var(--mu)';
+}
+
+function previewGeneral(){
+  const p=parseFloat(document.getElementById('pct-general').value)||0;
+  const box=document.getElementById('preview-general');
+  if(!p){box.style.display='none';return;}
+  const ej=VALORES.slice(0,4).map(v=>`  ${v.l.slice(0,38)}: $${fmt(v.v)} → $${fmt(v.v*(1+p/100))}`).join('\n');
+  box.textContent=`Ejemplo +${p}%:\n${ej}\n  ... y ${VALORES.length-4} más`;
+  box.style.display='block';
+}
+
+async function aplicarGeneral(){
+  const p=parseFloat(document.getElementById('pct-general').value);
+  if(!p||isNaN(p)){alert('Ingresá un porcentaje válido.');return;}
+  if(!confirm(`¿Aplicar +${p}% a TODOS los ${VALORES.length} conceptos?`))return;
+  VALORES.forEach(v=>v.v=Math.round(v.v*(1+p/100)*100)/100);
+  HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'general',pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`});
+  buildValores();buildEditable();buildHistorial();
+  document.getElementById('pct-general').value='';
+  document.getElementById('preview-general').style.display='none';
+  // Guardar en Google Sheets
+  try {
+    const r = await apiPost("updateValores",{pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`,usuario:"Director"});
+    alert(`✓ +${p}% aplicado a ${VALORES.length} conceptos.${ r.ok ? ' Guardado en Google Sheets.' : ' ⚠ No se pudo sincronizar con el Sheet.'}`);
+  } catch(e) { alert(`✓ +${p}% aplicado localmente. ⚠ Sin conexión al Sheet.`); }
+}
+
+async function confirmarIndividual(){
+  const cambios=[];
+  VALORES.forEach((v,i)=>{
+    const inp=document.getElementById(`ev_${i}`);
+    if(!inp)return;
+    const n=parseFloat(inp.value);
+    if(!isNaN(n)&&Math.abs(n-v.v)>0.01){cambios.push({id:v.id,l:v.l,antes:v.v,despues:n});v.v=n;}
+  });
+  if(!cambios.length){alert('No hay cambios.');return;}
+  HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'individual',cambios,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`${cambios.length} concepto(s) actualizado(s)`});
+  buildValores();buildHistorial();
+  // Guardar en Google Sheets
+  try {
+    const payload = { valores: cambios.map(c=>({id:c.id, valor:c.despues})), desde:VIG_DESDE, hasta:VIG_HASTA, nota:`${cambios.length} concepto(s) actualizado(s)`, usuario:"Director" };
+    const r = await apiPost("updateValores", payload);
+    alert(`✓ ${cambios.length} concepto(s) actualizado(s).${ r.ok ? ' Guardado en Google Sheets.' : ' ⚠ No se pudo sincronizar con el Sheet.'}`);
+  } catch(e) { alert(`✓ ${cambios.length} concepto(s) actualizado(s) localmente. ⚠ Sin conexión al Sheet.`); }
+}
+
+function guardarVigencia(){
+  const d=document.getElementById('vig-desde').value;
+  const h=document.getElementById('vig-hasta').value;
+  if(!d||!h){alert('Completá ambas fechas.');return;}
+  VIG_DESDE=d;VIG_HASTA=h;actualizarVigDisplay();alert('Período guardado.');
+}
+
+function buildHistorial(){
+  document.getElementById('historial-body').innerHTML=HISTORIAL.map(h=>`
+    <div class="hist-item">
+      <div class="hist-fecha">${fmtD2(h.fecha)} · ${fmtM(h.desde)} → ${fmtM(h.hasta)}</div>
+      <div class="hist-desc">
+        ${h.tipo==='general'
+          ?`<span class="hist-pct">+${h.pct}%</span> general sobre todos los conceptos`
+          :`${h.cambios?.length||0} concepto(s) ajustado(s) individualmente`}
+        — <span style="color:var(--mu)">${h.nota||''}</span>
+      </div>
+      ${h.cambios?.length
+        ?`<div style="margin-top:5px;font-size:11px;color:var(--mu);font-family:'DM Mono',monospace">${h.cambios.slice(0,3).map(c=>`${c.l.slice(0,35)}: $${fmt(c.antes)} → $${fmt(c.despues)}`).join('<br>')}${h.cambios.length>3?`<br>... y ${h.cambios.length-3} más`:''}` :''}
+    </div>`).join('')||'<div class="empty">Sin historial.</div>';
+}
+
+// ════════════════════════════════════
+// OBRAS
+// ════════════════════════════════════
+function tipoLabel(t){return t==='propia'?'Propia':t==='cooperativa'?'Cooperativa':'Tercero';}
+function tipoBadge(t){return `<span class="obra-badge ${t}">${tipoLabel(t)}</span>`;}
+
+function buildObras(){
+  const f=filtroObras;
+  const hoy=new Date();
+
+  function filaObra(o,i){
+    const activa=o.activa&&(!o.hasta||new Date(o.hasta+'-28')>=hoy);
+    if(f==='activas'&&!activa)return'';
+    if(f==='inactivas'&&activa)return'';
+    if(f==='propia'&&o.tipo!=='propia')return'';
+    if(f==='cooperativa'&&o.tipo!=='cooperativa')return'';
+    if(f==='tercero'&&o.tipo!=='tercero')return'';
+    return`<div class="obra-item" style="flex-wrap:wrap;gap:6px;padding:10px 14px">
+      <div class="obra-nombre" style="width:100%;margin-bottom:4px">${o.n}${o.nota?` <span style="font-size:10px;color:var(--mu)">(${o.nota})</span>`:''}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%">
+        <select class="obra-tipo-sel" onchange="cambiarTipoObra(${i},this.value)" style="width:130px">
+          <option value="propia" ${o.tipo==='propia'?'selected':''}>Propia</option>
+          <option value="cooperativa" ${o.tipo==='cooperativa'?'selected':''}>Cooperativa</option>
+          <option value="tercero" ${o.tipo==='tercero'?'selected':''}>Tercero</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mu)">
+          <span>Desde</span>
+          <select style="background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:3px 4px;color:var(--tx);font-size:11px;font-family:'DM Sans',sans-serif" onchange="editarFechaObra(${i},'desde',this.value+'|'+this.nextElementSibling.value)">
+            ${['01','02','03','04','05','06','07','08','09','10','11','12'].map((m,mi)=>`<option value="${m}" ${(o.desde||'').slice(5,7)===m?'selected':''}>${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mi]}</option>`).join('')}
+          </select>
+          <select style="background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:3px 4px;color:var(--tx);font-size:11px;font-family:'DM Sans',sans-serif;width:60px" onchange="editarFechaObra(${i},'desde',this.previousElementSibling.value+'|'+this.value)">
+            ${['2024','2025','2026','2027','2028'].map(y=>`<option value="${y}" ${(o.desde||'').slice(0,4)===y?'selected':''}>${y}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mu)">
+          <span>Hasta</span>
+          <select style="background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:3px 4px;color:var(--tx);font-size:11px;font-family:'DM Sans',sans-serif" onchange="editarFechaObra(${i},'hasta',this.value==='__'?'':this.value+'|'+this.nextElementSibling.value)">
+            <option value="__" ${!o.hasta?'selected':''}>En cartel</option>
+            ${['01','02','03','04','05','06','07','08','09','10','11','12'].map((m,mi)=>`<option value="${m}" ${(o.hasta||'').slice(5,7)===m?'selected':''}>${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mi]}</option>`).join('')}
+          </select>
+          <select style="background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:3px 4px;color:var(--tx);font-size:11px;font-family:'DM Sans',sans-serif;width:60px" onchange="editarFechaObra(${i},'hasta',this.previousElementSibling.value==='__'?'':this.previousElementSibling.value+'|'+this.value)">
+            ${['2024','2025','2026','2027','2028'].map(y=>`<option value="${y}" ${(o.hasta||'2026').slice(0,4)===y?'selected':''}>${y}</option>`).join('')}
+          </select>
+        </div>
+        <button style="background:${activa?'var(--redbg)':'var(--grbg)'};border:1px solid ${activa?'var(--redbd)':'var(--grbd)'};color:${activa?'var(--red)':'var(--green)'};border-radius:6px;cursor:pointer;font-size:11px;padding:3px 10px;font-family:'DM Sans',sans-serif;font-weight:600;margin-left:auto"
+          onclick="toggleObra(${i})">${activa?'Dar de baja':'Reactivar'}</button>
+      </div>
+    </div>`;
+  }
+
+  const obrasIdx=OBRAS.map((o,i)=>({o,i}));
+  const metFiltered=(f==='PLP')?'':obrasIdx.filter(({o})=>o.teatro==='MET').map(({o,i})=>filaObra(o,i)).join('');
+  const plpFiltered=(f==='MET')?'':obrasIdx.filter(({o})=>o.teatro==='PLP').map(({o,i})=>filaObra(o,i)).join('');
+
+  document.getElementById('obras-met').innerHTML=metFiltered||'<div class="empty">Sin resultados.</div>';
+  document.getElementById('obras-plp').innerHTML=plpFiltered||'<div class="empty">Sin resultados.</div>';
+}
+
+function cambiarTipoObra(i,tipo){
+  OBRAS[i].tipo=tipo;
+  apiPost("editObra",{nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, tipo});
+}
+
+function editarFechaObra(i,campo,valor){
+  // valor puede ser "MM|YYYY" o "" (en cartel)
+  let fecha = '';
+  if(valor && valor.includes('|')){
+    const [mes,anio] = valor.split('|');
+    if(mes && anio) fecha = `${anio}-${mes}`;
+  }
+  OBRAS[i][campo] = fecha || null;
+  apiPost("editObra",{nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, hasta:OBRAS[i].hasta||''});
+}
+
+function toggleObra(i){
+  const hoy=new Date();
+  const activa=OBRAS[i].activa&&(!OBRAS[i].hasta||new Date(OBRAS[i].hasta+'-28')>=hoy);
+  if(activa){
+    if(!confirm(`¿Dar de baja "${OBRAS[i].n}"? Dejará de aparecer en el formulario de carga.`))return;
+    const hasta=new Date().toISOString().slice(0,7);
+    OBRAS[i].hasta=hasta;
+    apiPost("editObra",{nombre:OBRAS[i].n,teatro:OBRAS[i].teatro,hasta,activa:true});
+  } else {
+    OBRAS[i].hasta=null;OBRAS[i].activa=true;
+    apiPost("editObra",{nombre:OBRAS[i].n,teatro:OBRAS[i].teatro,hasta:'',activa:true});
+  }
+  buildObras();
+}
+function fObras(f,el){
+  document.querySelectorAll('#fbar-obras .fp').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');filtroObras=f;buildObras();
+}
+function abrirModalObra(){
+  document.getElementById('mo-nombre').value='';
+  const hoy=new Date();
+  document.getElementById('mo-desde-mes').value=String(hoy.getMonth()+1).padStart(2,'0');
+  document.getElementById('mo-desde-anio').value=String(hoy.getFullYear());
+  document.getElementById('mo-hasta-mes').value='';
+  document.getElementById('modal-obra').style.display='flex';
+}
+async function guardarObra(){
+  const n=document.getElementById('mo-nombre').value.trim();
+  if(!n){alert('Ingresá el nombre de la obra.');return;}
+  const desdeMes=document.getElementById('mo-desde-mes').value;
+  const desdeAnio=document.getElementById('mo-desde-anio').value;
+  const hastaMes=document.getElementById('mo-hasta-mes').value;
+  const hastaAnio=document.getElementById('mo-hasta-anio').value;
+  const desde=`${desdeAnio}-${desdeMes}`;
+  const hasta=hastaMes?`${hastaAnio}-${hastaMes}`:null;
+  const nueva={n,teatro:document.getElementById('mo-teatro').value,tipo:document.getElementById('mo-tipo').value,activa:true,desde,hasta,nota:''};
+  OBRAS.push(nueva);
+  try{ await apiPost("addObra",{nombre:nueva.n,teatro:nueva.teatro,tipo:nueva.tipo,desde:nueva.desde,hasta:nueva.hasta||''}); }catch(e){}
+  cerrarModal('modal-obra');buildObras();
+}
+
+// ════════════════════════════════════
+// PERSONAL
+// ════════════════════════════════════
+let sortP3Col='n', sortP3Dir=1;
+
+function sortPersonal(col){
+  if(sortP3Col===col) sortP3Dir*=-1;
+  else{sortP3Col=col;sortP3Dir=1;}
+  ['n','a','t','j'].forEach(c=>{
+    const el=document.getElementById('sp-'+c);
+    if(el)el.textContent=c===col?(sortP3Dir===1?'↑':'↓'):'↕';
+  });
+  buildPersonal3();
+}
+
+function buildPersonal3(){
+  const fa=document.getElementById('fp-p-area').value;
+  const ft=document.getElementById('fp-p-teatro').value;
+  const fe=document.getElementById('fp-p-estado').value;
+  let data=PERSONAL3.slice();
+  if(fe==='activos')data=data.filter(p=>p.ok);
+  else if(fe==='inactivos')data=data.filter(p=>!p.ok);
+  if(fa)data=data.filter(p=>p.a.includes(fa));
+  if(ft)data=data.filter(p=>p.t===ft||p.t==='AMBOS');
+
+  // Ordenar
+  data.sort((a,b)=>{
+    let va='',vb='';
+    if(sortP3Col==='n'){va=a.n;vb=b.n;}
+    else if(sortP3Col==='a'){va=(a.a||[])[0]||'';vb=(b.a||[])[0]||'';}
+    else if(sortP3Col==='t'){va=a.t||'';vb=b.t||'';}
+    else if(sortP3Col==='j'){va=a.j?'0':'1';vb=b.j?'0':'1';}
+    return va.localeCompare(vb)*sortP3Dir;
+  });
+
+  document.getElementById('tbody-personal3').innerHTML=data.map(p=>`
+    <tr>
+      <td style="font-weight:500;font-size:13px">${p.n}</td>
+      <td>${(p.a||[]).map(x=>`<span class="area-tag">${x.replace('_',' ')}</span>`).join('')}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${p.t}</td>
+      <td style="font-size:12px;color:var(--mu)">${p.j?'Jefe':'Técnico'}</td>
+      <td>${p.ok?`<span class="badge green">Activo</span>`:`<span class="badge red">Inactivo</span>`}</td>
+      <td>
+        ${p.ok
+          ?`<button class="btn red" style="padding:3px 10px;font-size:11px" onclick="toggleP3('${p.n.replace(/'/g,"\\'")}')">Dar de baja</button>`
+          :`<button class="btn green" style="padding:3px 10px;font-size:11px" onclick="toggleP3('${p.n.replace(/'/g,"\\'")}')">Reactivar</button>`}
+      </td>
+    </tr>`).join('');
+}
+function toggleP3(n){
+  const p=PERSONAL3.find(x=>x.n===n);
+  if(p){
+    p.ok=!p.ok;
+    apiPost("editPersona",{nombre:p.n, activo:p.ok});
+    buildPersonal3();
+  }
+}
+function abrirModalPersona(){document.getElementById('mp-nombre').value='';document.getElementById('modal-persona').style.display='flex';}
+async function guardarPersona(){
+  const n=document.getElementById('mp-nombre').value.trim().toUpperCase();
+  const t=document.getElementById('mp-teatro').value;
+  const a=document.getElementById('mp-area').value;
+  const a2=document.getElementById('mp-area2').value;
+  const j=document.getElementById('mp-rol').value==='JEFE';
+  if(!n||!a){alert('Completá nombre y área.');return;}
+  // Verificar en PERSONAL3 (variable correcta)
+  if(PERSONAL3.find(p=>p.n===n)){alert(`${n} ya existe en la nómina.`);return;}
+  const nueva={n,a:a2?[a,a2]:[a],t,j,ok:true};
+  PERSONAL3.push(nueva);
+  try{
+    const r=await apiPost("addPersona",{nombre:n,areas:a2?[a,a2]:[a],teatro:t,jefe:j,validado:true});
+    if(r.ok) console.log('Guardado en Sheet:', n);
+    else console.warn('Error Sheet:', r.error);
+  }catch(e){console.warn('Sin conexión, guardado solo local:', e);}
+  cerrarModal('modal-persona');
+  buildPersonal3();
+}
+
+// ════════════════════════════════════
+// EXPORTAR
+// ════════════════════════════════════
+function getVals(tipo){
+  if(tipo==='tecnicos')return VALORES.filter(v=>v.a.some(x=>['SONIDO','ILUMINACION','MAQUINARIA'].includes(x)));
+  if(tipo==='sala')return VALORES.filter(v=>v.a.includes('SALA'));
+  if(tipo==='terceros')return VALORES.filter(v=>v.l.toLowerCase().includes('tercero')||v.l.toLowerCase().includes('3ros'));
+  if(tipo==='mant')return VALORES.filter(v=>v.a.some(x=>['MANTENIMIENTO','LIMPIEZA'].includes(x)));
+  if(tipo==='boleteria')return VALORES.filter(v=>v.a.includes('BOLETERIA'));
+  return VALORES;
+}
+
+function exportarReporte(tipo,fmt_){
+  const vals=getVals(tipo);
+  const periodo=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;
+  if(fmt_==='xlsx'){
+    const wb=XLSX.utils.book_new();
+    const rows=[['TEATRO METROPOLITAN — PASEO LA PLAZA'],[`Valores HE — ${periodo}`],[''],[`Concepto`,'Tipo','Áreas','Valor ($)','Solo Jefe']];
+    vals.forEach(v=>rows.push([v.l,v.t,v.a.join('+'),v.v,v.jefe?'Sí':'']));
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:45},{wch:6},{wch:30},{wch:15},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'Valores');
+    XLSX.writeFile(wb,`HE_Valores_${tipo}_${VIG_DESDE}.xlsx`);
+  } else {
+    const tRows=vals.map(v=>`<tr><td>${v.l}</td><td>${v.t}</td><td style="font-size:10px">${v.a.join(', ')}</td><td style="text-align:right">${fmtN(v.v)}</td><td style="text-align:center">${v.jefe?'✓':''}</td></tr>`).join('');
+    printPDF(`Valores HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Concepto</th><th>Tipo</th><th>Áreas</th><th style="text-align:right">Valor ($)</th><th>Jefe</th></tr></thead><tbody>${tRows}</tbody></table>`);
+  }
+}
+
+function exportarPersonal(fmt_){
+  const periodo=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;
+  if(fmt_==='xlsx'){
+    const wb=XLSX.utils.book_new();
+    const rows=[['Nombre','Área(s)','Teatro','Rol','Estado']];
+    PERSONAL.forEach(p=>rows.push([p.n,(p.a||[]).join('+'),p.t,p.j?'Jefe':'Técnico',p.ok?'Activo':'Inactivo']));
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:30},{wch:25},{wch:10},{wch:10},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'Personal');XLSX.writeFile(wb,`HE_Personal_${VIG_DESDE}.xlsx`);
+  } else {
+    const tRows=PERSONAL.map(p=>`<tr><td>${p.n}</td><td style="font-size:10px">${(p.a||[]).join(', ')}</td><td>${p.t}</td><td>${p.j?'Jefe':'Técnico'}</td><td>${p.ok?'Activo':'Inactivo'}</td></tr>`).join('');
+    printPDF(`Personal HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Nombre</th><th>Área(s)</th><th>Teatro</th><th>Rol</th><th>Estado</th></tr></thead><tbody>${tRows}</tbody></table>`);
+  }
+}
+
+function exportarObras(fmt_){
+  const periodo=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;
+  const activas=OBRAS.filter(o=>o.activa);
+  if(fmt_==='xlsx'){
+    const wb=XLSX.utils.book_new();
+    const rows=[['Nombre','Teatro','Tipo','Desde','Hasta','Estado']];
+    activas.forEach(o=>rows.push([o.n,o.teatro,tipoLabel(o.tipo),o.desde||'',o.hasta||'Activa','Activa']));
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:40},{wch:10},{wch:15},{wch:10},{wch:10},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'Obras');XLSX.writeFile(wb,`HE_Obras_${VIG_DESDE}.xlsx`);
+  } else {
+    const tRows=activas.map(o=>`<tr><td>${o.n}</td><td>${o.teatro}</td><td>${tipoLabel(o.tipo)}</td><td style="font-size:10px">${o.desde||'—'}</td><td style="font-size:10px">${o.hasta||'—'}</td></tr>`).join('');
+    printPDF(`Obras activas — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Obra</th><th>Teatro</th><th>Tipo</th><th>Desde</th><th>Hasta</th></tr></thead><tbody>${tRows}</tbody></table>`);
+  }
+}
+
+function printPDF(titulo,contenido){
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titulo}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:32px}h1{font-size:17px;margin-bottom:4px}h2{font-size:12px;color:#666;margin-bottom:16px}table{border-top:2px solid #ccc;border-bottom:2px solid #ccc}th{font-size:10px;text-transform:uppercase;color:#666;border-bottom:1px solid #ccc}td{border-bottom:1px solid #eee}@media print{body{margin:16px}}</style></head><body><h1>${titulo}</h1><h2>Teatro Metropolitan — Paseo La Plaza</h2>${contenido}<script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();
+}
+
+// ════════════════════════════════════
+// NAV + UTILS
+// ════════════════════════════════════
+function showP3(id){
+  document.querySelectorAll('.view-p3').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(`view-p3-${id}`).classList.add('active');
+  const ni=document.getElementById(`nav-${id}`);if(ni)ni.classList.add('active');
+  if(id==='exportar'){const ep=document.getElementById('export-periodo');if(ep)ep.textContent=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;}
+}
+function cerrarModal(id){document.getElementById(id).style.display='none';}
+function fmt(n){return Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtN(n){return Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtD(d){return d.toLocaleDateString('es-AR');}
+function fmtD2(v){if(!v)return'—';const[y,m,d]=v.split('-');return`${d}/${m}/${y}`;}
+function fmtM(v){if(!v)return'—';const[y,m]=v.split('-');const d=new Date(y,m-1,1);return d.toLocaleString('es-AR',{month:'short',year:'numeric'});}
+</script>
+</body>
+</html>

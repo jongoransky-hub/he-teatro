@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard HE — Teatro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f5f4f0;--sf:#fff;--s2:#f0efe9;--bd:#e2e0d8;
+  --tx:#1a1a18;--mu:#6b6960;--dm:#b0aea4;
+  --ac:#1a1a18;--ac2:#c8f542;
+  --red:#d93025;--redbg:#fde8e7;--redbd:#f5b4b0;
+  --amber:#c87800;--ambg:#fff3e0;--ambd:#ffcc80;
+  --green:#1e7e34;--grbg:#e8f5e9;--grbd:#a5d6a7;
+  --blue:#1565c0;--blbg:#e3f2fd;--blbd:#90caf9;
+  --purple:#6a1b9a;--pubg:#f3e5f5;--pubd:#ce93d8;
+  --r:10px;--rs:6px;--sh:0 1px 3px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;min-height:100vh}
+
+/* TOP BAR */
+.topbar{background:var(--ac);color:#fff;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.tb-left{display:flex;align-items:center;gap:12px}
+.tb-dot{width:8px;height:8px;background:var(--ac2);border-radius:50%}
+.tb-title{font-size:14px;font-weight:600}
+.tb-mes{font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase}
+.tb-right{display:flex;align-items:center;gap:10px}
+.tb-badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;cursor:pointer;transition:opacity .1s}
+.tb-badge:hover{opacity:.85}
+.tb-date{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.45)}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:258px 1fr;min-height:calc(100vh - 52px)}
+.sidebar{background:var(--sf);border-right:1px solid var(--bd);padding:14px 0;overflow-y:auto;position:sticky;top:52px;height:calc(100vh - 52px)}
+.main{padding:20px 24px;overflow-y:auto}
+
+.nav-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;padding:10px 16px 4px}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;margin:1px 8px;border-radius:var(--rs);cursor:pointer;color:var(--mu);font-size:13px;font-weight:500;transition:background .1s;gap:8px}
+.nav-item:hover{background:var(--s2)}
+.nav-item.active{background:var(--ac);color:#fff}
+.nav-item.active .nbadge{background:rgba(255,255,255,.2);color:#fff}
+.nbadge{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--s2);flex-shrink:0}
+.nbadge.red{background:var(--redbg);color:var(--red)}
+.nbadge.amber{background:var(--ambg);color:var(--amber)}
+.ndiv{height:1px;background:var(--bd);margin:6px 12px}
+
+/* CARDS */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:14px;overflow:hidden}
+.card-head{padding:11px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-title{font-size:13px;font-weight:600}
+.card-body{padding:16px}
+
+/* METRICS — clickeables */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.metric{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:13px 15px;box-shadow:var(--sh);cursor:pointer;transition:all .15s;position:relative}
+.metric:hover{border-color:var(--ac);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.metric-hint{position:absolute;top:8px;right:10px;font-size:10px;color:var(--dm)}
+.m-lbl{font-size:11px;color:var(--mu);font-weight:500;margin-bottom:4px}
+.m-val{font-size:20px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.m-sub{font-size:11px;color:var(--mu);margin-top:3px;font-family:'DM Mono',monospace}
+.metric.red .m-val{color:var(--red)}.metric.green .m-val{color:var(--green)}.metric.amber .m-val{color:var(--amber)}
+
+/* SEARCH + FILTERS */
+.search-bar{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
+.search-input{flex:1;min-width:180px;padding:7px 12px;border:1px solid var(--bd);border-radius:var(--rs);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--sf);color:var(--tx);outline:none;transition:border-color .15s}
+.search-input:focus{border-color:var(--ac)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.fp{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--mu);transition:all .1s}
+.fp:hover{border-color:var(--ac)}
+.fp.active{background:var(--ac);border-color:var(--ac);color:#fff}
+.fsep{color:var(--bd);line-height:1}
+
+/* TABLA */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-size:10px;font-weight:600;color:var(--mu);letter-spacing:.07em;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid var(--bd);background:var(--s2);white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--bd);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#fafaf7}
+.mono{font-family:'DM Mono',monospace;font-size:11px}
+.fw{font-weight:600}
+.monto{font-weight:600;font-variant-numeric:tabular-nums;font-family:'DM Mono',monospace}
+.monto.ok{color:var(--green)}.monto.err{color:var(--red)}
+
+/* TAGS */
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
+.tag.ok{background:var(--grbg);color:var(--green)}
+.tag.warn{background:var(--ambg);color:var(--amber)}
+.tag.err{background:var(--redbg);color:var(--red)}
+.tag.info{background:var(--blbg);color:var(--blue)}
+.tag.purple{background:var(--pubg);color:var(--purple)}
+.tag.gray{background:var(--s2);color:var(--mu);opacity:.7}
+.tdot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.p-area{font-size:10px;padding:1px 6px;border-radius:999px;background:var(--s2);color:var(--mu);font-family:'DM Mono',monospace;white-space:nowrap;display:inline-block}
+.p-areas{display:flex;gap:3px;flex-wrap:wrap}
+
+/* ALERTAS */
+.al{display:flex;gap:10px;padding:11px 13px;border-radius:var(--rs);margin-bottom:8px;border:1px solid;align-items:flex-start;cursor:pointer;transition:box-shadow .1s}
+.al:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.al.red{background:var(--redbg);border-color:var(--redbd)}
+.al.amber{background:var(--ambg);border-color:var(--ambd)}
+.al.blue{background:var(--blbg);border-color:var(--blbd)}
+.al.gray{background:var(--s2);border-color:var(--bd);opacity:.55}
+.al-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.al-body{flex:1;min-width:0}
+.al-title{font-weight:600;font-size:13px;margin-bottom:2px}
+.al-desc{font-size:12px;color:var(--mu);line-height:1.5}
+.al-time{font-size:11px;font-family:'DM Mono',monospace;color:var(--dm);margin-top:3px}
+.al-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.al-btn{padding:4px 10px;border-radius:var(--rs);font-size:11px;font-weight:600;cursor:pointer;border:1px solid;font-family:'DM Sans',sans-serif;background:transparent}
+.al-btn.read{border-color:var(--bd);color:var(--mu)}.al-btn.read:hover{background:var(--bd)}
+.al-btn.renew{border-color:var(--grbd);color:var(--green)}
+.al-btn.del{border-color:var(--redbd);color:var(--red)}
+
+/* CONSOLIDADO */
+.obra-block{border:1px solid var(--bd);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.obra-head{padding:9px 13px;background:var(--s2);display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;gap:10px}
+.obra-nom{font-weight:600;font-size:13px}
+.obra-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.otag{font-size:10px;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:999px;font-weight:700}
+.otag.propia{background:var(--grbg);color:var(--green)}
+.otag.tercero{background:var(--ambg);color:var(--amber)}
+.otag.asume{background:var(--pubg);color:var(--purple)}
+.obra-tot{font-weight:700;font-variant-numeric:tabular-nums;font-family:'DM Mono',monospace;white-space:nowrap}
+.obra-rows{display:none}.obra-rows.open{display:block}
+.obra-row{display:flex;justify-content:space-between;align-items:center;padding:7px 13px;border-top:1px solid var(--bd);font-size:12px}
+.obra-rl{color:var(--mu)}.obra-rr{font-weight:500;font-family:'DM Mono',monospace}
+
+/* CC */
+.cc-sel{font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:4px 8px;color:var(--tx);font-family:'DM Sans',sans-serif;cursor:pointer;width:100%}
+.cc-sel:focus{outline:none;border-color:var(--ac)}
+
+/* IMPUTAR */
+.imp-row{display:grid;grid-template-columns:155px 1fr 88px 220px 110px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}
+.imp-row:last-child{border-bottom:none}
+.imp-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-info{font-size:11px;color:var(--mu);overflow:hidden}
+.imp-monto{font-weight:600;font-family:'DM Mono',monospace;text-align:right}
+
+/* MAILS */
+.mail-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.mtab{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--mu);white-space:nowrap;transition:all .1s}
+.mtab.active{background:var(--ac);border-color:var(--ac);color:#fff}
+.mail-pre{background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:14px;font-size:12px;line-height:1.7;font-family:'DM Mono',monospace;white-space:pre-wrap;max-height:300px;overflow-y:auto;margin-bottom:12px}
+
+/* EDIT RECORD */
+.edit-row{background:var(--ambg);border:1px solid var(--ambd)}
+.edit-input{width:100%;padding:5px 8px;border:1px solid var(--bd);border-radius:var(--rs);font-size:12px;font-family:'DM Sans',sans-serif;background:var(--sf);color:var(--tx)}
+.edit-input:focus{outline:none;border-color:var(--ac)}
+.notif-log{background:var(--blbg);border:1px solid var(--blbd);border-radius:var(--rs);padding:8px 12px;font-size:12px;color:var(--blue);margin-top:6px;font-family:'DM Mono',monospace}
+
+/* PERSONAL */
+.persona-row{display:grid;grid-template-columns:1fr 170px 70px 100px 130px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.persona-row:last-child{border-bottom:none}
+.persona-row.sinvalidar{background:#fffde7;border-left:3px solid var(--amber);padding-left:8px;margin-left:-8px}
+.persona-row.inactivo{opacity:.4}
+
+/* BTN */
+.btn{padding:7px 14px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;border:1px solid;font-family:'DM Sans',sans-serif;transition:all .1s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.ghost{background:transparent;border-color:var(--bd);color:var(--mu)}
+.btn.green{background:var(--grbg);border-color:var(--grbd);color:var(--green)}
+.btn.red{background:var(--redbg);border-color:var(--redbd);color:var(--red)}
+.btn.amber{background:var(--ambg);border-color:var(--ambd);color:var(--amber)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.export-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+
+.view{display:none}.view.active{display:block}
+.empty{text-align:center;padding:32px 20px;color:var(--mu);font-size:13px;line-height:1.6}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--sf);border-radius:var(--r);padding:24px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:16px}
+.mf{margin-bottom:14px}
+.mf label{display:block;font-size:12px;color:var(--mu);margin-bottom:5px;font-weight:500}
+.mf input,.mf select,.mf textarea{width:100%;padding:9px 12px;border:1px solid var(--bd);border-radius:var(--rs);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--s2);color:var(--tx);outline:none}
+.mf input:focus,.mf select:focus,.mf textarea:focus{border-color:var(--ac)}
+.mf textarea{resize:none;height:70px;line-height:1.5}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <div class="tb-dot"></div>
+    <span class="tb-title">HE — Panel de control</span>
+    <span class="tb-mes" id="tb-mes"></span>
+  </div>
+  <div class="tb-right">
+    <div class="tb-badge" id="tb-badge" onclick="showView('alertas')" style="display:none"></div>
+    <span class="tb-date" id="tb-date"></span>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar">
+  <div class="nav-lbl">Panel</div>
+  <div class="nav-item active" id="nav-estado" onclick="showView('estado')">
+    <span>Estado del mes</span>
+    <span class="nbadge red" id="nb-faltantes" style="display:none"></span>
+  </div>
+  <div class="nav-item" id="nav-alertas" onclick="showView('alertas')">
+    <span>Alertas</span>
+    <span class="nbadge red" id="nb-alertas" style="display:none"></span>
+  </div>
+  <div class="ndiv"></div>
+  <div class="nav-lbl">Cierre</div>
+  <div class="nav-item" id="nav-consolidado" onclick="showView('consolidado')">Consolidado por obra</div>
+  <div class="nav-item" id="nav-imputar" onclick="showView('imputar')">
+    <span>Imputar / CC</span>
+    <span class="nbadge amber" id="nb-imputar" style="display:none"></span>
+  </div>
+  <div class="nav-item" id="nav-mails" onclick="showView('mails')">Generar mails</div>
+  <div class="nav-item" id="nav-cierremes" onclick="showView('cierremes')" style="color:var(--amber)">⊙ Cierre de mes</div>
+  <div class="ndiv"></div>
+  <div class="nav-lbl">Configuración</div>
+  <div class="nav-item" id="nav-personal" onclick="showView('personal')">
+    <span>Personal</span>
+    <span class="nbadge amber" id="nb-sinval" style="display:none"></span>
+  </div>
+  <div class="nav-item" id="nav-registros" onclick="showView('registros')">Todos los registros</div>
+</div>
+
+<div class="main">
+
+<!-- ═══ ESTADO ═══ -->
+<div class="view active" id="view-estado">
+  <div class="metrics" id="metrics-row"></div>
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Estado por persona</span>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--bd)">
+      <div class="search-bar">
+        <input class="search-input" id="buscar-persona" placeholder="Buscar por nombre…" oninput="buildEstado()">
+        <select class="cc-sel" style="width:auto;min-width:130px" id="filtro-area-estado" onchange="buildEstado()">
+          <option value="">Todas las áreas</option>
+          <option value="SALA">Sala</option>
+          <option value="BOLETERIA">Boletería</option>
+          <option value="SONIDO">Sonido</option>
+          <option value="ILUMINACION">Iluminación</option>
+          <option value="MAQUINARIA">Maquinaria</option>
+          <option value="MANTENIMIENTO">Mantenimiento</option>
+          <option value="LIMPIEZA">Limpieza</option>
+        </select>
+        <select class="cc-sel" style="width:auto;min-width:110px" id="filtro-teatro-estado" onchange="buildEstado()">
+          <option value="">Ambos teatros</option>
+          <option value="MET">MET</option>
+          <option value="PLP">PLP</option>
+        </select>
+      </div>
+      <div class="filters" style="margin:0">
+        <div class="fp active" id="fp-todos" onclick="fEstado('todos',this)">Todos</div>
+        <div class="fp" id="fp-concarga" onclick="fEstado('concarga',this)">Con carga</div>
+        <div class="fp" onclick="fEstado('faltantes',this)">Sin carga</div>
+        <div class="fp" onclick="fEstado('alerta',this)">Con alerta</div>
+        <div class="fp" onclick="fEstado('sinvalidar',this)">Sin validar</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th style="cursor:pointer;user-select:none" onclick="sortEstado('nombre')">Nombre <span id="sort-nombre">↕</span></th>
+          <th style="cursor:pointer;user-select:none" onclick="sortEstado('area')">Área(s) <span id="sort-area">↕</span></th>
+          <th style="cursor:pointer;user-select:none" onclick="sortEstado('teatro')">Teatro <span id="sort-teatro">↕</span></th>
+          <th>Reg.</th><th>Último</th><th>Total</th><th>Estado</th>
+        </tr></thead>
+        <tbody id="tbody-estado"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ALERTAS ═══ -->
+<div class="view" id="view-alertas">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Alertas activas</span>
+      <div class="filters" style="margin:0">
+        <div class="fp active" onclick="fAlertas('activas',this)">Activas</div>
+        <div class="fp" onclick="fAlertas('leidas',this)">Leídas</div>
+        <div class="fp" onclick="fAlertas('todas',this)">Todas</div>
+      </div>
+    </div>
+    <div class="card-body" id="alertas-body"></div>
+  </div>
+</div>
+
+<!-- ═══ CONSOLIDADO ═══ -->
+<div class="view" id="view-consolidado">
+  <div class="export-row">
+    <button class="btn primary" onclick="exportXLSX()">Exportar XLSX</button>
+    <button class="btn ghost" onclick="exportPDF()">Exportar PDF</button>
+  </div>
+  <div class="filters" id="f-consolidado">
+    <div class="fp active" onclick="fConsolid('todos',this)">Todas</div>
+    <div class="fp" onclick="fConsolid('PROPIA',this)">Propias</div>
+    <div class="fp" onclick="fConsolid('TERCERO',this)">Terceros</div>
+    <div class="fp" onclick="fConsolid('ASUME',this)">Sala asume</div>
+    <span class="fsep">|</span>
+    <div class="fp" onclick="fConsolid('MET',this)">MET</div>
+    <div class="fp" onclick="fConsolid('PLP',this)">PLP</div>
+  </div>
+  <div id="consolidado-body"></div>
+  <div class="card"><div class="card-head"><span class="card-title">Totales</span></div><div class="card-body" id="consolidado-totales"></div></div>
+</div>
+
+<!-- ═══ IMPUTAR ═══ -->
+<div class="view" id="view-imputar">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Imputar centro de costo</span>
+      <div class="btn-row">
+        <button class="btn ghost" onclick="aplicarDefaults()">Aplicar defaults</button>
+        <button class="btn primary" onclick="guardarImput()">Guardar</button>
+      </div>
+    </div>
+    <div class="card-body" id="imputar-body"></div>
+  </div>
+</div>
+
+<!-- ═══ MAILS ═══ -->
+<div class="view" id="view-mails">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Mails de cierre</span>
+      <div class="btn-row">
+        <button class="btn green" onclick="exportXLSX()">XLSX completo</button>
+        <button class="btn ghost" onclick="exportPDF()">PDF resumen</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mail-tabs" id="mail-tabs"></div>
+      <div class="mail-pre" id="mail-pre"></div>
+      <div class="btn-row">
+        <button class="btn primary" onclick="copiarMail()">Copiar texto</button>
+        <button class="btn ghost" onclick="descargarMail()">Descargar .txt</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PERSONAL ═══ -->
+<div class="view" id="view-personal">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Gestión de personal</span>
+      <button class="btn primary" onclick="abrirModalPersona()">+ Agregar persona</button>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--bd)">
+      <div class="filters" id="f-personal" style="margin:0">
+        <div class="fp active" onclick="fPersonal('activos',this)">Activos</div>
+        <div class="fp" onclick="fPersonal('sinvalidar',this)">Sin validar</div>
+        <div class="fp" onclick="fPersonal('MET',this)">MET</div>
+        <div class="fp" onclick="fPersonal('PLP',this)">PLP</div>
+        <div class="fp" onclick="fPersonal('inactivo',this)">Inactivos</div>
+      </div>
+    </div>
+    <div class="card-body" id="personal-body"></div>
+  </div>
+</div>
+
+<!-- ═══ REGISTROS ═══ -->
+<div class="view" id="view-registros">
+  <div class="export-row">
+    <button class="btn primary" onclick="exportXLSX()">Exportar XLSX</button>
+    <button class="btn ghost" onclick="exportPDF()">Exportar PDF</button>
+  </div>
+  <div class="filters" id="f-registros">
+    <div class="fp active" onclick="fReg('todos',this)">Todos</div>
+    <div class="fp" onclick="fReg('MET',this)">MET</div>
+    <div class="fp" onclick="fReg('PLP',this)">PLP</div>
+    <span class="fsep">|</span>
+    <div class="fp" onclick="fReg('SALA',this)">Sala</div>
+    <div class="fp" onclick="fReg('BOLETERIA',this)">Boletería</div>
+    <div class="fp" onclick="fReg('SONIDO',this)">Sonido</div>
+    <div class="fp" onclick="fReg('ILUMINACION',this)">Iluminación</div>
+    <div class="fp" onclick="fReg('MAQUINARIA',this)">Maquinaria</div>
+    <div class="fp" onclick="fReg('MANTENIMIENTO',this)">Mant.</div>
+    <div class="fp" onclick="fReg('LIMPIEZA',this)">Limp.</div>
+  </div>
+  <div class="card"><div style="overflow-x:auto">
+    <table class="tbl"><thead><tr>
+      <th>Fecha</th><th>Nombre</th><th>Área</th><th>Teatro·Sala</th>
+      <th>Obra</th><th>Tipo HE</th><th>Hs/Q</th><th>Total</th><th>CC</th><th>Flags</th><th>Editar</th>
+    </tr></thead><tbody id="tbody-registros"></tbody></table>
+  </div></div>
+</div>
+
+<!-- ═══ CIERRE DE MES ═══ -->
+<div class="view" id="view-cierremes">
+  <div class="card" id="cierremes-estado-card">
+    <div class="card-head">
+      <span class="card-title" id="cierremes-titulo">Cierre de mes</span>
+      <span class="nbadge" id="cierremes-badge" style="background:var(--ambg);color:var(--amber)"></span>
+    </div>
+    <div class="card-body" id="cierremes-body"></div>
+  </div>
+  <div class="card" id="cierremes-historial-card">
+    <div class="card-head"><span class="card-title">Historial de meses cerrados</span></div>
+    <div class="card-body" id="cierremes-historial"></div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+</div><!-- /layout -->
+
+<!-- MODAL PERSONA -->
+<div class="modal-overlay" id="modal-persona" style="display:none" onclick="if(event.target===this)cerrarModal('modal-persona')">
+  <div class="modal">
+    <h3 id="modal-persona-titulo">Agregar persona</h3>
+    <div class="mf"><label>Apellido y nombre</label><input type="text" id="m-nombre" placeholder="APELLIDO, Nombre" oninput="this.value=this.value.toUpperCase()"></div>
+    <div class="mf"><label>Teatro</label>
+      <select id="m-teatro"><option value="MET">MET</option><option value="PLP">PLP</option><option value="AMBOS">Ambos</option></select>
+    </div>
+    <div class="mf"><label>Área principal</label>
+      <select id="m-area"><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select>
+    </div>
+    <div class="mf"><label>Área secundaria (opcional)</label>
+      <select id="m-area2"><option value="">— Ninguna —</option><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select>
+    </div>
+    <div class="mf"><label>Rol</label><select id="m-rol"><option value="TECNICO">Técnico</option><option value="JEFE">Jefe de área</option></select></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-persona')">Cancelar</button>
+      <button class="btn primary" onclick="guardarPersona()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR REGISTRO -->
+<div class="modal-overlay" id="modal-edit" style="display:none" onclick="if(event.target===this)cerrarModal('modal-edit')">
+  <div class="modal">
+    <h3>Editar registro</h3>
+    <div id="edit-info" style="background:var(--s2);border-radius:var(--rs);padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--mu)"></div>
+    <div class="mf"><label>Fecha</label><input type="date" id="e-fecha"></div>
+    <div class="mf"><label>Horario desde</label><input type="time" id="e-desde"></div>
+    <div class="mf"><label>Horario hasta</label><input type="time" id="e-hasta"></div>
+    <div class="mf"><label>Descripción</label><input type="text" id="e-desc"></div>
+    <div class="mf"><label>Tipo HE</label><input type="text" id="e-tipo"></div>
+    <div class="mf"><label>Total ($)</label><input type="number" id="e-total"></div>
+    <div class="mf"><label>Obra</label>
+      <select id="e-obra"></select>
+    </div>
+    <div class="mf"><label>Motivo de la corrección <span style="color:var(--red)">*</span></label>
+      <textarea id="e-motivo" placeholder="Explicá brevemente por qué se corrige este registro. Esta nota le llegará a la persona."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-edit')">Cancelar</button>
+      <button class="btn amber" onclick="guardarEdit()">Guardar corrección</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VALIDAR PERSONA -->
+<div class="modal-overlay" id="modal-validar" style="display:none" onclick="if(event.target===this)cerrarModal('modal-validar')">
+  <div class="modal">
+    <h3>Validar persona nueva</h3>
+    <div id="validar-info" style="background:var(--ambg);border:1px solid var(--ambd);border-radius:var(--rs);padding:10px 12px;margin-bottom:14px;font-size:13px"></div>
+    <div class="mf"><label>Confirmar nombre</label><input type="text" id="v-nombre" oninput="this.value=this.value.toUpperCase()"></div>
+    <div class="mf"><label>Teatro</label>
+      <select id="v-teatro"><option value="MET">MET</option><option value="PLP">PLP</option><option value="AMBOS">Ambos</option></select>
+    </div>
+    <div class="mf"><label>Área principal</label>
+      <select id="v-area"><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select>
+    </div>
+    <div class="mf"><label>Área secundaria (opcional)</label>
+      <select id="v-area2"><option value="">— Ninguna —</option><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select>
+    </div>
+    <div class="mf"><label>Rol</label><select id="v-rol"><option value="TECNICO">Técnico</option><option value="JEFE">Jefe de área</option></select></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-validar')">Cancelar</button>
+      <button class="btn green" onclick="confirmarValidar()">Validar y agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// BACKEND — Google Apps Script
+// ════════════════════════════════════════════
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLU3Adp7TbOR_hwPd2fsR72Fwo9-qOT8lYNeuUnk16o9vsxnr-SZRHVRIyamXmXhxE/exec";
+
+async function apiGet(action, params={}) {
+  try {
+    const url = new URL(SCRIPT_URL);
+    url.searchParams.set("action", action);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+    const res = await fetch(url.toString());
+    return await res.json();
+  } catch(e) {
+    console.error("apiGet error:", e);
+    return {ok:false, error: e.toString()};
+  }
+}
+
+async function apiPost(action, data) {
+  // Usamos GET con payload codificado para evitar bloqueo CORS en iOS Safari.
+  // El Apps Script detecta el parámetro "payload" y lo procesa como POST.
+  try {
+    const payload = encodeURIComponent(JSON.stringify({action, data}));
+    const url = `${SCRIPT_URL}?payload=${payload}`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch(e) {
+    console.error("apiPost error:", e);
+    return {ok:false, error: e.toString()};
+  }
+}
+
+// Indicador de conexión
+function mostrarEstadoBackend(ok) {
+  const tb = document.getElementById('tb-badge');
+  if (!ok) {
+    const warn = document.createElement('span');
+    warn.style.cssText = "font-size:11px;color:#f5a623;font-family:'DM Mono',monospace;margin-right:6px";
+    warn.textContent = "⚠ offline";
+    warn.id = "backend-warn";
+    if (!document.getElementById('backend-warn')) tb.parentNode.insertBefore(warn, tb);
+  }
+}
+
+// ════════════════════════════════════════════
+// PERSONAL COMPLETO CORREGIDO
+// ════════════════════════════════════════════
+let PERSONAL = [
+  // SALA PLP
+  {n:'PAGLIARI, AGUSTINA',     areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'ABAL, LUNA',             areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'ABAL, MACARENA',         areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'PAGLIARI, CAROLINA',     areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'ASADO, SILVIA',          areas:['SALA','BOLETERIA'],  teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'FERRIOL, DAIANA',        areas:['SALA','BOLETERIA'],  teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'FORTIS, GABRIELA',       areas:['SALA','BOLETERIA'],  teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'ORELLANA, FERNANDA',     areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'PEREIRA, ROMINA',        areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'VERA PEREZ, PAULA',      areas:['SALA','BOLETERIA'],  teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'RIFICI, EVA',            areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'RIFICI, MARIEL',         areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'RODRIGUEZ, LEANDRO',     areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'ROJAS, GABRIELA',        areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'ROSSI, MARIA LAURA',     areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'SANCHEZ MALCOLM, M EUGENIA',areas:['SALA'],           teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'ALVAREZ, DIEGO',         areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'PORTILLO, BRIAN',        areas:['SALA'],              teatro:'PLP', jefe:false,activo:true,validado:true},
+  // BOLETERÍA PLP exclusivos
+  {n:'VELA GALVAN, ARIEL',     areas:['BOLETERIA'],         teatro:'PLP', jefe:false,activo:true,validado:true},
+  // ILUMINACIÓN PLP
+  {n:'PELOZO, DAVID',          areas:['ILUMINACION'],       teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'GOMEZ, SERGIO',          areas:['ILUMINACION'],       teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'LA ROSA, HORACIO',       areas:['ILUMINACION'],       teatro:'AMBOS',jefe:true, activo:true,validado:true},
+  {n:'LA ROSA, LAUTARO',       areas:['ILUMINACION'],       teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'MUÑOZ, DAMIAN',          areas:['ILUMINACION'],       teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'MUÑOZ, LEONARDO',        areas:['ILUMINACION'],       teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'PELOZO, RAUL',           areas:['ILUMINACION'],       teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'PEREZ, FACUNDO',         areas:['ILUMINACION'],       teatro:'PLP', jefe:false,activo:true,validado:true},
+  // SONIDO PLP/AMBOS
+  {n:'ABAL, PABLO',            areas:['SONIDO'],            teatro:'AMBOS',jefe:true, activo:true,validado:true},
+  {n:'ABAL, TOMAS',            areas:['SONIDO'],            teatro:'AMBOS',jefe:false,activo:true,validado:true},
+  {n:'ALVAREZ, FEDERICO',      areas:['SONIDO'],            teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'BICA, DANIEL',           areas:['SONIDO'],            teatro:'AMBOS',jefe:false,activo:true,validado:true},
+  {n:'SOSA, HELEN',            areas:['SONIDO'],            teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'DEASMUNDIS, ADRIAN',     areas:['SONIDO'],            teatro:'PLP', jefe:false,activo:true,validado:true},
+  {n:'FERREYRA, CARLOS',       areas:['SONIDO'],            teatro:'AMBOS',jefe:false,activo:true,validado:true},
+  {n:'MASCALI, ARIEL',         areas:['SONIDO'],            teatro:'AMBOS',jefe:false,activo:true,validado:true},
+  // SALA MET
+  {n:'VILLALBA, ANAHI',        areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'SALVIONI, PAULINA',      areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'CHIODI, MACARENA',       areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'BUCCHINO, AGOSTINA',     areas:['SALA','BOLETERIA'],  teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'ARAGONES, PATRICIA',     areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'SOTTOSANTI, ROMINA',     areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'SALOMON, VERONICA',      areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'SALOMON, AYELEN',        areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'RODRIGUEZ, DANIEL',      areas:['SALA','BOLETERIA'],  teatro:'MET', jefe:false,activo:true,validado:true},
+  // BOLETERÍA MET exclusivos
+  {n:'DI NAPOLI, MARIANO',     areas:['BOLETERIA'],         teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'CAETANO, MICAELA',       areas:['BOLETERIA'],         teatro:'MET', jefe:false,activo:true,validado:true},
+  // ILUMINACIÓN MET
+  {n:'DALMASSO, ROBERTO',      areas:['ILUMINACION'],       teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'SERRAN, SEBASTIAN',      areas:['ILUMINACION'],       teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'GONZALEZ, PATRICIO',     areas:['ILUMINACION'],       teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'GONZALEZ, MARIANO',      areas:['ILUMINACION'],       teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'LEO MUÑOZ',              areas:['ILUMINACION'],       teatro:'MET', jefe:true, activo:true,validado:true},
+  // SONIDO MET exclusivos
+  {n:'PIROMALLI, LEANDRO',     areas:['SONIDO'],            teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'NAPOLI, CLARA',          areas:['SONIDO'],            teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'DE MILO, SANTIAGO',      areas:['SONIDO'],            teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'TAPIA, MARTIN',          areas:['SONIDO'],            teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'GIMENEZ, GABRIEL',       areas:['SONIDO'],            teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'MONTALBETTI, DANIELA',   areas:['SONIDO'],            teatro:'MET', jefe:false,activo:true,validado:true},
+  // MANTENIMIENTO
+  {n:'PATIÑO, ANDRES',         areas:['MANTENIMIENTO','LIMPIEZA'],teatro:'MET',jefe:false,activo:true,validado:true},
+  {n:'VARGAS, DAVID',          areas:['MANTENIMIENTO','LIMPIEZA'],teatro:'PLP',jefe:false,activo:true,validado:true},
+  {n:'SOSA, GERARDO',          areas:['MANTENIMIENTO'],     teatro:'MET', jefe:false,activo:true,validado:true},
+  // LIMPIEZA
+  {n:'MACIEL, IRMA',           areas:['LIMPIEZA'],          teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'SANTILLAN, ROCIO',       areas:['LIMPIEZA'],          teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'BENITEZ, ILDA',          areas:['LIMPIEZA'],          teatro:'MET', jefe:false,activo:true,validado:true},
+  // MAQUINARIA
+  {n:'ARGAÑARAZ, NICOLAS',     areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'BARRETO, HUGO',          areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'PERCHLIK, EMANUEL',      areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'RIOS, CARLOS',           areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'LENCINA, ANDRES',        areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'ARAUJO, MARTIN',         areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'GAMBETTA, JUAN',         areas:['MAQUINARIA'],        teatro:'MET', jefe:true, activo:true,validado:true},
+  {n:'RUIZ, ERNESTO',          areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'LAZARTE, GUSTAVO',       areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'MATTIANICH, BRUNO',      areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'MEDINA, SEBASTIAN',      areas:['MAQUINARIA'],        teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'LANZA, DAMIAN',          areas:['MAQUINARIA'],        teatro:'PLP', jefe:true, activo:true,validado:true},
+];
+
+// ════════════════════════════════════════════
+// OBRAS CON TIPO DEFINIDO — propias vs terceros
+// ════════════════════════════════════════════
+const OBRAS_META = {
+  'Vitama':                    {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
+  'Habitación Macbeth':        {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
+  'Cuestión de Género':        {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
+  'Votemos':                   {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
+  'El Cuarto de Verónica':     {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
+  'Momi':                      {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
+  'Las Cautivas':              {tipo:'PROPIA', teatro:'PLP',cc:'rosepa'},
+  'En Otras Palabras':         {tipo:'PROPIA', teatro:'PLP',cc:'rosepa'},
+  'Othelo':                    {tipo:'PROPIA', teatro:'PLP',cc:'rosepa'},
+  'Edificio / Mant. MET':      {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
+  'Edificio / Mant. PLP':      {tipo:'PROPIA', teatro:'PLP',cc:'rosepa'},
+  'K Rental':                  {tipo:'TERCERO',teatro:'MET',cc:'krental'},
+  'K Prod. Comercial':         {tipo:'TERCERO',teatro:'MET',cc:'kprod'},
+  'Bossi Live':                {tipo:'TERCERO',teatro:'MET',cc:'bossi'},
+  'Petroleo':                  {tipo:'TERCERO',teatro:'PLP',cc:'petroleo'},
+  'Juampi González':           {tipo:'TERCERO',teatro:'MET',cc:'juampi'},
+  'Eventos MET':               {tipo:'TERCERO',teatro:'MET',cc:'eventos_met'},
+  'Eventos PLP':               {tipo:'TERCERO',teatro:'PLP',cc:'eventos_plp'},
+};
+const OBRAS_LIST = Object.keys(OBRAS_META);
+
+const CC_LABEL = {
+  vitama:'Vitama (MET)',rosepa:'Rosepa (PLP)',kprod:'K Producciones',
+  krental:'K Rental',sala_asume:'Sala asume',
+  bossi:'Bossi Live',petroleo:'Petroleo',juampi:'Juampi González',
+  eventos_met:'Eventos MET',eventos_plp:'Eventos PLP',
+};
+
+function getCCDefault(area,teatro,obraNombre){
+  const meta=OBRAS_META[obraNombre];
+  if(meta)return meta.cc;
+  return teatro==='PLP'?'rosepa':'vitama';
+}
+
+// ════════════════════════════════════════════
+// REGLAS ALERTA
+// ════════════════════════════════════════════
+const REGLAS={
+  _SALA:{dias:7,tipo:'periodico'},_SONIDO:{dias:7,tipo:'periodico'},
+  _ILUMINACION:{dias:7,tipo:'periodico'},_MAQUINARIA:{dias:7,tipo:'periodico'},
+  _BOLETERIA:{dias:null,tipo:'cierre',aviso:28,alertaFinal:1},
+  _LIMPIEZA:{dias:null,tipo:'cierre',diasAntes:5},
+  _MANTENIMIENTO:{dias:7,tipo:'periodico'},
+  'PATIÑO, ANDRES':{dias:5,tipo:'periodico'},
+  'VARGAS, DAVID':{dias:15,tipo:'periodico'},
+};
+function getRegla(n,area){return REGLAS[n]||REGLAS[`_${area}`]||{dias:7,tipo:'periodico'};}
+
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let registros=[];
+let alertasState={};
+let editIdx=null;
+let validarNombre=null;
+let filtroEstadoActual='todos';
+let filtroAlertas='activas';
+let filtroConsolid='todos';
+let filtroReg='todos';
+let filtroPersonal='activos';
+let mailActivo=0;
+const UMBRAL=500000;
+
+// Sin datos demo — todo viene del Google Sheet
+
+// ════════════════════════════════════════════
+// INIT — carga datos desde Google Sheets
+// ════════════════════════════════════════════
+window.onload = async () => {
+  const hoy = new Date();
+  document.getElementById('tb-date').textContent = fmtF(hoy.toISOString().split('T')[0]);
+  document.getElementById('tb-mes').textContent = hoy.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
+
+  // Mostrar indicador de carga
+  document.getElementById('tb-badge').textContent = "Cargando...";
+  document.getElementById('tb-badge').style.display = 'block';
+
+  // ── Helper: Google Sheets a veces devuelve horas como "1899-12-30T15:00:00.000Z"
+  // Extraemos solo HH:MM del string ISO o dejamos el valor si ya es HH:MM
+  function normHora(v) {
+    if (!v) return '';
+    const s = String(v);
+    // Si viene como ISO date con 1899 (epoch de hora pura en Sheets)
+    const m = s.match(/T(\d{2}:\d{2})/);
+    if (m) return m[1];
+    // Si ya es HH:MM o HH:MM:SS
+    const m2 = s.match(/^(\d{2}:\d{2})/);
+    if (m2) return m2[1];
+    return s;
+  }
+
+  // ── Helper: normalizar fecha — Sheets a veces manda "2026-04-15T00:00:00.000Z"
+  function normFecha(v) {
+    if (!v) return '';
+    const s = String(v);
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : s;
+  }
+
+  try {
+    // Cargar registros del mes desde el backend
+    const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+    const [regRes, perRes, obrRes, valRes] = await Promise.all([
+      apiGet("getRegistros", {mes: mesKey}),
+      apiGet("getPersonal"),
+      apiGet("getObras"),
+      apiGet("getValores"),
+    ]);
+
+    // Registros — mapeo robusto contra variaciones de nombres de columna del Sheet
+    if (regRes.ok && Array.isArray(regRes.data) && regRes.data.length > 0) {
+      registros = regRes.data.map(r => {
+        // Área: puede venir como "Área(s)", "Areas", "Área", "Area"
+        const areaRaw = r["Área(s)"] || r["Area(s)"] || r["Áreas"] || r["Areas"] || r["Área"] || r["Area"] || "";
+        // Fecha normalizada
+        const fecha = normFecha(r["Fecha"] || "");
+        // Horas normalizadas (fix del bug 1899)
+        const horaDesde = normHora(r["Hora Desde"] || r["HoraDesde"] || "");
+        const horaHasta = normHora(r["Hora Hasta"] || r["HoraHasta"] || "");
+        // Total: puede venir con puntos/comas
+        const totalRaw = String(r["Total"] || "0").replace(/\./g,'').replace(',','.');
+        const total = parseFloat(totalRaw) || 0;
+        // sinValidar: si la persona NO está en la nómina validada (se calcula después)
+        // pero también respetamos el flag explícito si existe
+        const sinValidarFlag = r["Sin Validar"];
+        return {
+          nombre:          r["Nombre"] || "",
+          areas:           areaRaw ? areaRaw.split(",").map(x=>x.trim()).filter(Boolean) : [],
+          teatro:          r["Teatro"] || "",
+          sala:            r["Sala"] || "",
+          fecha,
+          horaDesde,
+          horaHasta,
+          tipoLabel:       r["Tipo HE"] || r["TipoHE"] || r["Tipo"] || "",
+          tipoTipo:        r["Tipo (HE/PKG)"] || r["TipoTipo"] || "HE",
+          horas:           parseFloat(r["Horas"]) || null,
+          cantidad:        parseFloat(r["Cantidad"]) || null,
+          total,
+          obra:            r["Obra"] || "",
+          descripcion:     r["Descripción"] || r["Descripcion"] || "",
+          cc:              r["Centro de Costo"] || r["CC"] || null,
+          salaAsume:       r["Sala Asume"] === "SI",
+          overrideHorario: r["Override Horario"] === "SI",
+          overrideOverlap: r["Override Overlap"] === "SI",
+          cargadoPor:      r["Cargado Por"] || null,
+          // sinValidar: true si el flag está en SI, o si no hay flag pero la persona no está en nómina
+          sinValidar:      sinValidarFlag === "SI",
+          edits:           [],
+          _id:             r["ID"] || "",
+        };
+      });
+      console.log(`✓ ${registros.length} registros cargados del Sheet`);
+    } else {
+      registros = [];
+      console.log("Sheet vacío o sin respuesta para este mes");
+    }
+
+    // Personal desde el backend — mapeo robusto
+    if (perRes.ok && Array.isArray(perRes.data) && perRes.data.length > 0) {
+      PERSONAL = perRes.data.map(p => ({
+        n:        p["Nombre"] || "",
+        areas:    [p["Áreas"]||p["Areas"]||p["Área"]||p["Area"]||"", p["Área Secundaria"]||p["Area Secundaria"]||""].filter(Boolean),
+        teatro:   p["Teatro"] || "",
+        jefe:     p["Es Jefe"] === "SI" || p["EsJefe"] === "SI",
+        activo:   p["Activo"] !== "NO",
+        validado: p["Validado"] !== "NO",
+      })).filter(p => p.n); // descartar filas vacías
+      console.log(`✓ ${PERSONAL.length} personas cargadas del Sheet`);
+    }
+
+    // Obras desde el backend — actualizar OBRAS_META
+    if (obrRes.ok && Array.isArray(obrRes.data) && obrRes.data.length > 0) {
+      obrRes.data.forEach(o => {
+        const nombre = o["Nombre"];
+        if (nombre) {
+          OBRAS_META[nombre] = {
+            tipo:   o["Tipo"] || "propia",
+            teatro: o["Teatro"] || "",
+            cc:     o["Tipo"] === "tercero" ? "otro_tercero" : o["Teatro"] === "PLP" ? "rosepa" : "vitama",
+          };
+        }
+      });
+      // Regenerar lista de obras
+      Object.assign(OBRAS_LIST, Object.keys(OBRAS_META));
+    }
+
+    // Imputar CC defaults a registros que no tienen
+    registros.forEach(r => { if(!r.cc) r.cc = getCCDefault((r.areas||[''])[0], r.teatro, r.obra); });
+
+    mostrarEstadoBackend(true);
+    document.getElementById('tb-badge').style.display = 'none';
+
+  } catch(e) {
+    console.warn("Backend no disponible:", e);
+    registros = []; // Sin conexión — sin datos demo
+    registros.forEach(r => { if(!r.cc) r.cc = getCCDefault((r.areas||[''])[0], r.teatro, r.obra); });
+    mostrarEstadoBackend(false);
+    document.getElementById('tb-badge').style.display = 'none';
+  }
+
+  poblarObraSelects();
+  normalizarNombresRegistros();
+  buildAll();
+};
+
+// Guardar edición de registro en el backend
+async function guardarEditConBackend(idx, motivo) {
+  const r = registros[idx];
+  if (r._id) {
+    await apiPost("editRegistro", {
+      id: r._id,
+      fecha: r.fecha, horaDesde: r.horaDesde, horaHasta: r.horaHasta,
+      descripcion: r.descripcion, tipoLabel: r.tipoLabel, total: r.total,
+      obra: r.obra, cc: r.cc, motivo, editadoPor: "Carla — Admin",
+    });
+  }
+}
+
+// Guardar nueva persona en el backend
+async function guardarPersonaBackend(persona) {
+  await apiPost("addPersona", persona);
+}
+
+// Guardar validación de persona en el backend
+async function validarPersonaBackend(nombre, area, teatro) {
+  await apiPost("editPersona", {nombre, validado: true});
+}
+
+function poblarObraSelects(){
+  const opts=OBRAS_LIST.map(o=>`<option value="${o}">${o} [${OBRAS_META[o].tipo}]</option>`).join('');
+  document.getElementById('e-obra').innerHTML=opts;
+}
+
+function buildAll(){buildMetrics();buildEstado();buildAlertas();buildConsolidado();buildImputar();buildMails();buildRegistros();buildPersonal();buildCierreMes();}
+
+// ── Normaliza nombre para matching: quita comas, espacios extra, mayúsculas ──
+// "SOLDAN SILVIO" → "SOLDANSILVIO"  |  "SOLDAN, SILVIO" → "SOLDANSILVIO"
+function normNombre(n){
+  return String(n||"").toUpperCase().replace(/[,\s\.]+/g,"");
+}
+
+// ── Busca en PERSONAL el objeto cuyo nombre normalizado coincide con n ──
+function findPersonal(n){
+  const nk = normNombre(n);
+  return PERSONAL.find(p => normNombre(p.n) === nk);
+}
+
+// ── Después de cargar registros, normaliza nombres contra PERSONAL ──
+// Si "SOLDAN SILVIO" está en registros pero "SOLDAN, SILVIO" en Personal,
+// reescribe el nombre del registro al canónico del Personal.
+function normalizarNombresRegistros(){
+  registros.forEach(r => {
+    if (!r.nombre) return;
+    const p = findPersonal(r.nombre);
+    if (p && p.n !== r.nombre) {
+      console.log(`Normalizando nombre: "${r.nombre}" → "${p.n}"`);
+      r.nombre = p.n;
+    }
+  });
+}
+
+
+// ════════════════════════════════════════════
+// MÉTRICAS — clickeables
+// ════════════════════════════════════════════
+function buildMetrics(){
+  const hoy=new Date();const mk=mesK(hoy);
+  const delMes=registros.filter(r=>r.fecha?.startsWith(mk));
+  const delMesVal=delMes.filter(r=>!r.sinValidar);
+  const conCarga=new Set(delMes.map(r=>r.nombre)).size;
+  const totalActivos=PERSONAL.filter(p=>p.activo&&p.validado).length;
+  const faltantes=PERSONAL.filter(p=>p.activo&&p.validado&&!delMes.some(r=>normNombre(r.nombre)===normNombre(p.n))).length;
+  const total=delMes.reduce((a,r)=>a+(r.total||0),0);
+  const sinVal=registros.filter(r=>{
+    const enNomina=PERSONAL.some(p=>p.activo&&p.validado&&p.n===r.nombre);
+    return !enNomina;
+  }).length;
+  const als=getAlertasList().filter(a=>!alertasState[a.key]?.leida&&!alertasState[a.key]?.borrada).length;
+
+  document.getElementById('metrics-row').innerHTML=`
+    <div class="metric green" onclick="showView('estado');fEstado('concarga',document.getElementById('fp-concarga'))" title="Ver con carga" style="cursor:pointer">
+      <div class="metric-hint">↗ ver</div>
+      <div class="m-lbl">Con carga</div>
+      <div class="m-val">${conCarga}</div>
+      <div class="m-sub">de ${totalActivos} en nómina</div>
+    </div>
+    <div class="metric ${faltantes>0?'red':''}" onclick="showView('estado');fEstado('faltantes',null)" title="Ver faltantes" style="cursor:pointer">
+      <div class="metric-hint">↗ ver</div>
+      <div class="m-lbl">Sin registros</div>
+      <div class="m-val">${faltantes}</div>
+      <div class="m-sub">${faltantes===0?'Todos cargaron':'pendientes'}</div>
+    </div>
+    <div class="metric" onclick="showView('consolidado')" title="Ver consolidado" style="cursor:pointer">
+      <div class="metric-hint">↗ ver</div>
+      <div class="m-lbl">Total acumulado</div>
+      <div class="m-val" style="font-size:17px">$${fmt2(total)}</div>
+      <div class="m-sub">${delMes.length} registros${sinVal>0?` · ${sinVal} sin validar`:''}</div>
+    </div>
+    <div class="metric ${als>0?'amber':''}" onclick="showView('alertas')" title="Ver alertas" style="cursor:pointer">
+      <div class="metric-hint">↗ ver</div>
+      <div class="m-lbl">Alertas activas</div>
+      <div class="m-val">${als}</div>
+      <div class="m-sub">${als===0?'Todo OK':'requieren revisión'}</div>
+    </div>`;
+
+  const nb=document.getElementById('nb-alertas');const tb=document.getElementById('tb-badge');
+  nb.style.display=als>0?'inline':'none';nb.textContent=als;
+  tb.style.display=als>0?'block':'none';tb.textContent=`${als} alertas`;
+  const nbf=document.getElementById('nb-faltantes');nbf.style.display=faltantes>0?'inline':'none';nbf.textContent=faltantes;
+  const nbi=document.getElementById('nb-imputar');const sinCC=registros.filter(r=>!r.cc).length;nbi.style.display=sinCC>0?'inline':'none';nbi.textContent=sinCC;
+  const nbsv=document.getElementById('nb-sinval');nbsv.style.display=sinVal>0?'inline':'none';nbsv.textContent=sinVal;
+}
+
+// ════════════════════════════════════════════
+// ESTADO — con búsqueda y filtros
+// ════════════════════════════════════════════
+let sortEstadoCol = '';
+let sortEstadoDir = 1;
+
+function sortEstado(col) {
+  if (sortEstadoCol === col) sortEstadoDir *= -1;
+  else { sortEstadoCol = col; sortEstadoDir = 1; }
+  ['nombre','area','teatro'].forEach(c => {
+    const el = document.getElementById('sort-'+c);
+    if (el) el.textContent = c === col ? (sortEstadoDir === 1 ? '↑' : '↓') : '↕';
+  });
+  buildEstado();
+}
+
+function buildEstado(){
+  const hoy=new Date();const mk=mesK(hoy);
+  const buscar=(document.getElementById('buscar-persona')?.value||'').toUpperCase().trim();
+  const fArea=document.getElementById('filtro-area-estado')?.value||'';
+  const fTeatro=document.getElementById('filtro-teatro-estado')?.value||'';
+
+  // Personas en nómina
+  let rows=PERSONAL.filter(p=>p.activo&&p.validado).map(p=>{
+    const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&normNombre(r.nombre)===normNombre(p.n));
+    const total=delMes.reduce((a,r)=>a+(r.total||0),0);
+    const sorted=delMes.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const ultimo=sorted.length?sorted[0].fecha:null;
+    const al=evalAlerta(p.n,p.areas[0],delMes,hoy);
+    return{p,delMes,total,ultimo,al,sinValidar:false};
+  });
+
+  // ── CLAVE: cualquier persona que cargó y NO está en nómina → Sin validar ──
+  const nombresEnNomina = new Set(PERSONAL.filter(p=>p.activo&&p.validado).map(p=>normNombre(p.n)));
+  const delMesTodos = registros.filter(r=>r.fecha?.startsWith(mk));
+  const nombresConCarga = new Set(delMesTodos.map(r=>normNombre(r.nombre)));
+  nombresConCarga.forEach(nk=>{
+    if(!nombresEnNomina.has(nk)){
+      // Recuperar el nombre original (sin normalizar) para mostrarlo
+      const recs=registros.filter(r=>normNombre(r.nombre)===nk);
+      const nombreOriginal=recs[0]?.nombre||nk;
+      const areaDetectada=(recs[0]?.areas||['?'])[0]||'?';
+      const teatroDetectado=recs[0]?.teatro||'?';
+      const total=recs.reduce((a,r)=>a+(r.total||0),0);
+      rows.push({
+        p:{n:nombreOriginal,areas:[areaDetectada],teatro:teatroDetectado,jefe:false,validado:false,activo:true},
+        delMes:recs,total,ultimo:null,al:null,sinValidar:true
+      });
+    }
+  });
+
+  // Filtros
+  if(buscar)rows=rows.filter(r=>r.p.n.toUpperCase().includes(buscar));
+  if(fArea)rows=rows.filter(r=>(r.p.areas||[]).includes(fArea));
+  if(fTeatro)rows=rows.filter(r=>r.p.teatro===fTeatro||r.p.teatro==='AMBOS');
+  if(filtroEstadoActual==='concarga')rows=rows.filter(r=>r.delMes.length>0);
+  if(filtroEstadoActual==='faltantes')rows=rows.filter(r=>!r.delMes.length&&!r.sinValidar);
+  if(filtroEstadoActual==='alerta')rows=rows.filter(r=>r.al);
+  if(filtroEstadoActual==='sinvalidar')rows=rows.filter(r=>r.sinValidar);
+
+  // Ordenar
+  if(sortEstadoCol){
+    rows.sort((a,b)=>{
+      let va='',vb='';
+      if(sortEstadoCol==='nombre'){va=a.p.n;vb=b.p.n;}
+      else if(sortEstadoCol==='area'){va=(a.p.areas||[])[0]||'';vb=(b.p.areas||[])[0]||'';}
+      else if(sortEstadoCol==='teatro'){va=a.p.teatro||'';vb=b.p.teatro||'';}
+      return va.localeCompare(vb)*sortEstadoDir;
+    });
+  }
+
+  document.getElementById('tbody-estado').innerHTML=rows.map(({p,delMes,total,ultimo,al,sinValidar})=>`
+    <tr ${sinValidar?'style="background:#fffde7"':''}>
+      <td><span class="fw" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}')" title="Ver tickets de ${p.n}">${p.n}</span>${p.jefe?' <span class="mono" style="color:var(--mu)">(jefe)</span>':''}</td>
+      <td><div class="p-areas">${(p.areas||[]).map(a=>`<span class="p-area">${a.replace(/_/g,' ')}</span>`).join('')}</div></td>
+      <td class="mono">${p.teatro}</td>
+      <td style="text-align:center">${delMes.length}</td>
+      <td class="mono">${ultimo?fmtF(ultimo):'—'}</td>
+      <td class="monto ${total>UMBRAL?'err':total>0?'ok':''}">${total>0?'$'+fmt2(total):'—'}</td>
+      <td>${sinValidar
+        ?`<span class="tag warn"><span class="tdot"></span>Sin validar</span> <button class="btn amber" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="abrirValidar('${p.n.replace(/'/g,"\\'")}')">Validar</button>`
+        :al?`<span class="tag ${al.nivel}" style="cursor:pointer" onclick="showView('alertas')" title="Ver alertas"><span class="tdot"></span>${al.msg}</span>`
+        :`<span class="tag ok"><span class="tdot"></span>OK</span>`}</td>
+    </tr>`).join('')||'<tr><td colspan="7" class="empty">Sin resultados para este filtro.</td></tr>';
+}
+
+function fEstado(f,el){
+  filtroEstadoActual=f;
+  document.querySelectorAll('#view-estado .fp').forEach(p=>p.classList.remove('active'));
+  if(el)el.classList.add('active');
+  else{const fp=document.querySelector('#view-estado .fp');if(fp)fp.classList.add('active');}
+  buildEstado();
+}
+
+// ════════════════════════════════════════════
+// EVAL ALERTA
+// ════════════════════════════════════════════
+function evalAlerta(nombre,area,delMes,hoy){
+  const regla=getRegla(nombre,area||'');
+  const sorted=delMes.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const ultimo=sorted.length?sorted[0].fecha:null;
+  const renovado=alertasState[`al_${nombre}`]?.renovadoEn;
+  const base=renovado?new Date(renovado):ultimo?new Date(ultimo+'T12:00:00'):null;
+  const dias=base?Math.floor((hoy-base)/86400000):null;
+  const diaHoy=hoy.getDate();
+  const ultimoDia=new Date(hoy.getFullYear(),hoy.getMonth()+1,0).getDate();
+  if(regla.tipo==='periodico'){
+    if(!delMes.length&&dias===null)return{nivel:'err',msg:'Sin registros este mes'};
+    if(dias!==null&&dias>=regla.dias)return{nivel:'amber',msg:`${dias}d sin cargar (máx ${regla.dias}d)`};
+    return null;
+  }
+  if(regla.tipo==='cierre'){
+    if(!delMes.length){
+      if(regla.aviso&&diaHoy>=regla.aviso)return{nivel:'red',msg:`Sin carga — cierre inminente`};
+      if(regla.diasAntes&&diaHoy>=ultimoDia-regla.diasAntes)return{nivel:'amber',msg:`Sin carga — cierre en ${ultimoDia-diaHoy}d`};
+    }
+    return null;
+  }
+  return null;
+}
+
+// ════════════════════════════════════════════
+// ALERTAS — clickeables con detalle
+// ════════════════════════════════════════════
+function getAlertasList(){
+  const hoy=new Date();const mk=mesK(hoy);
+  const alerts=[];
+  PERSONAL.filter(p=>p.activo&&p.validado).forEach(p=>{
+    const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&normNombre(r.nombre)===normNombre(p.n));
+    const total=delMes.reduce((a,r)=>a+(r.total||0),0);
+    const al=evalAlerta(p.n,p.areas[0],delMes,hoy);
+    const key=`al_${p.n}`;
+    if(al)alerts.push({...al,nombre:p.n,area:(p.areas||[]).join('+'),teatro:p.teatro,key,extra:`Acumulado: $${fmt2(total)}`,link:'estado'});
+    if(total>UMBRAL)alerts.push({nivel:'red',msg:'Umbral superado',nombre:p.n,area:(p.areas||[]).join('+'),teatro:p.teatro,key:`umbral_${p.n}`,extra:`$${fmt2(total)} > $${fmt2(UMBRAL)}`,link:'consolidado'});
+  });
+  registros.filter(r=>r.overrideHorario).forEach(r=>alerts.push({nivel:'blue',msg:'Horario de función confirmado',nombre:r.nombre,area:'',teatro:r.teatro,key:`hor_${r.nombre}_${r.fecha}`,extra:`${fmtF(r.fecha)} ${r.horaDesde}–${r.horaHasta}: "${r.descripcion}"`,link:'registros'}));
+  registros.filter(r=>r.sinValidar).forEach(r=>alerts.push({nivel:'amber',msg:'Persona sin validar en nómina',nombre:r.nombre,area:'?',teatro:r.teatro,key:`sinval_${r.nombre}`,extra:`Tiene ${registros.filter(x=>x.nombre===r.nombre).length} registro(s) — ir a Personal para validar`,link:'personal'}));
+  return alerts;
+}
+
+function buildAlertas(){
+  const all=getAlertasList();
+  const visible=all.filter(a=>{
+    const st=alertasState[a.key]||{};
+    if(st.borrada)return false;
+    if(filtroAlertas==='activas')return!st.leida;
+    if(filtroAlertas==='leidas')return!!st.leida;
+    return true;
+  });
+  const body=document.getElementById('alertas-body');
+  if(!visible.length){body.innerHTML='<div class="empty">Sin alertas en esta vista.</div>';return;}
+  const iconMap={red:'⚠',amber:'⏰',blue:'🕐'};
+  body.innerHTML=visible.map(a=>{
+    const st=alertasState[a.key]||{};
+    return`<div class="al ${st.leida?'gray':a.nivel}">
+      <div class="al-icon">${iconMap[a.nivel]||'●'}</div>
+      <div class="al-body">
+        <div class="al-title" style="cursor:pointer" onclick="showView('${a.link||'estado'}')">${a.msg} — ${a.nombre} <span style="font-size:11px;font-weight:400;color:var(--blue)">↗ ver</span></div>
+        <div class="al-desc">${a.area?a.area.replace(/_/g,' '):''} ${a.teatro?'· '+a.teatro:''}</div>
+        ${a.extra?`<div class="al-time">${a.extra}</div>`:''}
+        <div class="al-actions">
+          ${!st.leida?`<button class="al-btn read" onclick="alAccion('leer','${a.key}')">Marcar leída</button>`:''}
+          <button class="al-btn renew" onclick="alAccion('renovar','${a.key}')">Renovar contador</button>
+          <button class="al-btn del" onclick="alAccion('borrar','${a.key}')">Borrar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function alAccion(accion,key){
+  if(!alertasState[key])alertasState[key]={};
+  if(accion==='leer')alertasState[key].leida=true;
+  if(accion==='renovar'){alertasState[key].renovadoEn=new Date().toISOString();alertasState[key].leida=false;}
+  if(accion==='borrar')alertasState[key].borrada=true;
+  buildAll();
+}
+function fAlertas(f,el){document.querySelectorAll('#view-alertas .fp').forEach(p=>p.classList.remove('active'));el.classList.add('active');filtroAlertas=f;buildAlertas();}
+
+// ════════════════════════════════════════════
+// CONSOLIDADO
+// ════════════════════════════════════════════
+function buildConsolidado(){
+  const hoy=new Date();const mk=mesK(hoy);
+  const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
+  const byObra={};
+  delMes.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,teatro:r.teatro,tipo:(OBRAS_META[k]?.tipo||'PROPIA'),salaAsume:false};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].salaAsume=true;});
+  let tP=0,tT=0,tS=0,html='';
+  Object.entries(byObra).sort((a,b)=>b[1].total-a[1].total).forEach(([obra,data])=>{
+    const{tipo,teatro,salaAsume}=data;const f=filtroConsolid;
+    if(f!=='todos'&&f!==tipo&&f!==teatro&&!(f==='ASUME'&&salaAsume))return;
+    if(salaAsume)tS+=data.total;else if(tipo==='PROPIA')tP+=data.total;else tT+=data.total;
+    const byArea={};data.rows.forEach(r=>{const a=(r.areas||['?'])[0];if(!byArea[a])byArea[a]=0;byArea[a]+=r.total||0;});
+    const tCls=salaAsume?'asume':tipo.toLowerCase();const tLbl=salaAsume?'Sala asume':tipo==='PROPIA'?'Propia':'Tercero';
+    html+=`<div class="obra-block">
+      <div class="obra-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div class="obra-meta"><span class="obra-nom">${obra}</span><span class="otag ${tCls}">${tLbl}</span><span class="mono" style="color:var(--mu);font-size:10px">${teatro}</span></div>
+        <span class="obra-tot">$${fmt2(data.total)}</span>
+      </div>
+      <div class="obra-rows">
+        ${Object.entries(byArea).map(([a,t])=>`<div class="obra-row"><span class="obra-rl">${a.replace(/_/g,' ')}</span><span class="obra-rr">$${fmt2(t)}</span></div>`).join('')}
+        <div class="obra-row" style="background:var(--s2)"><span class="obra-rl fw">Total</span><span class="obra-rr fw">$${fmt2(data.total)}</span></div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('consolidado-body').innerHTML=html||'<div class="empty">Sin registros para este filtro.</div>';
+  document.getElementById('consolidado-totales').innerHTML=`
+    <div class="obra-row"><span class="obra-rl">Producciones propias</span><span class="obra-rr" style="color:var(--green);font-weight:700">$${fmt2(tP)}</span></div>
+    <div class="obra-row"><span class="obra-rl">A descontar a terceros</span><span class="obra-rr" style="color:var(--amber);font-weight:700">$${fmt2(tT)}</span></div>
+    <div class="obra-row"><span class="obra-rl">Asumido por sala</span><span class="obra-rr" style="color:var(--purple);font-weight:700">$${fmt2(tS)}</span></div>
+    <div class="obra-row" style="border-top:2px solid var(--bd);margin-top:6px"><span class="obra-rl fw">TOTAL GENERAL</span><span class="obra-rr" style="font-size:16px;font-weight:700">$${fmt2(tP+tT+tS)}</span></div>`;
+}
+function fConsolid(f,el){document.querySelectorAll('#f-consolidado .fp').forEach(p=>p.classList.remove('active'));el.classList.add('active');filtroConsolid=f;buildConsolidado();}
+
+// ════════════════════════════════════════════
+// IMPUTAR — con obras específicas
+// ════════════════════════════════════════════
+function buildImputar(){
+  const body=document.getElementById('imputar-body');
+  if(!registros.length){body.innerHTML='<div class="empty">Sin registros.</div>';return;}
+  body.innerHTML=`<p style="font-size:11px;color:var(--mu);margin-bottom:12px;font-family:'DM Mono',monospace">CC sugerido por defecto según obra/teatro. Ajustá si corresponde.</p>`+
+  registros.map((r,i)=>`
+    <div class="imp-row">
+      <div class="imp-name">${r.nombre}${r.sinValidar?` <span class="tag warn" style="font-size:9px">?</span>`:''}</div>
+      <div class="imp-info">${fmtF(r.fecha)} · ${r.tipoLabel.slice(0,28)}${r.tipoLabel.length>28?'…':''}<br><span style="font-size:10px;color:var(--dm)">${r.obra||'—'}</span></div>
+      <div class="imp-monto">$${fmt2(r.total)}</div>
+      <select class="cc-sel" onchange="registros[${i}].cc=this.value;buildAll()">
+        <optgroup label="CC general">
+          <option value="vitama" ${r.cc==='vitama'?'selected':''}>Vitama (MET)</option>
+          <option value="rosepa" ${r.cc==='rosepa'?'selected':''}>Rosepa (PLP)</option>
+          <option value="kprod" ${r.cc==='kprod'?'selected':''}>K Producciones</option>
+          <option value="krental" ${r.cc==='krental'?'selected':''}>K Rental</option>
+          <option value="sala_asume" ${r.cc==='sala_asume'?'selected':''}>Sala asume</option>
+        </optgroup>
+        <optgroup label="Imputar a obra específica">
+          ${OBRAS_LIST.map(o=>`<option value="${OBRAS_META[o]?.cc||o}" ${r.obra===o?'selected':''}>${o} [${OBRAS_META[o].tipo}]</option>`).join('')}
+        </optgroup>
+      </select>
+      <label style="font-size:12px;color:var(--mu);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" ${r.salaAsume?'checked':''} onchange="registros[${i}].salaAsume=this.checked;if(this.checked)registros[${i}].cc='sala_asume';buildAll()">
+        Sala asume
+      </label>
+    </div>`).join('');
+}
+function aplicarDefaults(){registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});buildAll();}
+function guardarImput(){buildAll();alert('Imputaciones guardadas.');}
+
+// ════════════════════════════════════════════
+// MAILS — ampliados
+// ════════════════════════════════════════════
+function buildMails(){
+  const hoy=new Date();const mk=mesK(hoy);
+  const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
+  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'});
+  const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
+  const propias=delMes.filter(r=>OBRAS_META[r.obra]?.tipo==='PROPIA');
+  const terceros=delMes.filter(r=>OBRAS_META[r.obra]?.tipo==='TERCERO');
+  const sala=delMes.filter(r=>r.salaAsume);
+  const tP=propias.reduce((a,r)=>a+(r.total||0),0);
+  const tT=terceros.reduce((a,r)=>a+(r.total||0),0);
+  const tS=sala.reduce((a,r)=>a+(r.total||0),0);
+  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]=[];byObra[k].push(r);});
+  const byP={};delMes.forEach(r=>{if(!byP[r.nombre])byP[r.nombre]={total:0,areas:r.areas};byP[r.nombre].total+=r.total||0;});
+  const obrasTerc=[...new Set(terceros.map(r=>r.obra))];
+
+  const mails=[
+    // 1. RRHH — consolidado completo
+    {label:'RRHH — Consolidado completo',
+     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Consolidado RRHH\n\nHola,\n\nResumen completo de Horas Extras — ${mesNom}.\n\nTOTAL GENERAL: $${fmt2(totGen)}\n  Producciones propias:   $${fmt2(tP)}\n  A descontar terceros:   $${fmt2(tT)}\n  Asumido por sala:       $${fmt2(tS)}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n} (${(d.areas||[]).join('+').replace(/_/g,' ')}): $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);const tp=OBRAS_META[o]?.tipo||'?';return`  [${tp}] ${o}: $${fmt2(t)}`;}).join('\n')}\n\nDETALLE COMPLETO ADJUNTO EN XLSX.\nSaludos`},
+    // 2. Admin — pago técnicos día 15
+    {label:'Admin — Pago día 15',
+     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Pagos a procesar el día 15\n\nHola,\n\nListado de pagos de HE a procesar el día 15:\n\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nTOTAL A PAGAR: $${fmt2(totGen)}\n\nConfirmar disponibilidad antes del día 14.\nSaludos`},
+    // 3. Gustavo — descuentos a producciones
+    {label:'Gustavo — Descuentos producciones',
+     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Resumen descuentos a producciones externas\n\nHola Gustavo,\n\nAdjunto el detalle de descuentos a aplicar sobre liquidaciones de producciones externas — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tT)}\n\n${obrasTerc.map(obra=>{const rs=terceros.filter(r=>r.obra===obra);const tot=rs.reduce((a,r)=>a+(r.total||0),0);return`${obra}: $${fmt2(tot)}\n${rs.map(r=>`  ${fmtF(r.fecha)} · ${r.nombre} · ${r.tipoLabel}: $${fmt2(r.total)}`).join('\n')}`;}).join('\n\n')}\n\nSaludos`},
+    // 4. Por producción externa (uno por cada tercero)
+    ...obrasTerc.map(obra=>{
+      const rs=terceros.filter(r=>r.obra===obra);
+      const tot=rs.reduce((a,r)=>a+(r.total||0),0);
+      return{label:`Descuento — ${obra}`,
+        body:`ASUNTO: Descuento HE ${mesNom.toUpperCase()} — ${obra}\n\nHola,\n\nInformamos las Horas Extras que corresponde descontar de la liquidación de ${obra} — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tot)}\n\nDETALLE:\n${rs.map(r=>`  ${fmtF(r.fecha)} · ${r.nombre} · ${r.tipoLabel}: $${fmt2(r.total)}`).join('\n')}\n\nPor favor confirmar conformidad respondiendo este mail.\nEste descuento se procesará en la liquidación del período.\nSaludos`};
+    }),
+    // 5. Interno — archivo/constancia
+    {label:'Interno — Archivo y constancia',
+     body:`ASUNTO: [ARCHIVO INTERNO] HE ${mesNom.toUpperCase()} — Constancia de procesamiento\n\nRegistro interno de HE procesadas — ${mesNom}.\nFecha de procesamiento: ${fmtF(new Date().toISOString().split('T')[0])}\n\nTOTAL PROCESADO: $${fmt2(totGen)}\nRegistros: ${delMes.length}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA/CC:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);return`  ${o}: $${fmt2(t)}`;}).join('\n')}\n\n[Archivado por: Administración Teatro]\n[Ver detalle completo en XLSX adjunto]`},
+  ];
+
+  window._mails=mails;
+  document.getElementById('mail-tabs').innerHTML=mails.map((m,i)=>`<div class="mtab ${i===mailActivo?'active':''}" onclick="selMail(${i},this)">${m.label}</div>`).join('');
+  document.getElementById('mail-pre').textContent=mails[mailActivo]?.body||'';
+}
+function selMail(i,el){document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mailActivo=i;document.getElementById('mail-pre').textContent=window._mails[i]?.body||'';}
+function copiarMail(){navigator.clipboard.writeText(window._mails[mailActivo]?.body||'').then(()=>alert('Copiado al portapapeles'));}
+function descargarMail(){const m=window._mails[mailActivo];const a=document.createElement('a');a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(m.body);a.download=`HE_${m.label.replace(/[^a-z0-9]/gi,'_')}.txt`;a.click();}
+
+// ════════════════════════════════════════════
+// PERSONAL — con validación corregida
+// ════════════════════════════════════════════
+function buildPersonal(){
+  let data=PERSONAL.slice();
+  if(filtroPersonal==='sinvalidar')data=data.filter(p=>!p.validado);
+  else if(filtroPersonal==='MET')data=data.filter(p=>(p.teatro==='MET'||p.teatro==='AMBOS')&&p.activo);
+  else if(filtroPersonal==='PLP')data=data.filter(p=>(p.teatro==='PLP'||p.teatro==='AMBOS')&&p.activo);
+  else if(filtroPersonal==='inactivo')data=data.filter(p=>!p.activo);
+  else data=data.filter(p=>p.activo);
+  data.sort((a,b)=>a.n.localeCompare(b.n));
+
+  document.getElementById('personal-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 170px 70px 90px 160px;gap:8px;padding:5px 0;border-bottom:2px solid var(--bd);font-size:10px;font-weight:600;color:var(--mu);letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px">
+      <div>Nombre</div><div>Área(s)</div><div>Teatro</div><div>Rol</div><div>Acciones</div>
+    </div>`+
+  data.map(p=>`
+    <div class="persona-row ${!p.validado?'sinvalidar':''} ${!p.activo?'inactivo':''}">
+      <div style="font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.n}${!p.validado?' <span style="color:var(--amber)">⚠ nuevo</span>':''}</div>
+      <div class="p-areas">${(p.areas||[]).map(a=>`<span class="p-area">${a.replace(/_/g,' ')}</span>`).join('')}</div>
+      <div class="mono">${p.teatro}</div>
+      <div class="mono" style="font-size:11px">${p.jefe?'Jefe':'Técnico'}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${!p.validado
+          ?`<button class="btn amber" style="padding:3px 10px;font-size:11px" onclick="abrirValidar('${p.n.replace(/'/g,"\\'")}')">Validar</button>`
+          :''}
+        ${p.activo
+          ?`<button class="btn ghost" style="padding:3px 10px;font-size:11px" onclick="toggleActivo('${p.n.replace(/'/g,"\\'")}')">Dar de baja</button>`
+          :`<button class="btn primary" style="padding:3px 10px;font-size:11px" onclick="toggleActivo('${p.n.replace(/'/g,"\\'")}')">Reactivar</button>`}
+      </div>
+    </div>`).join('');
+}
+function fPersonal(f,el){document.querySelectorAll('#f-personal .fp').forEach(p=>p.classList.remove('active'));el.classList.add('active');filtroPersonal=f;buildPersonal();}
+async function toggleActivo(n){
+  const p=PERSONAL.find(x=>x.n===n);
+  if(!p)return;
+  const nuevoEstado=!p.activo;
+  const accion=nuevoEstado?'reactivar':'dar de baja';
+  if(!confirm(`¿${accion.charAt(0).toUpperCase()+accion.slice(1)} a ${n}?\nEsto también se actualizará en el spreadsheet.`))return;
+  p.activo=nuevoEstado;
+  buildAll();
+  try{
+    const r=await apiPost('editPersona',{nombre:n,activo:nuevoEstado});
+    if(!r.ok)console.warn('No se pudo sincronizar con Sheet:',r.error);
+    else console.log(`✓ ${n} marcado como ${nuevoEstado?'activo':'inactivo'} en Sheet`);
+  }catch(e){
+    console.warn('Sin conexión al Sheet — cambio solo local:',e);
+  }
+}
+
+// VALIDAR PERSONA — modal completo
+function abrirValidar(nombre){
+  validarNombre=nombre;
+  const recs=registros.filter(r=>r.nombre===nombre);
+  document.getElementById('validar-info').innerHTML=`<strong>${nombre}</strong><br>Tiene ${recs.length} registro(s) pendiente(s) · Total: $${fmt2(recs.reduce((a,r)=>a+(r.total||0),0))}`;
+  document.getElementById('v-nombre').value=nombre;
+  document.getElementById('modal-validar').style.display='flex';
+}
+async function confirmarValidar(){
+  const n=document.getElementById('v-nombre').value.trim();
+  const teatro=document.getElementById('v-teatro').value;
+  const area=document.getElementById('v-area').value;
+  const area2=document.getElementById('v-area2').value;
+  const jefe=document.getElementById('v-rol').value==='JEFE';
+  if(!n||!area){alert('Completá nombre y área.');return;}
+  const areas=area2?[area,area2]:[area];
+  // Actualizar nombre en registros si cambió
+  if(n!==validarNombre){registros.filter(r=>r.nombre===validarNombre).forEach(r=>r.nombre=n);}
+  registros.filter(r=>r.nombre===n).forEach(r=>{r.sinValidar=false;r.areas=areas;r.teatro=teatro;});
+  // Agregar a personal si no existe
+  const existente=PERSONAL.find(p=>p.n===n);
+  if(!existente){
+    PERSONAL.push({n,areas,teatro,jefe,activo:true,validado:true});
+  } else {
+    existente.validado=true;existente.activo=true;
+    if(areas.length)existente.areas=areas;
+    if(teatro)existente.teatro=teatro;
+  }
+  // Persistir al Sheet para que sobreviva el refresh
+  try{
+    await apiPost('addPersona',{nombre:n,areas,teatro,jefe,validado:true,activo:true});
+    console.log(`✓ ${n} validado y guardado en Sheet`);
+  }catch(e){console.warn('Sin conexión al Sheet — validación solo local:',e);}
+  cerrarModal('modal-validar');buildAll();
+}
+
+function abrirModalPersona(){document.getElementById('m-nombre').value='';document.getElementById('modal-persona').style.display='flex';}
+function guardarPersona(){
+  const n=document.getElementById('m-nombre').value.trim();
+  const teatro=document.getElementById('m-teatro').value;
+  const area=document.getElementById('m-area').value;
+  const area2=document.getElementById('m-area2').value;
+  const jefe=document.getElementById('m-rol').value==='JEFE';
+  if(!n||!area){alert('Completá nombre y área.');return;}
+  if(PERSONAL.find(p=>p.n===n)){alert('Esta persona ya existe en la lista.');return;}
+  PERSONAL.push({n,areas:area2?[area,area2]:[area],teatro,jefe,activo:true,validado:true});
+  cerrarModal('modal-persona');buildAll();
+}
+
+// ════════════════════════════════════════════
+// REGISTROS — editables
+// ════════════════════════════════════════════
+function buildRegistros(){
+  let data=filtroReg==='todos'?registros:registros.filter(r=>r.teatro===filtroReg||(r.areas||[]).includes(filtroReg));
+  data=data.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  document.getElementById('tbody-registros').innerHTML=data.map(r=>{
+    const i=registros.indexOf(r);
+    const flags=[];
+    if(r.overrideHorario)flags.push('<span style="color:var(--blue);font-size:11px">Hor.func</span>');
+    if(r.salaAsume)flags.push('<span style="color:var(--purple);font-size:11px">SalaAsume</span>');
+    if(r.cargadoPor)flags.push('<span style="color:var(--mu);font-size:11px">Proxy</span>');
+    if(r.sinValidar)flags.push('<span style="color:var(--amber);font-size:11px;font-weight:700">SinValidar</span>');
+    if((r.edits||[]).length>0)flags.push(`<span style="color:var(--green);font-size:11px">Editado×${r.edits.length}</span>`);
+    return`<tr ${r.sinValidar?'style="background:#fffde7"':''}>
+      <td class="mono">${fmtF(r.fecha)}</td>
+      <td class="fw" style="white-space:nowrap;font-size:12px">${r.nombre}</td>
+      <td><div class="p-areas">${(r.areas||[]).map(a=>`<span class="p-area">${a.replace(/_/g,' ')}</span>`).join('')}</div></td>
+      <td class="mono" style="font-size:10px;white-space:nowrap">${r.teatro}·${r.sala}</td>
+      <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.obra||''}">${r.obra||'—'}</td>
+      <td style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.tipoLabel}">${r.tipoLabel}</td>
+      <td class="mono" style="text-align:center">${r.horas!=null?r.horas+'h':r.cantidad!=null?r.cantidad+'×':'—'}</td>
+      <td class="monto ok">$${fmt2(r.total)}</td>
+      <td style="font-size:10px;color:var(--mu)">${CC_LABEL[r.cc]?.split(' ')[0]||r.cc||'—'}</td>
+      <td>${flags.join(' ')}</td>
+      <td><button class="btn ghost" style="padding:3px 8px;font-size:11px" onclick="abrirEdit(${i})">Editar</button></td>
+    </tr>`;
+  }).join('');
+}
+function fReg(f,el){document.querySelectorAll('#f-registros .fp').forEach(p=>p.classList.remove('active'));el.classList.add('active');filtroReg=f;buildRegistros();}
+
+// EDITAR REGISTRO
+function abrirEdit(i){
+  editIdx=i;const r=registros[i];
+  document.getElementById('edit-info').innerHTML=`<strong>${r.nombre}</strong> · ${fmtF(r.fecha)} · ${r.tipoLabel}`;
+  document.getElementById('e-fecha').value=r.fecha||'';
+  document.getElementById('e-desde').value=r.horaDesde||'';
+  document.getElementById('e-hasta').value=r.horaHasta||'';
+  document.getElementById('e-desc').value=r.descripcion||'';
+  document.getElementById('e-tipo').value=r.tipoLabel||'';
+  document.getElementById('e-total').value=r.total||'';
+  document.getElementById('e-obra').value=r.obra||OBRAS_LIST[0];
+  document.getElementById('e-motivo').value='';
+  document.getElementById('modal-edit').style.display='flex';
+}
+function guardarEdit(){
+  const motivo=document.getElementById('e-motivo').value.trim();
+  if(!motivo){alert('El motivo de corrección es obligatorio — le llegará al técnico.');return;}
+  const r=registros[editIdx];
+  const antes={fecha:r.fecha,horaDesde:r.horaDesde,horaHasta:r.horaHasta,descripcion:r.descripcion,tipoLabel:r.tipoLabel,total:r.total,obra:r.obra};
+  r.fecha=document.getElementById('e-fecha').value||r.fecha;
+  r.horaDesde=document.getElementById('e-desde').value||r.horaDesde;
+  r.horaHasta=document.getElementById('e-hasta').value||r.horaHasta;
+  r.descripcion=document.getElementById('e-desc').value||r.descripcion;
+  r.tipoLabel=document.getElementById('e-tipo').value||r.tipoLabel;
+  r.total=parseFloat(document.getElementById('e-total').value)||r.total;
+  r.obra=document.getElementById('e-obra').value||r.obra;
+  if(!r.edits)r.edits=[];
+  r.edits.push({fecha:new Date().toISOString(),antes,motivo,editadoPor:'Administración'});
+  // Simula notificación al técnico
+  console.log(`NOTIFICACIÓN → ${r.nombre}: Tu registro del ${fmtF(antes.fecha)} fue corregido. Motivo: "${motivo}". Total anterior: $${fmt2(antes.total)} → Nuevo: $${fmt2(r.total)}`);
+  cerrarModal('modal-edit');buildAll();
+  alert(`Corrección guardada. Se notificará a ${r.nombre}:\n"${motivo}"`);
+}
+
+// ════════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════════
+function exportXLSX(){
+  const hoy=new Date();const mk=mesK(hoy);
+  const delMes=registros.filter(r=>r.fecha?.startsWith(mk));
+  const wb=XLSX.utils.book_new();
+  const reg=[['Fecha','Nombre','Área(s)','Teatro','Sala','Obra','Tipo HE','Horas','Total','CC','Sin Validar','Edits','Flags']];
+  delMes.forEach(r=>{
+    const flags=[r.overrideHorario?'Hor.función':'',r.salaAsume?'Sala asume':'',r.cargadoPor?'Proxy':'',r.sinValidar?'Sin validar':''].filter(Boolean).join(', ');
+    reg.push([fmtF(r.fecha),r.nombre,(r.areas||[]).join('+'),r.teatro,r.sala,r.obra||'—',r.tipoLabel,r.horas!=null?r.horas:r.cantidad!=null?r.cantidad:'—',r.total,CC_LABEL[r.cc]||r.cc||'—',r.sinValidar?'SÍ':'NO',(r.edits||[]).length,flags]);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(reg),'Registros');
+  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—',teatro:r.teatro};byObra[k].total+=r.total||0;});
+  const cons=[['Obra','Tipo','Teatro','Total']];Object.entries(byObra).forEach(([o,d])=>cons.push([o,d.tipo,d.teatro,d.total]));cons.push(['','','TOTAL',delMes.reduce((a,r)=>a+(r.total||0),0)]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(cons),'Consolidado');
+  const byP={};delMes.forEach(r=>{if(!byP[r.nombre])byP[r.nombre]={areas:(r.areas||[]).join('+'),total:0};byP[r.nombre].total+=r.total||0;});
+  const perP=[['Nombre','Área(s)','Total']];Object.entries(byP).forEach(([n,d])=>perP.push([n,d.areas,d.total]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(perP),'Por persona');
+  XLSX.writeFile(wb,`HE_${mk}.xlsx`);
+}
+function exportPDF(){
+  const hoy=new Date();const mk=mesK(hoy);
+  const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
+  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'});
+  const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
+  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—'};byObra[k].total+=r.total||0;});
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HE ${mesNom}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:32px}h1{font-size:18px}h2{font-size:13px;margin:18px 0 5px;border-bottom:1px solid #ccc;padding-bottom:3px}.tot{font-size:15px;font-weight:700;margin:6px 0}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{text-align:left;font-size:10px;text-transform:uppercase;color:#666;padding:4px 7px;border-bottom:2px solid #ccc}td{padding:4px 7px;border-bottom:1px solid #eee;font-size:11px}.right{text-align:right}@media print{body{margin:16px}}</style></head><body><h1>Horas Extras — ${mesNom}</h1><div class="tot">Total: $${fmt2(totGen)}</div><h2>Consolidado por obra</h2><table><tr><th>Obra</th><th>Tipo</th><th class="right">Total</th></tr>${Object.entries(byObra).map(([o,d])=>`<tr><td>${o}</td><td>${d.tipo}</td><td class="right">$${fmt2(d.total)}</td></tr>`).join('')}</table><h2>Registros</h2><table><tr><th>Fecha</th><th>Nombre</th><th>Área</th><th>Tipo HE</th><th>Obra</th><th class="right">Total</th></tr>${delMes.map(r=>`<tr><td>${fmtF(r.fecha)}</td><td>${r.nombre}</td><td>${(r.areas||[]).join('+')}</td><td>${r.tipoLabel}</td><td>${r.obra||'—'}</td><td class="right">$${fmt2(r.total)}</td></tr>`).join('')}</table><script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();
+}
+
+// ════════════════════════════════════════════
+// NAV + UTILS
+// ════════════════════════════════════════════
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(`view-${id}`).classList.add('active');
+  const ni=document.getElementById(`nav-${id}`);if(ni)ni.classList.add('active');
+}
+function cerrarModal(id){document.getElementById(id).style.display='none';}
+function mesK(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+function fmt2(n){return Math.round(n||0).toLocaleString('es-AR');}
+function fmtF(v){if(!v)return'—';const[y,m,d]=v.split('-');return`${d}/${m}/${y}`;}
+
+// ════════════════════════════════════════════
+// CIERRE DE MES
+// ════════════════════════════════════════════
+
+// Estado de meses: guardado en localStorage como respaldo
+function getMesesCerrados(){
+  try{return JSON.parse(localStorage.getItem('he_meses_cerrados')||'[]');}catch{return[];}
+}
+function saveMesesCerrados(arr){
+  localStorage.setItem('he_meses_cerrados',JSON.stringify(arr));
+}
+
+function buildCierreMes(){
+  const hoy=new Date();
+  const mk=mesK(hoy);
+  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
+  const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
+  const totalActivos=PERSONAL.filter(p=>p.activo&&p.validado).length;
+  const conCarga=new Set(delMes.map(r=>r.nombre)).size;
+  const sinCarga=totalActivos-conCarga;
+  const total=delMes.reduce((a,r)=>a+(r.total||0),0);
+  const mesesCerrados=getMesesCerrados();
+  const yaCerrado=mesesCerrados.find(m=>m.mes===mk);
+
+  document.getElementById('cierremes-titulo').textContent=`Cierre de mes — ${mesNom}`;
+  document.getElementById('cierremes-badge').textContent=yaCerrado?'CERRADO':'ABIERTO';
+  document.getElementById('cierremes-badge').style.background=yaCerrado?'var(--grbg)':'var(--ambg)';
+  document.getElementById('cierremes-badge').style.color=yaCerrado?'var(--green)':'var(--amber)';
+
+  const body=document.getElementById('cierremes-body');
+
+  if(yaCerrado){
+    body.innerHTML=`
+      <div style="background:var(--grbg);border:1px solid var(--grbd);border-radius:var(--rs);padding:14px 16px;margin-bottom:16px">
+        <div style="font-weight:600;color:var(--green);margin-bottom:4px">✓ Mes cerrado el ${fmtF(yaCerrado.fechaCierre)}</div>
+        <div style="font-size:12px;color:var(--mu)">${yaCerrado.registros} registros · Total $${fmt2(yaCerrado.total)} · ${yaCerrado.personas} personas</div>
+      </div>
+      <div style="background:var(--blbg);border:1px solid var(--blbd);border-radius:var(--rs);padding:14px 16px;margin-bottom:16px;font-size:13px">
+        <strong>Próximo mes:</strong> Una vez que empiece ${_mesNomSiguiente(hoy)}, podés abrir el nuevo período desde aquí.
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" onclick="abrirNuevoMes()">Abrir ${_mesNomSiguiente(hoy)} →</button>
+        <button class="btn ghost" onclick="exportXLSX()">Exportar XLSX del mes cerrado</button>
+      </div>`;
+  } else {
+    // Checklist previa al cierre
+    const checks=[
+      {ok:sinCarga===0, label:`Todos cargaron`, detalle:sinCarga===0?'✓ OK':`${sinCarga} persona(s) sin registro`},
+      {ok:delMes.length>0, label:'Hay registros en el mes', detalle:delMes.length>0?`✓ ${delMes.length} registros`:'Sin registros'},
+      {ok:registros.filter(r=>!r.cc).length===0, label:'Todos imputados a CC', detalle:registros.filter(r=>!r.cc).length===0?'✓ OK':`${registros.filter(r=>!r.cc).length} sin imputar`},
+      {ok:PERSONAL.filter(p=>p.activo&&!p.validado).length===0, label:'Sin personas sin validar', detalle:PERSONAL.filter(p=>p.activo&&!p.validado).length===0?'✓ OK':`${PERSONAL.filter(p=>p.activo&&!p.validado).length} sin validar`},
+    ];
+    const allOk=checks.every(c=>c.ok);
+    body.innerHTML=`
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;color:var(--mu);margin-bottom:12px;font-family:'DM Mono',monospace">Revisá el estado antes de cerrar el mes. El cierre congela el registro y lo guarda como historial.</div>
+        ${checks.map(c=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--rs);margin-bottom:6px;background:${c.ok?'var(--grbg)':'var(--redbg)'};border:1px solid ${c.ok?'var(--grbd)':'var(--redbd)'}">
+            <span style="font-size:14px">${c.ok?'✓':'✗'}</span>
+            <span style="flex:1;font-size:13px;font-weight:500">${c.label}</span>
+            <span style="font-size:11px;font-family:'DM Mono',monospace;color:${c.ok?'var(--green)':'var(--red)'}">${c.detalle}</span>
+          </div>`).join('')}
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:12px 16px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;text-align:center">
+          <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">PERSONAS</div><div style="font-size:20px;font-weight:600">${conCarga}<span style="font-size:11px;color:var(--mu)">/${totalActivos}</span></div></div>
+          <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">REGISTROS</div><div style="font-size:20px;font-weight:600">${delMes.length}</div></div>
+          <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">TOTAL</div><div style="font-size:18px;font-weight:600;color:var(--green)">$${fmt2(total)}</div></div>
+          <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">MES</div><div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${mesNom.slice(0,3)} ${hoy.getFullYear()}</div></div>
+        </div>
+      </div>
+      ${!allOk?`<div style="background:var(--ambg);border:1px solid var(--ambd);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:12px">⚠ Hay ítems pendientes. Podés cerrar igual, pero se recomienda resolverlos primero.</div>`:''}
+      <div class="btn-row">
+        <button class="btn primary" onclick="confirmarCierreMes()" ${!allOk?'style="background:var(--amber);border-color:var(--amber)"':''}>
+          ${allOk?'Cerrar mes →':'Cerrar mes de todas formas →'}
+        </button>
+        <button class="btn ghost" onclick="exportXLSX()">Exportar XLSX antes de cerrar</button>
+      </div>`;
+  }
+
+  // Historial
+  const hist=getMesesCerrados();
+  const histEl=document.getElementById('cierremes-historial');
+  if(!hist.length){histEl.innerHTML='<div class="empty">No hay meses cerrados aún.</div>';return;}
+  histEl.innerHTML=hist.slice().reverse().map(m=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd)">
+      <div>
+        <div style="font-weight:600;font-size:13px">${m.mesNom}</div>
+        <div style="font-size:11px;color:var(--mu);font-family:'DM Mono',monospace">Cerrado ${fmtF(m.fechaCierre)} · ${m.registros} registros · ${m.personas} personas</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:600;color:var(--green);font-family:'DM Mono',monospace">$${fmt2(m.total)}</div>
+        <span class="tag ok" style="font-size:9px">CERRADO</span>
+      </div>
+    </div>`).join('');
+}
+
+async function confirmarCierreMes(){
+  const hoy=new Date();
+  const mk=mesK(hoy);
+  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
+  if(!confirm(`¿Confirmar cierre de ${mesNom}?\n\nEl mes quedará guardado como cerrado. Luego podrás abrir el mes siguiente.`))return;
+
+  const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
+  const total=delMes.reduce((a,r)=>a+(r.total||0),0);
+  const personas=new Set(delMes.map(r=>r.nombre)).size;
+  const fechaCierre=hoy.toISOString().split('T')[0];
+
+  const entrada={mes:mk,mesNom,fechaCierre,total,registros:delMes.length,personas};
+
+  // Guardar en localStorage
+  const arr=getMesesCerrados();
+  arr.push(entrada);
+  saveMesesCerrados(arr);
+
+  // Sincronizar con Google Sheet
+  try{
+    const r=await apiPost('cerrarMes',{mes:mk,mesNom,fechaCierre,total,cantRegistros:delMes.length,personas,cerradoPor:'Admin'});
+    if(r.ok) console.log('✓ Cierre sincronizado con Sheet');
+    else console.warn('⚠ Cierre guardado localmente, no sincronizó:', r.error);
+  }catch(e){console.warn('Sin conexión al Sheet — cierre solo local:',e);}
+
+  buildCierreMes();
+  alert(`✓ ${mesNom} cerrado correctamente.\n${delMes.length} registros · $${fmt2(total)}`);
+}
+
+async function abrirNuevoMes(){
+  const hoy=new Date();
+  const sigMes=new Date(hoy.getFullYear(), hoy.getMonth()+1, 1);
+  const sigMesNom=sigMes.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
+  if(!confirm(`¿Abrir ${sigMesNom}?\n\nEl panel de control cambiará al nuevo período. Los registros del mes anterior quedan en el historial.`))return;
+
+  // Limpiar registros locales y cargar del nuevo mes
+  registros=[];
+  const mk=mesK(sigMes);
+  try{
+    const regRes=await apiGet('getRegistros',{mes:mk});
+    if(regRes.ok&&Array.isArray(regRes.data)&&regRes.data.length>0){
+      registros=regRes.data.map(r=>{
+        const areaRaw=r['Área(s)']||r['Area(s)']||r['Áreas']||r['Areas']||r['Área']||r['Area']||'';
+        const totalRaw=String(r['Total']||'0').replace(/\./g,'').replace(',','.');
+        return{
+          nombre:r['Nombre']||'',
+          areas:areaRaw?areaRaw.split(',').map(x=>x.trim()).filter(Boolean):[],
+          teatro:r['Teatro']||'',sala:r['Sala']||'',
+          fecha:normFecha(r['Fecha']||''),
+          horaDesde:normHora(r['Hora Desde']||''),horaHasta:normHora(r['Hora Hasta']||''),
+          tipoLabel:r['Tipo HE']||r['TipoHE']||'',tipoTipo:r['Tipo (HE/PKG)']||'HE',
+          horas:parseFloat(r['Horas'])||null,cantidad:parseFloat(r['Cantidad'])||null,
+          total:parseFloat(totalRaw)||0,obra:r['Obra']||'',
+          descripcion:r['Descripción']||r['Descripcion']||'',
+          cc:r['Centro de Costo']||null,salaAsume:r['Sala Asume']==='SI',
+          overrideHorario:r['Override Horario']==='SI',cargadoPor:r['Cargado Por']||null,
+          sinValidar:r['Sin Validar']==='SI',edits:[],_id:r['ID']||'',
+        };
+      });
+    }
+  }catch(e){console.warn('No se pudo cargar mes nuevo desde Sheet:',e);}
+
+  // Actualizar label del topbar con el nuevo mes
+  document.getElementById('tb-mes').textContent=sigMesNom;
+  document.getElementById('tb-date').textContent=fmtF(sigMes.toISOString().split('T')[0]);
+
+  buildAll();
+  buildCierreMes();
+  alert(`✓ Ahora estás viendo ${sigMesNom}. El mes anterior quedó en el historial.`);
+}
+
+function _mesNomSiguiente(hoy){
+  const sig=new Date(hoy.getFullYear(),hoy.getMonth()+1,1);
+  return sig.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
+}
+</script>
+
+<!-- MODAL DETALLE PERSONA -->
+<div class="modal-overlay" id="modal-detalle-persona" style="display:none" onclick="if(event.target===this)cerrarModal('modal-detalle-persona')">
+  <div class="modal" style="max-width:600px">
+    <h3 id="detalle-persona-titulo">Tickets de persona</h3>
+    <div id="detalle-persona-resumen" style="background:var(--s2);border-radius:var(--rs);padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--mu)"></div>
+    <div id="detalle-persona-tickets"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-detalle-persona')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirDetallPersona(nombre, teatro) {
+  const hoy = new Date();
+  const mk = mesK(hoy);
+  const tickets = registros.filter(r => r.nombre === nombre && r.fecha?.startsWith(mk));
+  const total = tickets.reduce((a,r) => a + (r.total||0), 0);
+  
+  document.getElementById('detalle-persona-titulo').textContent = nombre;
+  document.getElementById('detalle-persona-resumen').innerHTML = 
+    `<strong>${tickets.length} registro(s) este mes</strong> · Total: <strong style="color:var(--green)">$${fmt2(total)}</strong> · Teatro: ${teatro}`;
+  
+  if (!tickets.length) {
+    document.getElementById('detalle-persona-tickets').innerHTML = '<div class="empty">Sin registros este mes.</div>';
+  } else {
+    const sorted = tickets.slice().sort((a,b) => b.fecha.localeCompare(a.fecha));
+    document.getElementById('detalle-persona-tickets').innerHTML = sorted.map((r, i) => {
+      const idx = registros.indexOf(r);
+      return `<div style="background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div>
+            <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--mu)">${fmtF(r.fecha)} · ${r.horaDesde||'—'}→${r.horaHasta||'—'}</span>
+            ${r.sinValidar?'<span class="tag warn" style="margin-left:6px;font-size:9px">Sin validar</span>':''}
+          </div>
+          <span class="monto ok">$${fmt2(r.total)}</span>
+        </div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:2px">${r.tipoLabel||'—'}</div>
+        <div style="font-size:12px;color:var(--mu)">${r.descripcion||'—'}</div>
+        <div style="font-size:11px;color:var(--dm);margin-top:4px;font-family:'DM Mono',monospace">${r.teatro||''}·${r.sala||''} · ${r.obra||'—'} · CC: ${CC_LABEL[r.cc]?.split(' ')[0]||r.cc||'—'}</div>
+        ${(r.edits||[]).length > 0 ? `<div style="font-size:11px;color:var(--green);margin-top:3px">Editado ${r.edits.length}× — último motivo: "${r.edits[r.edits.length-1]?.motivo||'—'}"</div>` : ''}
+        <div style="margin-top:8px">
+          <button class="btn ghost" style="padding:3px 8px;font-size:11px" onclick="cerrarModal('modal-detalle-persona');abrirEdit(${idx})">Editar este ticket</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  
+  document.getElementById('modal-detalle-persona').style.display = 'flex';
+}
+</script>
+
+
