@@ -332,6 +332,7 @@ textarea{resize:none;height:90px;line-height:1.5}
   <div class="res-card" id="success-det" style="text-align:left;margin-bottom:16px"></div>
   <button class="btn-nuevo" onclick="reiniciar()">Registrar otra HE</button>
   <button class="btn-hist-link" onclick="showHist()">Ver mi historial del mes →</button>
+  <button class="btn-hist-link" style="margin-top:8px;color:var(--ac);border-color:var(--ac)" onclick="reiniciar()">← Volver al inicio</button>
 </div>
 
 <!-- ── HISTORIAL ── -->
@@ -893,7 +894,7 @@ function checkUmbral() {
     .filter(t => t.fecha && t.fecha.startsWith(mes) && (t.nombre||'').toUpperCase() === S.nombre.toUpperCase())
     .reduce((a,t) => a + (t.total||0), 0);
   if (totalMes + S.total > UMBRAL_MENSUAL) {
-    showA('alert3', `⚠ Con este registro superarías $${fmt2(UMBRAL_MENSUAL)} este mes (acumulado: $${fmt2(totalMes)}). Carla recibirá una alerta en su dashboard.`);
+    showA('alert3', `⚠ Con este registro superarías $${fmt2(UMBRAL_MENSUAL)} este mes (acumulado: $${fmt2(totalMes)}). La Administración recibirá una alerta en su dashboard.`);
   }
 }
 
@@ -1001,7 +1002,7 @@ function showHist() {
   if (hoy.getDate() >= ultimoDia - 2) {
     cc.innerHTML = `<div class="cierre-banner">
       <div class="cierre-title">Fin de mes — ¿cerrás tu registro?</div>
-      <div class="cierre-sub">Estás en los últimos días del mes.<br>Podés enviar tu resumen consolidado a Carla ahora.</div>
+      <div class="cierre-sub">Estás en los últimos días del mes.<br>Podés enviar tu resumen consolidado a Administración ahora.</div>
       <button class="btn-cierre" onclick="cierreMes()">Enviar resumen del mes</button>
     </div>`;
   } else cc.innerHTML = '';
@@ -1042,7 +1043,7 @@ function cierreMes() {
   const total = delMes.reduce((a,t) => a+(t.total||0), 0);
   // → POST a Google Apps Script
   console.log('CIERRE MES', {nombre: S.nombre, mes: mesKey, registros: delMes.length, total, items: delMes});
-  alert(`Resumen enviado a Carla.\n${delMes.length} registros · Total $${fmt2(total)}`);
+  alert(`Resumen enviado a Administración.\n${delMes.length} registros · Total $${fmt2(total)}`);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1200,7 +1201,7 @@ async function enviar() {
   document.querySelector('.hdr').style.display = 'none';
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('vis'));
   document.getElementById('s-sub').textContent =
-    S.proxyActivo ? `Registrado a nombre de ${S.proxyNombre}.` : 'Tu HE quedó guardada. Carla la ve en su panel.';
+    S.proxyActivo ? `Registrado a nombre de ${S.proxyNombre}.` : 'Tu HE quedó guardada. La Administración la ve en su panel.';
   const det = document.getElementById('success-det');
   det.innerHTML = [
     ['Nombre', nombreReal + (S.proxyActivo ? ` (por ${S.nombre})` : '')],
