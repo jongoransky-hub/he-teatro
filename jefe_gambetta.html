@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Panel Jefe HE — GAMBETTA, JUAN</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f0f0f;--sf:#1a1a1a;--s2:#222;--bd:#2e2e2e;
+  --ac:#c8f542;--ad:#0f0f0f;--tx:#f0f0f0;--mu:#888;--dm:#444;
+  --red:#ff5a5a;--redbg:rgba(255,90,90,.09);--redbd:rgba(255,90,90,.3);
+  --amber:#f5a623;--ambg:rgba(245,166,35,.09);--ambd:rgba(245,166,35,.3);
+  --green:#4caf50;--grbg:rgba(76,175,80,.09);--grbd:rgba(76,175,80,.3);
+  --blue:#64b5f6;--blbg:rgba(100,181,246,.09);--blbd:rgba(100,181,246,.3);
+  --r:12px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;font-size:14px;padding-bottom:20px}
+.topbar{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.tb-left{display:flex;align-items:center;gap:10px}
+.dot{width:9px;height:9px;background:var(--ac);border-radius:50%}
+.tb-title{font-size:14px;font-weight:600}
+.tb-right{display:flex;align-items:center;gap:8px}
+.btn-refresh{background:rgba(200,245,66,.15);border:1px solid rgba(200,245,66,.3);color:var(--ac);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.tb-mes{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.06em}
+
+.main{padding:16px}
+
+/* RESUMEN */
+.resumen-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.rcard{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px}
+.rcard-lbl{font-size:10px;color:var(--mu);margin-bottom:4px;font-family:'DM Mono',monospace;text-transform:uppercase}
+.rcard-val{font-size:22px;font-weight:600;line-height:1}
+.rcard-val.green{color:var(--green)}.rcard-val.amber{color:var(--amber)}.rcard-val.red{color:var(--red)}
+.rcard-sub{font-size:10px;color:var(--mu);margin-top:3px;font-family:'DM Mono',monospace}
+
+/* FILTROS */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.fp{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--mu);transition:all .1s}
+.fp.active{background:var(--ac);border-color:var(--ac);color:var(--ad)}
+
+/* TICKET CARDS */
+.ticket{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;transition:border-color .15s}
+.ticket.aprobado{border-color:var(--grbd)}
+.ticket.rechazado{border-color:var(--redbd)}
+.ticket.pendiente{border-color:var(--ambd)}
+.ticket-head{padding:11px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.ticket-nombre{font-weight:600;font-size:14px}
+.ticket-meta{font-size:11px;color:var(--mu);font-family:'DM Mono',monospace;margin-top:2px}
+.ticket-monto{font-weight:700;font-family:'DM Mono',monospace;white-space:nowrap}
+.ticket-monto.green{color:var(--green)}.ticket-monto.amber{color:var(--amber)}
+.ticket-body{display:none;border-top:1px solid var(--bd);padding:12px 14px}
+.ticket-body.open{display:block}
+.det-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bd)}
+.det-row:last-child{border-bottom:none}
+.det-l{color:var(--mu)}
+.det-r{font-weight:500;text-align:right;max-width:65%;word-break:break-word}
+.ticket-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
+/* STATUS BADGE */
+.sbadge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;white-space:nowrap}
+.sbadge.pendiente{background:var(--ambg);color:var(--amber);border:1px solid var(--ambd)}
+.sbadge.aprobado{background:var(--grbg);color:var(--green);border:1px solid var(--grbd)}
+.sbadge.rechazado{background:var(--redbg);color:var(--red);border:1px solid var(--redbd)}
+.sdot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* BTNS */
+.btn{padding:8px 14px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:1px solid;font-family:'DM Sans',sans-serif;transition:all .1s}
+.btn:active{transform:scale(.97)}
+.btn.aprobar{background:var(--grbg);border-color:var(--grbd);color:var(--green)}
+.btn.rechazar{background:var(--redbg);border-color:var(--redbd);color:var(--red)}
+.btn.editar{background:var(--ambg);border-color:var(--ambd);color:var(--amber)}
+.btn.ghost{background:transparent;border-color:var(--bd);color:var(--mu)}
+
+/* EDIT INLINE */
+.edit-panel{background:var(--s2);border:1px solid var(--ambd);border-radius:var(--rs);padding:12px;margin-top:10px;display:none}
+.edit-panel.open{display:block}
+.edit-field{margin-bottom:10px}
+.edit-field label{display:block;font-size:11px;color:var(--mu);margin-bottom:4px;font-weight:500}
+.edit-field input,.edit-field select,.edit-field textarea{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;outline:none}
+.edit-field input:focus,.edit-field select:focus,.edit-field textarea:focus{border-color:var(--ac)}
+.edit-field textarea{resize:none;height:60px;line-height:1.5}
+.edit-btns{display:flex;gap:8px}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--mu);font-size:13px;line-height:1.8}
+.empty-icon{font-size:36px;margin-bottom:10px}
+
+/* LOADING */
+.loading{text-align:center;padding:40px 20px;color:var(--mu)}
+.spinner{width:32px;height:32px;border:3px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <div class="dot"></div>
+    <div>
+      <div class="tb-title" id="tb-nombre">Panel Jefe</div>
+      <div class="tb-mes" id="tb-area"></div>
+    </div>
+  </div>
+  <div class="tb-right">
+    <button class="btn-refresh" id="btn-refresh" onclick="cargarTickets()">↻ Actualizar</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="resumen-grid">
+    <div class="rcard"><div class="rcard-lbl">Pendientes</div><div class="rcard-val amber" id="r-pendientes">—</div><div class="rcard-sub">para revisar</div></div>
+    <div class="rcard"><div class="rcard-lbl">Aprobados</div><div class="rcard-val green" id="r-aprobados">—</div><div class="rcard-sub">este mes</div></div>
+    <div class="rcard"><div class="rcard-lbl">Total</div><div class="rcard-val" id="r-total" style="font-size:16px">—</div><div class="rcard-sub">acumulado</div></div>
+  </div>
+
+  <div class="filters">
+    <div class="fp active" id="f-todos" onclick="setFiltro('todos',this)">Todos</div>
+    <div class="fp" id="f-pendiente" onclick="setFiltro('pendiente',this)">Pendientes</div>
+    <div class="fp" id="f-aprobado" onclick="setFiltro('aprobado',this)">Aprobados</div>
+    <div class="fp" id="f-rechazado" onclick="setFiltro('rechazado',this)">Rechazados</div>
+  </div>
+
+  <div id="tickets-container">
+    <div class="loading"><div class="spinner"></div>Cargando tickets...</div>
+  </div>
+</div>
+
+<script>
+window.JEFE_CONFIG = {
+  nombre: 'GAMBETTA, JUAN',
+  areas:  ["MAQUINARIA"],
+  teatro: 'MET',
+};
+</script>
+<script>
+// ═══════════════════════════════════════
+// CONFIGURACIÓN DEL JEFE — SE SOBREESCRIBE EN CADA ARCHIVO
+// ═══════════════════════════════════════
+const JEFE_CONFIG = window.JEFE_CONFIG || {
+  nombre: 'JEFE',
+  areas:  [],
+  teatro: '',
+};
+
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLU3Adp7TbOR_hwPd2fsR72Fwo9-qOT8lYNeuUnk16o9vsxnr-SZRHVRIyamXmXhxE/exec";
+
+async function apiGet(action, params={}) {
+  try {
+    const url = new URL(SCRIPT_URL);
+    url.searchParams.set("action", action);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+    const res = await fetch(url.toString());
+    return await res.json();
+  } catch(e) { return {ok:false, error:e.toString()}; }
+}
+
+async function apiPost(action, data) {
+  try {
+    const payload = encodeURIComponent(JSON.stringify({action, data}));
+    const res = await fetch(`${SCRIPT_URL}?payload=${payload}`);
+    return await res.json();
+  } catch(e) { return {ok:false, error:e.toString()}; }
+}
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let tickets = [];
+let filtro = 'todos';
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+window.onload = async () => {
+  document.getElementById('tb-nombre').textContent = JEFE_CONFIG.nombre;
+  document.getElementById('tb-area').textContent =
+    JEFE_CONFIG.areas.join(' + ') + (JEFE_CONFIG.teatro ? ' · ' + JEFE_CONFIG.teatro : '');
+  await cargarTickets();
+  // Auto-refresh cada 3 minutos
+  setInterval(cargarTickets, 3 * 60 * 1000);
+};
+
+async function cargarTickets() {
+  const btn = document.getElementById('btn-refresh');
+  btn.textContent = '⏳';
+  btn.disabled = true;
+
+  try {
+    const hoy = new Date();
+    const mes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+    const res = await apiGet('getRegistros', {mes});
+
+    if (res.ok && Array.isArray(res.data)) {
+      // Filtrar solo los tickets del área/teatro de este jefe
+      tickets = res.data
+        .filter(r => {
+          const area = r["Área(s)"] || r["Areas"] || r["Área"] || "";
+          const teatro = r["Teatro"] || "";
+          const areaMatch = JEFE_CONFIG.areas.some(a =>
+            area.toUpperCase().includes(a.toUpperCase())
+          );
+          const teatroMatch = !JEFE_CONFIG.teatro || JEFE_CONFIG.teatro === 'AMBOS' ||
+            teatro.toUpperCase() === JEFE_CONFIG.teatro.toUpperCase();
+          return areaMatch && teatroMatch;
+        })
+        .map(r => ({
+          id:          r["ID"] || "",
+          nombre:      r["Nombre"] || "",
+          area:        r["Área(s)"] || r["Areas"] || r["Área"] || "",
+          teatro:      r["Teatro"] || "",
+          sala:        r["Sala"] || "",
+          fecha:       normFecha(r["Fecha"] || ""),
+          horaDesde:   normHora(r["Hora Desde"] || ""),
+          horaHasta:   normHora(r["Hora Hasta"] || ""),
+          tipoLabel:   r["Tipo HE"] || "",
+          horas:       parseFloat(r["Horas"]) || null,
+          total:       parseFloat(String(r["Total"]||"0").replace(/\./g,'').replace(',','.')) || 0,
+          obra:        r["Obra"] || "",
+          descripcion: r["Descripción"] || r["Descripcion"] || "",
+          aprobJefe:   r["Aprobado Jefe"] || "PENDIENTE",
+          notaJefe:    r["Nota Jefe"] || "",
+          sinValidar:  r["Sin Validar"] === "SI",
+          _open:       false,
+          _editOpen:   false,
+        }));
+    }
+  } catch(e) {
+    console.error(e);
+  }
+
+  btn.textContent = '↻ Actualizar';
+  btn.disabled = false;
+  renderTickets();
+  actualizarResumen();
+}
+
+// ═══════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════
+function renderTickets() {
+  const container = document.getElementById('tickets-container');
+  let lista = tickets.slice().sort((a,b) => {
+    // Pendientes primero
+    const orden = {PENDIENTE:0, RECHAZADO:1, APROBADO:2};
+    return (orden[a.aprobJefe]||0) - (orden[b.aprobJefe]||0) || b.fecha.localeCompare(a.fecha);
+  });
+  if (filtro !== 'todos') {
+    lista = lista.filter(t => t.aprobJefe.toLowerCase() === filtro);
+  }
+  if (!lista.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">${filtro==='aprobado'?'✅':filtro==='rechazado'?'❌':'📭'}</div>${filtro==='todos'?'Sin tickets este mes para tu área.':'Sin tickets en esta categoría.'}</div>`;
+    return;
+  }
+  container.innerHTML = lista.map((t,i) => ticketHTML(t, i)).join('');
+}
+
+function ticketHTML(t, i) {
+  const idx = tickets.indexOf(t);
+  const estadoClass = t.aprobJefe === 'APROBADO' ? 'aprobado' : t.aprobJefe === 'RECHAZADO' ? 'rechazado' : 'pendiente';
+  const montoClass = t.total > 100000 ? 'amber' : 'green';
+  return `
+  <div class="ticket ${estadoClass}" id="ticket-${idx}">
+    <div class="ticket-head" onclick="toggleTicket(${idx})">
+      <div>
+        <div class="ticket-nombre">${t.nombre}</div>
+        <div class="ticket-meta">${fmtF(t.fecha)} · ${t.horaDesde||'—'}→${t.horaHasta||'—'} · ${t.tipoLabel||'—'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="ticket-monto ${montoClass}">$${fmt(t.total)}</div>
+        <div class="sbadge ${estadoClass}"><span class="sdot"></span>${estadoBadge(t.aprobJefe)}</div>
+      </div>
+    </div>
+    <div class="ticket-body ${t._open?'open':''}" id="tbody-${idx}">
+      <div class="det-row"><span class="det-l">Teatro · Sala</span><span class="det-r">${t.teatro} · ${t.sala||'—'}</span></div>
+      <div class="det-row"><span class="det-l">Obra</span><span class="det-r">${t.obra||'—'}</span></div>
+      <div class="det-row"><span class="det-l">Descripción</span><span class="det-r">${t.descripcion||'—'}</span></div>
+      <div class="det-row"><span class="det-l">Horas</span><span class="det-r">${t.horas!=null?t.horas+'hs':'—'}</span></div>
+      ${t.notaJefe ? `<div class="det-row"><span class="det-l">Tu nota</span><span class="det-r" style="color:var(--amber)">${t.notaJefe}</span></div>` : ''}
+      <div class="ticket-actions">
+        ${t.aprobJefe !== 'APROBADO' ? `<button class="btn aprobar" onclick="aprobar(${idx})">✓ Aprobar</button>` : ''}
+        ${t.aprobJefe !== 'RECHAZADO' ? `<button class="btn rechazar" onclick="rechazar(${idx})">✗ Rechazar</button>` : ''}
+        <button class="btn editar" onclick="toggleEditar(${idx})">✎ Editar</button>
+        ${t.aprobJefe !== 'APROBADO' ? '' : `<button class="btn ghost" onclick="desaprobar(${idx})">Revertir</button>`}
+      </div>
+      <div class="edit-panel ${t._editOpen?'open':''}" id="edit-${idx}">
+        <div class="edit-field"><label>Fecha</label><input type="date" id="ef-fecha-${idx}" value="${t.fecha}"></div>
+        <div class="edit-field"><label>Hora desde</label>
+          <select id="ef-desde-${idx}">${horaOpts(t.horaDesde)}</select>
+        </div>
+        <div class="edit-field"><label>Hora hasta</label>
+          <select id="ef-hasta-${idx}">${horaOpts(t.horaHasta)}</select>
+        </div>
+        <div class="edit-field"><label>Descripción</label><textarea id="ef-desc-${idx}">${t.descripcion}</textarea></div>
+        <div class="edit-field"><label>Motivo de la corrección <span style="color:var(--red)">*</span></label>
+          <textarea id="ef-motivo-${idx}" placeholder="Explicá qué corregiste y por qué."></textarea>
+        </div>
+        <div class="edit-btns">
+          <button class="btn aprobar" onclick="guardarEdicion(${idx})">Guardar y aprobar</button>
+          <button class="btn ghost" onclick="toggleEditar(${idx})">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function estadoBadge(s) {
+  return s === 'APROBADO' ? '✓ Aprobado' : s === 'RECHAZADO' ? '✗ Rechazado' : '⏳ Pendiente';
+}
+
+function actualizarResumen() {
+  const pendientes = tickets.filter(t => t.aprobJefe === 'PENDIENTE').length;
+  const aprobados  = tickets.filter(t => t.aprobJefe === 'APROBADO').length;
+  const total      = tickets.reduce((a,t) => a + t.total, 0);
+  document.getElementById('r-pendientes').textContent = pendientes;
+  document.getElementById('r-aprobados').textContent  = aprobados;
+  document.getElementById('r-total').textContent      = '$' + fmt(total);
+}
+
+// ═══════════════════════════════════════
+// ACCIONES
+// ═══════════════════════════════════════
+async function aprobar(idx) {
+  const t = tickets[idx];
+  if (!t.id) { alert('Este ticket no tiene ID — no se puede sincronizar.'); return; }
+  t.aprobJefe = 'APROBADO';
+  renderTickets(); actualizarResumen();
+  const r = await apiPost('aprobarTicket', {
+    id: t.id,
+    aprobadoPor: JEFE_CONFIG.nombre,
+    estado: 'APROBADO',
+    nota: '',
+  });
+  if (!r.ok) console.warn('Error al sincronizar aprobación:', r.error);
+}
+
+async function rechazar(idx) {
+  const nota = prompt('¿Por qué rechazás este ticket? (obligatorio)');
+  if (!nota || !nota.trim()) return;
+  const t = tickets[idx];
+  t.aprobJefe = 'RECHAZADO';
+  t.notaJefe = nota.trim();
+  renderTickets(); actualizarResumen();
+  await apiPost('aprobarTicket', {
+    id: t.id,
+    aprobadoPor: JEFE_CONFIG.nombre,
+    estado: 'RECHAZADO',
+    nota: nota.trim(),
+  });
+}
+
+async function desaprobar(idx) {
+  if (!confirm('¿Revertir la aprobación de este ticket?')) return;
+  const t = tickets[idx];
+  t.aprobJefe = 'PENDIENTE';
+  t.notaJefe = '';
+  renderTickets(); actualizarResumen();
+  await apiPost('aprobarTicket', {
+    id: t.id,
+    aprobadoPor: JEFE_CONFIG.nombre,
+    estado: 'PENDIENTE',
+    nota: '',
+  });
+}
+
+async function guardarEdicion(idx) {
+  const t = tickets[idx];
+  const motivo = document.getElementById(`ef-motivo-${idx}`).value.trim();
+  if (!motivo) { alert('El motivo es obligatorio.'); return; }
+  t.fecha      = document.getElementById(`ef-fecha-${idx}`).value || t.fecha;
+  t.horaDesde  = document.getElementById(`ef-desde-${idx}`).value || t.horaDesde;
+  t.horaHasta  = document.getElementById(`ef-hasta-${idx}`).value || t.horaHasta;
+  t.descripcion= document.getElementById(`ef-desc-${idx}`).value.trim() || t.descripcion;
+  t.aprobJefe  = 'APROBADO';
+  t._editOpen  = false;
+  renderTickets(); actualizarResumen();
+  await apiPost('editRegistro', {
+    id: t.id, fecha: t.fecha, horaDesde: t.horaDesde, horaHasta: t.horaHasta,
+    descripcion: t.descripcion, motivo, editadoPor: JEFE_CONFIG.nombre,
+  });
+  await apiPost('aprobarTicket', {
+    id: t.id, aprobadoPor: JEFE_CONFIG.nombre, estado: 'APROBADO',
+    nota: `Editado y aprobado: ${motivo}`,
+  });
+}
+
+function toggleTicket(idx) {
+  tickets[idx]._open = !tickets[idx]._open;
+  const body = document.getElementById(`tbody-${idx}`);
+  if (body) body.classList.toggle('open', tickets[idx]._open);
+}
+
+function toggleEditar(idx) {
+  tickets[idx]._editOpen = !tickets[idx]._editOpen;
+  const panel = document.getElementById(`edit-${idx}`);
+  if (panel) panel.classList.toggle('open', tickets[idx]._editOpen);
+}
+
+function setFiltro(f, el) {
+  filtro = f;
+  document.querySelectorAll('.fp').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderTickets();
+}
+
+// ═══════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════
+function horaOpts(sel) {
+  let html = '';
+  for (let h = 0; h < 24; h++) {
+    for (let m of [0, 30]) {
+      const v = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      html += `<option value="${v}" ${v===sel?'selected':''}>${v}</option>`;
+    }
+  }
+  return html;
+}
+function normHora(v){if(!v)return'';const s=String(v);const m=s.match(/T(\d{2}:\d{2})/);if(m)return m[1];const m2=s.match(/^(\d{2}:\d{2})/);if(m2)return m2[1];return s;}
+function normFecha(v){if(!v)return'';const s=String(v);const m=s.match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:s;}
+function fmtF(v){if(!v)return'—';const[y,mo,d]=v.split('-');return`${d}/${mo}/${y}`;}
+function fmt(n){return Math.round(n||0).toLocaleString('es-AR');}
+</script>
+</body>
+</html>
