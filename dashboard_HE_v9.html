@@ -309,6 +309,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
     <div class="fp" onclick="fConsolid('MET',this)">MET</div>
     <div class="fp" onclick="fConsolid('PLP',this)">PLP</div>
   </div>
+  <div class="filters" id="f-consolidado2" style="margin-bottom:14px">
+    <select class="cc-sel" style="width:auto;min-width:200px" id="filtro-obra-consolid" onchange="buildConsolidado()">
+      <option value="">Todas las obras</option>
+    </select>
+    <select class="cc-sel" style="width:auto;min-width:200px" id="filtro-persona-consolid" onchange="buildConsolidado()">
+      <option value="">Todas las personas</option>
+    </select>
+    <div class="fp" id="btn-clear-consolid2" style="display:none" onclick="document.getElementById('filtro-obra-consolid').value='';document.getElementById('filtro-persona-consolid').value='';buildConsolidado()">✕ Limpiar</div>
+  </div>
   <div id="consolidado-body"></div>
   <div class="card"><div class="card-head"><span class="card-title">Totales</span></div><div class="card-body" id="consolidado-totales"></div></div>
 </div>
@@ -1158,7 +1167,9 @@ function getAlertasList(){
     if(al)alerts.push({...al,nombre:p.n,area:(p.areas||[]).join('+'),teatro:p.teatro,key,extra:`Acumulado: $${fmt2(total)}`,link:'estado'});
     if(total>UMBRAL)alerts.push({nivel:'red',msg:'Umbral superado',nombre:p.n,area:(p.areas||[]).join('+'),teatro:p.teatro,key:`umbral_${p.n}`,extra:`$${fmt2(total)} > $${fmt2(UMBRAL)}`,link:'consolidado'});
   });
+  registros.filter(r=>r.overrideOverlap).forEach(r=>alerts.push({nivel:'red',msg:'Solapamiento confirmado por el técnico',nombre:r.nombre,area:'',teatro:r.teatro,key:`ovl_${r.nombre}_${r.fecha}_${r.horaDesde}`,extra:`${fmtF(r.fecha)} ${r.horaDesde}–${r.horaHasta}: "${r.tipoLabel}" — revisar antes de pagar`,link:'registros'}));
   registros.filter(r=>r.overrideHorario).forEach(r=>alerts.push({nivel:'blue',msg:'Horario de función confirmado',nombre:r.nombre,area:'',teatro:r.teatro,key:`hor_${r.nombre}_${r.fecha}`,extra:`${fmtF(r.fecha)} ${r.horaDesde}–${r.horaHasta}: "${r.descripcion}"`,link:'registros'}));
+  registros.filter(r=>r.aprobJefe==='RECHAZADO').forEach(r=>alerts.push({nivel:'red',msg:'Rechazado por el jefe de área',nombre:r.nombre,area:(r.areas||[]).join('+'),teatro:r.teatro,key:`rechjefe_${r._id||r.nombre+r.fecha}`,extra:`${fmtF(r.fecha)} · "${r.tipoLabel}" · $${fmt2(r.total)}${r.notaJefe?' — "'+r.notaJefe+'"':''}`,link:'registros'}));
   registros.filter(r=>r.sinValidar).forEach(r=>alerts.push({nivel:'amber',msg:'Persona sin validar en nómina',nombre:r.nombre,area:'?',teatro:r.teatro,key:`sinval_${r.nombre}`,extra:`Tiene ${registros.filter(x=>x.nombre===r.nombre).length} registro(s) — ir a Personal para validar`,link:'personal'}));
   return alerts;
 }
@@ -1204,25 +1215,65 @@ function fAlertas(f,el){document.querySelectorAll('#view-alertas .fp').forEach(p
 // ════════════════════════════════════════════
 // CONSOLIDADO
 // ════════════════════════════════════════════
-function buildConsolidado(){
+function poblarFiltrosConsolidado(){
+  const selObra=document.getElementById('filtro-obra-consolid');
+  const selPersona=document.getElementById('filtro-persona-consolid');
+  if(selObra && selObra.options.length<=1){
+    const vObra=selObra.value;
+    selObra.innerHTML='<option value="">Todas las obras</option>'+OBRAS_LIST.map(o=>`<option value="${o}">${o} [${OBRAS_META[o]?.tipo||'—'}]</option>`).join('');
+    selObra.value=vObra;
+  }
+  if(selPersona && selPersona.options.length<=1){
+    const vPer=selPersona.value;
+    const nombres=(PERSONAL||[]).map(p=>p.n).sort((a,b)=>a.localeCompare(b));
+    selPersona.innerHTML='<option value="">Todas las personas</option>'+nombres.map(n=>`<option value="${n}">${n}</option>`).join('');
+    selPersona.value=vPer;
+  }
+}
+// Devuelve, para el consolidado, los registros del mes ya filtrados por
+// tipo/teatro (pills) + obra + persona (selects). Se reutiliza para
+// construir la vista y para exportar exactamente lo que se está viendo.
+function registrosConsolidadoFiltrados(){
   const hoy=new Date();const mk=mesK(hoy);
-  const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
+  const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
+  const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
+  return registros.filter(r=>{
+    if(!r.fecha?.startsWith(mk)||r.sinValidar)return false;
+    const tipo=OBRAS_META[r.obra]?.tipo||'PROPIA';
+    const f=filtroConsolid;
+    if(f!=='todos'&&f!==tipo&&f!==r.teatro&&!(f==='ASUME'&&r.salaAsume))return false;
+    if(fObra&&r.obra!==fObra)return false;
+    if(fPersona&&r.nombre!==fPersona)return false;
+    return true;
+  });
+}
+function buildConsolidado(){
+  poblarFiltrosConsolidado();
+  const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
+  const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
+  document.getElementById('btn-clear-consolid2').style.display=(fObra||fPersona)?'block':'none';
+  const filtrados=registrosConsolidadoFiltrados();
   const byObra={};
-  delMes.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,teatro:r.teatro,tipo:(OBRAS_META[k]?.tipo||'PROPIA'),salaAsume:false};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].salaAsume=true;});
+  filtrados.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,teatro:r.teatro,tipo:(OBRAS_META[k]?.tipo||'PROPIA'),salaAsume:false};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].salaAsume=true;});
   let tP=0,tT=0,tS=0,html='';
   Object.entries(byObra).sort((a,b)=>b[1].total-a[1].total).forEach(([obra,data])=>{
-    const{tipo,teatro,salaAsume}=data;const f=filtroConsolid;
-    if(f!=='todos'&&f!==tipo&&f!==teatro&&!(f==='ASUME'&&salaAsume))return;
+    const{tipo,teatro,salaAsume}=data;
     if(salaAsume)tS+=data.total;else if(tipo==='PROPIA')tP+=data.total;else tT+=data.total;
-    const byArea={};data.rows.forEach(r=>{const a=(r.areas||['?'])[0];if(!byArea[a])byArea[a]=0;byArea[a]+=r.total||0;});
+    // Desglose por persona dentro de la obra — clickeable a su detalle mensual
+    const byPersona={};data.rows.forEach(r=>{if(!byPersona[r.nombre])byPersona[r.nombre]={total:0,n:0,teatro:r.teatro};byPersona[r.nombre].total+=r.total||0;byPersona[r.nombre].n++;});
     const tCls=salaAsume?'asume':tipo.toLowerCase();const tLbl=salaAsume?'Sala asume':tipo==='PROPIA'?'Propia':'Tercero';
+    const personaRows=Object.entries(byPersona).sort((a,b)=>b[1].total-a[1].total)
+      .map(([n,d])=>`<div class="obra-row" style="cursor:pointer" onclick="abrirDetallPersona('${n.replace(/'/g,"\\'")}','${d.teatro}')" title="Ver tickets de ${n} este mes">
+        <span class="obra-rl">${n} <span class="mono" style="color:var(--mu);font-size:10px">(${d.n})</span></span>
+        <span class="obra-rr">$${fmt2(d.total)}</span>
+      </div>`).join('');
     html+=`<div class="obra-block">
       <div class="obra-head" onclick="this.nextElementSibling.classList.toggle('open')">
         <div class="obra-meta"><span class="obra-nom">${obra}</span><span class="otag ${tCls}">${tLbl}</span><span class="mono" style="color:var(--mu);font-size:10px">${teatro}</span></div>
         <span class="obra-tot">$${fmt2(data.total)}</span>
       </div>
       <div class="obra-rows">
-        ${Object.entries(byArea).map(([a,t])=>`<div class="obra-row"><span class="obra-rl">${a.replace(/_/g,' ')}</span><span class="obra-rr">$${fmt2(t)}</span></div>`).join('')}
+        ${personaRows}
         <div class="obra-row" style="background:var(--s2)"><span class="obra-rl fw">Total</span><span class="obra-rr fw">$${fmt2(data.total)}</span></div>
       </div>
     </div>`;
@@ -1425,11 +1476,14 @@ function buildRegistros(){
   document.getElementById('tbody-registros').innerHTML=data.map(r=>{
     const i=registros.indexOf(r);
     const flags=[];
+    if(r.overrideOverlap)flags.push('<span style="color:var(--red);font-size:11px;font-weight:700">⚠ Solapa</span>');
     if(r.overrideHorario)flags.push('<span style="color:var(--blue);font-size:11px">Hor.func</span>');
     if(r.salaAsume)flags.push('<span style="color:var(--purple);font-size:11px">SalaAsume</span>');
     if(r.cargadoPor)flags.push('<span style="color:var(--mu);font-size:11px">Proxy</span>');
     if(r.sinValidar)flags.push('<span style="color:var(--amber);font-size:11px;font-weight:700">SinValidar</span>');
     if((r.edits||[]).length>0)flags.push(`<span style="color:var(--green);font-size:11px">Editado×${r.edits.length}</span>`);
+    const necesitaJefe=['SONIDO','ILUMINACION','MAQUINARIA'].includes((r.areas||[])[0]||'');
+    if(necesitaJefe)flags.push(aprobBadge(r));
     return`<tr ${r.sinValidar?'style="background:#fffde7"':''}>
       <td class="mono">${fmtF(r.fecha)}</td>
       <td class="fw" style="white-space:nowrap;font-size:12px">${r.nombre}</td>
@@ -1484,14 +1538,27 @@ function guardarEdit(){
 // ════════════════════════════════════════════
 // EXPORT
 // ════════════════════════════════════════════
+// Etiqueta legible del recorte activo (obra y/o persona), para nombre de
+// archivo y encabezado del export — así el PDF/Excel dice claramente
+// a qué corte corresponde cuando se lo mandás a producción o admin.
+function etiquetaFiltroConsolidado(){
+  const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
+  const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
+  const partes=[];
+  if(fObra)partes.push(fObra);
+  if(fPersona)partes.push(fPersona);
+  if(!partes.length&&filtroConsolid!=='todos')partes.push({PROPIA:'Propias',TERCERO:'Terceros',ASUME:'Sala asume',MET:'MET',PLP:'PLP'}[filtroConsolid]||filtroConsolid);
+  return partes.join(' — ');
+}
 function exportXLSX(){
   const hoy=new Date();const mk=mesK(hoy);
-  const delMes=registros.filter(r=>r.fecha?.startsWith(mk));
+  const delMes=registrosConsolidadoFiltrados();
+  const etiqueta=etiquetaFiltroConsolidado();
   const wb=XLSX.utils.book_new();
-  const reg=[['Fecha','Nombre','Área(s)','Teatro','Sala','Obra','Tipo HE','Horas','Total','CC','Sin Validar','Edits','Flags']];
+  const reg=[['Fecha','Nombre','Área(s)','Teatro','Sala','Obra','Tipo HE','Horas','Total','CC','Sin Validar','Aprob. Jefe','Solapamiento confirmado','Edits','Flags']];
   delMes.forEach(r=>{
     const flags=[r.overrideHorario?'Hor.función':'',r.salaAsume?'Sala asume':'',r.cargadoPor?'Proxy':'',r.sinValidar?'Sin validar':''].filter(Boolean).join(', ');
-    reg.push([fmtF(r.fecha),r.nombre,(r.areas||[]).join('+'),r.teatro,r.sala,r.obra||'—',r.tipoLabel,r.horas!=null?r.horas:r.cantidad!=null?r.cantidad:'—',r.total,CC_LABEL[r.cc]||r.cc||'—',r.sinValidar?'SÍ':'NO',(r.edits||[]).length,flags]);
+    reg.push([fmtF(r.fecha),r.nombre,(r.areas||[]).join('+'),r.teatro,r.sala,r.obra||'—',r.tipoLabel,r.horas!=null?r.horas:r.cantidad!=null?r.cantidad:'—',r.total,CC_LABEL[r.cc]||r.cc||'—',r.sinValidar?'SÍ':'NO',r.aprobJefe||'—',r.overrideOverlap?'SÍ':'NO',(r.edits||[]).length,flags]);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(reg),'Registros');
   const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—',teatro:r.teatro};byObra[k].total+=r.total||0;});
@@ -1500,15 +1567,18 @@ function exportXLSX(){
   const byP={};delMes.forEach(r=>{if(!byP[r.nombre])byP[r.nombre]={areas:(r.areas||[]).join('+'),total:0};byP[r.nombre].total+=r.total||0;});
   const perP=[['Nombre','Área(s)','Total']];Object.entries(byP).forEach(([n,d])=>perP.push([n,d.areas,d.total]));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(perP),'Por persona');
-  XLSX.writeFile(wb,`HE_${mk}.xlsx`);
+  const sufijo=etiqueta?`_${etiqueta.replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g,'_')}`:'';
+  XLSX.writeFile(wb,`HE_${mk}${sufijo}.xlsx`);
 }
 function exportPDF(){
   const hoy=new Date();const mk=mesK(hoy);
-  const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
+  const delMes=registrosConsolidadoFiltrados();
+  const etiqueta=etiquetaFiltroConsolidado();
   const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'});
   const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
   const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—'};byObra[k].total+=r.total||0;});
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HE ${mesNom}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:32px}h1{font-size:18px}h2{font-size:13px;margin:18px 0 5px;border-bottom:1px solid #ccc;padding-bottom:3px}.tot{font-size:15px;font-weight:700;margin:6px 0}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{text-align:left;font-size:10px;text-transform:uppercase;color:#666;padding:4px 7px;border-bottom:2px solid #ccc}td{padding:4px 7px;border-bottom:1px solid #eee;font-size:11px}.right{text-align:right}@media print{body{margin:16px}}</style></head><body><h1>Horas Extras — ${mesNom}</h1><div class="tot">Total: $${fmt2(totGen)}</div><h2>Consolidado por obra</h2><table><tr><th>Obra</th><th>Tipo</th><th class="right">Total</th></tr>${Object.entries(byObra).map(([o,d])=>`<tr><td>${o}</td><td>${d.tipo}</td><td class="right">$${fmt2(d.total)}</td></tr>`).join('')}</table><h2>Registros</h2><table><tr><th>Fecha</th><th>Nombre</th><th>Área</th><th>Tipo HE</th><th>Obra</th><th class="right">Total</th></tr>${delMes.map(r=>`<tr><td>${fmtF(r.fecha)}</td><td>${r.nombre}</td><td>${(r.areas||[]).join('+')}</td><td>${r.tipoLabel}</td><td>${r.obra||'—'}</td><td class="right">$${fmt2(r.total)}</td></tr>`).join('')}</table><script>window.onload=()=>window.print()<\/script></body></html>`;
+  const tituloCorte=etiqueta?` — ${etiqueta}`:'';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HE ${mesNom}${tituloCorte}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:32px}h1{font-size:18px}h2{font-size:13px;margin:18px 0 5px;border-bottom:1px solid #ccc;padding-bottom:3px}.tot{font-size:15px;font-weight:700;margin:6px 0}.sub{font-size:12px;color:#666;margin-bottom:10px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{text-align:left;font-size:10px;text-transform:uppercase;color:#666;padding:4px 7px;border-bottom:2px solid #ccc}td{padding:4px 7px;border-bottom:1px solid #eee;font-size:11px}.right{text-align:right}@media print{body{margin:16px}}</style></head><body><h1>Horas Extras — ${mesNom}</h1>${etiqueta?`<div class="sub">Recorte: ${etiqueta}</div>`:''}<div class="tot">Total: $${fmt2(totGen)}</div><h2>Consolidado por obra</h2><table><tr><th>Obra</th><th>Tipo</th><th class="right">Total</th></tr>${Object.entries(byObra).map(([o,d])=>`<tr><td>${o}</td><td>${d.tipo}</td><td class="right">$${fmt2(d.total)}</td></tr>`).join('')}</table><h2>Registros</h2><table><tr><th>Fecha</th><th>Nombre</th><th>Área</th><th>Tipo HE</th><th>Obra</th><th class="right">Total</th></tr>${delMes.map(r=>`<tr><td>${fmtF(r.fecha)}</td><td>${r.nombre}</td><td>${(r.areas||[]).join('+')}</td><td>${r.tipoLabel}</td><td>${r.obra||'—'}</td><td class="right">$${fmt2(r.total)}</td></tr>`).join('')}</table><script>window.onload=()=>window.print()<\/script></body></html>`;
   const w=window.open('','_blank');w.document.write(html);w.document.close();
 }
 
@@ -1755,3 +1825,5 @@ function abrirDetallPersona(nombre, teatro) {
   document.getElementById('modal-detalle-persona').style.display = 'flex';
 }
 </script>
+
+

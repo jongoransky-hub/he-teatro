@@ -204,7 +204,7 @@ textarea{resize:none;height:60px;line-height:1.5}
   </div>
   <div class="card">
     <div class="card-head">
-      <span class="card-title">Valores vigentes — Feb/Mar 2026</span>
+      <span class="card-title">Valores vigentes — Septiembre 2026</span>
       <div class="btn-row">
         <button class="btn ghost" onclick="exportarReporte('todos','xlsx')">XLSX</button>
         <button class="btn ghost" onclick="exportarReporte('todos','pdf')">PDF</button>
@@ -212,7 +212,7 @@ textarea{resize:none;height:60px;line-height:1.5}
     </div>
     <div style="overflow-x:auto">
       <table class="val-table"><thead><tr>
-        <th>Concepto</th><th>Tipo</th><th>Áreas</th><th>Valor actual</th><th>Solo jefe</th>
+        <th>Concepto</th><th>Tipo</th><th>Áreas</th><th>Teatro</th><th>Valor actual</th><th>Solo jefe</th>
       </tr></thead><tbody id="tbody-valores"></tbody></table>
     </div>
   </div>
@@ -241,7 +241,7 @@ textarea{resize:none;height:60px;line-height:1.5}
       <p style="font-size:12px;color:var(--mu);margin-bottom:12px">Editá el valor de cada concepto. Los cambios se guardan al presionar "Confirmar".</p>
       <div style="overflow-x:auto">
         <table class="val-table"><thead><tr>
-          <th>Concepto</th><th>Tipo</th><th>Valor actual</th><th>Nuevo valor</th><th>Δ%</th>
+          <th>Concepto</th><th>Teatro</th><th>Valor actual</th><th>Nuevo valor</th><th>Δ%</th>
         </tr></thead><tbody id="tbody-editable"></tbody></table>
       </div>
       <div class="btn-row" style="margin-top:12px">
@@ -533,55 +533,53 @@ async function apiPost(action, data) {
 }
 
 // ════════════════════════════════════
-// VALORES HE — Feb/Mar 2026 (CORREGIDOS)
+// VALORES HE — Septiembre 2026 (fallback local; el Sheet manda apenas carga)
 // ════════════════════════════════════
 let VALORES = [
   // POR HORA — TÉCNICOS
-  {id:'he_extra',       l:'H Extra',                              t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:13044.38, jefe:false},
-  {id:'he_extra_jefe',  l:'H Extra Jefe (solo montajes)',         t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:15653.26, jefe:true},
-  {id:'he_3ros',        l:'H Extra Terceros',                     t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:18634.83, jefe:false},
-  {id:'he_3ros_jefe',   l:'H Extra Terceros Jefe (solo montajes)',t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:22361.79, jefe:true},
-  {id:'he_madrugada',   l:'H Extra Madrugada (1:15–7am)',         t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:15653.26, jefe:false},
-  {id:'he_madrugada_3', l:'H Extra Madrugada Terceros',           t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:22361.79, jefe:false},
-  // JEFE MADRUGADA: 20% más que madrugada estándar
-  {id:'he_madrugada_j', l:'H Extra Madrugada Jefe',               t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:18783.91, jefe:true},
-  // JEFE MADRUGADA TERCEROS: 20% más que madrugada terceros
-  {id:'he_madrugada_j3',l:'H Extra Madrugada Jefe Terceros',      t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:26834.15, jefe:true},
-  {id:'he_prog',        l:'HS Programación',                      t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:18634.83, jefe:false},
-  {id:'he_prog_3',      l:'HS Programación Terceros',             t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:22361.79, jefe:false},
-  {id:'he_prog_tras',   l:'HS Programación Trasnoche',            t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], v:23107.19, jefe:false},
+  {id:'he',        l:'H Extra',                              t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:16411,  jefe:false, montaje:false},
+  {id:'hej',       l:'H Extra Jefe (solo montajes)',         t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:19693,  jefe:true,  montaje:true},
+  {id:'he3',       l:'H Extra Terceros',                     t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:23443,  jefe:false, montaje:false},
+  {id:'he3j',      l:'H Extra Terceros Jefe (solo montajes)',t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:28133,  jefe:true,  montaje:true},
+  {id:'hem',       l:'H Extra Madrugada (1:15–7am)',         t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:19693,  jefe:false, montaje:false},
+  {id:'hem3',      l:'H Extra Madrugada Terceros',           t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:28133,  jefe:false, montaje:false},
+  {id:'hemj',      l:'H Extra Madrugada Jefe',               t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:23631,  jefe:true,  montaje:true},
+  {id:'hemj3',     l:'H Extra Madrugada Jefe Terceros',      t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:33759,  jefe:true,  montaje:true},
+  {id:'prog',      l:'HS Programación',                      t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:23443,  jefe:false, montaje:false},
+  {id:'prog3',     l:'HS Programación Terceros',              t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:28133,  jefe:false, montaje:false},
+  {id:'progt',     l:'HS Programación Trasnoche',             t:'HE', a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:29070,  jefe:false, montaje:false},
   // PAQUETES — TÉCNICOS
-  {id:'pkg_early',      l:'Técnicos — Early Show',                t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:20441.16, jefe:false},
-  {id:'pkg_armado',     l:'Técnicos — Armado/Desarme',            t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:67254.34, jefe:false},
-  {id:'pkg_matinee',    l:'Función Adulto Matinee',               t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:67254.34, jefe:false},
-  {id:'pkg_infantil',   l:'Técnicos — Infantiles',                t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:84916.43, jefe:false},
-  {id:'pkg_citmin',     l:'Técnicos — Citación mínima (3hs)',     t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:39133.14, jefe:false},
-  {id:'pkg_trasnoche',  l:'Técnicos — Trasnoche',                 t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:53783.84, jefe:false},
-  {id:'pkg_ev_corto',   l:'Técnicos — Evento corto',              t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:75545.59, jefe:false},
-  {id:'pkg_ev_largo',   l:'Técnicos — Evento largo',              t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], v:125910.56,jefe:false},
-  {id:'pkg_ev_corto_p', l:'Técnicos — Evento corto c/Proyección', t:'PKG',a:['SONIDO','ILUMINACION'],              v:90655.95, jefe:false},
-  {id:'pkg_ev_largo_p', l:'Técnicos — Evento largo c/Proyección', t:'PKG',a:['SONIDO','ILUMINACION'],              v:139761.21,jefe:false},
-  {id:'pkg_tras_p',     l:'Técnicos — Trasnoche c/Proyección',    t:'PKG',a:['SONIDO','ILUMINACION'],              v:72608.74, jefe:false},
+  {id:'early',     l:'Técnicos — Early Show',                t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'PLP',   v:35611,  jefe:false, montaje:false},
+  {id:'armado',    l:'Técnicos — Asistencia Armado/Desarme', t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:84610,  jefe:false, montaje:false},
+  {id:'matinee',   l:'Función Adulto Matinee',                t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:84610,  jefe:false, montaje:false},
+  {id:'infantil',  l:'Técnicos — Infantiles',                 t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:106830, jefe:false, montaje:false},
+  {id:'citmin',    l:'Técnicos — Citación mínima (3hs)',      t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:49232,  jefe:false, montaje:false},
+  {id:'trasnoche', l:'Técnicos — Trasnoche',                  t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:67664,  jefe:false, montaje:false},
+  {id:'evco',      l:'Técnicos — Evento corto',               t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:95041,  jefe:false, montaje:false},
+  {id:'evla',      l:'Técnicos — Evento largo',               t:'PKG',a:['SONIDO','ILUMINACION','MAQUINARIA'], teatro:'AMBOS', v:158404, jefe:false, montaje:false},
+  {id:'evcop',     l:'Técnicos — Evento corto c/Proyección',  t:'PKG',a:['SONIDO','ILUMINACION'],              teatro:'AMBOS', v:114051, jefe:false, montaje:false},
+  {id:'evlap',     l:'Técnicos — Evento largo c/Proyección',  t:'PKG',a:['SONIDO','ILUMINACION'],              teatro:'AMBOS', v:175829, jefe:false, montaje:false},
+  {id:'trasnochep',l:'Técnicos — Trasnoche c/Proyección',     t:'PKG',a:['SONIDO','ILUMINACION'],              teatro:'AMBOS', v:91347,  jefe:false, montaje:false},
   // SONIDO específicos
-  {id:'pkg_son_proy',   l:'Adicional Sonidista x Proyección',     t:'PKG',a:['SONIDO'],                           v:18823.66, jefe:false},
-  {id:'pkg_son_3proy',  l:'Adicional Terceros Sonidista x Proy.', t:'PKG',a:['SONIDO'],                           v:18823.66, jefe:false},
-  // ILUMINACIÓN específicos (Montajes — solo jefes)
-  {id:'pkg_luces_m',    l:'Luces — Montaje M',                    t:'PKG',a:['ILUMINACION'],                      v:307991.47,jefe:true},
-  {id:'pkg_luces_l',    l:'Luces — Montaje L',                    t:'PKG',a:['ILUMINACION'],                      v:554203.51,jefe:true},
-  {id:'pkg_luces_xl',   l:'Luces — Montaje XL',                   t:'PKG',a:['ILUMINACION'],                      v:733573.66,jefe:true},
+  {id:'sproy',     l:'Adicional Sonidista x Proyección',      t:'PKG',a:['SONIDO'],                           teatro:'AMBOS', v:23682,  jefe:false, montaje:false},
+  {id:'s3proy',    l:'Adicional Terceros Sonidista x Proyección',t:'PKG',a:['SONIDO'],                        teatro:'AMBOS', v:31259,  jefe:false, montaje:false},
+  // ILUMINACIÓN — Montajes
+  {id:'lm',        l:'Luces — Montaje M',                     t:'PKG',a:['ILUMINACION'],                      teatro:'AMBOS', v:387473, jefe:false, montaje:false},
+  {id:'ll',        l:'Luces — Montaje L',                     t:'PKG',a:['ILUMINACION'],                      teatro:'AMBOS', v:697224, jefe:false, montaje:false},
+  {id:'lxl',       l:'Luces — Montaje XL',                    t:'PKG',a:['ILUMINACION'],                      teatro:'AMBOS', v:922884, jefe:false, montaje:false},
   // SALA
-  {id:'he_sala_hs',     l:'Asistente de Sala — HS',               t:'HE', a:['SALA'],                             v:9516.34,  jefe:false},
-  {id:'pkg_sala_early', l:'Asistente de Sala — Early Show',        t:'PKG',a:['SALA'],                             v:20441.16, jefe:false},
-  {id:'pkg_sala_corto', l:'Asistente de Sala — Evento corto',      t:'PKG',a:['SALA'],                             v:43764.87, jefe:false},
-  {id:'pkg_sala_largo', l:'Asistente de Sala — Evento largo',      t:'PKG',a:['SALA'],                             v:63186.54, jefe:false},
-  {id:'pkg_sala_tras',  l:'Asistente de Sala — Trasnoche',         t:'PKG',a:['SALA'],                             v:31398.77, jefe:false},
-  {id:'pkg_infantil_4', l:'Infantil — Hasta 4 funciones',          t:'PKG',a:['SALA'],                             v:53391.57, jefe:false},
-  // BOLETERÍA (sin jefe — no existe ese rubro)
-  {id:'he_bol',         l:'HS Boletería',                          t:'HE', a:['BOLETERIA'],                        v:13641.28, jefe:false},
-  // MANTENIMIENTO (sin jefe — no existe ese rubro)
-  {id:'he_mant',        l:'HE Mantenimiento',                      t:'HE', a:['MANTENIMIENTO'],                    v:9425.64,  jefe:false},
-  // LIMPIEZA (sin jefe — no existe ese rubro)
-  {id:'he_limp',        l:'HE Limpieza',                           t:'HE', a:['LIMPIEZA'],                         v:7010.77,  jefe:false},
+  {id:'shs',       l:'Asistente de Sala — HS',                t:'HE', a:['SALA'],                             teatro:'AMBOS', v:11972,  jefe:false, montaje:false},
+  {id:'searly',    l:'Asistente de Sala — Early Show',        t:'PKG',a:['SALA'],                             teatro:'AMBOS', v:25717,  jefe:false, montaje:false},
+  {id:'sco',       l:'Asistente de Sala — Evento corto',      t:'PKG',a:['SALA'],                             teatro:'AMBOS', v:55060,  jefe:false, montaje:false},
+  {id:'sla',       l:'Asistente de Sala — Evento largo',      t:'PKG',a:['SALA'],                             teatro:'AMBOS', v:79496,  jefe:false, montaje:false},
+  {id:'stras',     l:'Asistente de Sala — Trasnoche',          t:'PKG',a:['SALA'],                             teatro:'AMBOS', v:39502,  jefe:false, montaje:false},
+  {id:'inf4',      l:'Infantil — Hasta 4 funciones',           t:'PKG',a:['SALA'],                             teatro:'AMBOS', v:67172,  jefe:false, montaje:false},
+  // BOLETERÍA — difiere por teatro (sin jefe — no existe ese rubro)
+  {id:'bol_met',   l:'HS Boletería',                           t:'HE', a:['BOLETERIA'],                       teatro:'MET',   v:17162,  jefe:false, montaje:false},
+  {id:'bol_plp',   l:'HS Boletería',                           t:'HE', a:['BOLETERIA'],                       teatro:'PLP',   v:16997,  jefe:false, montaje:false},
+  // MANTENIMIENTO / LIMPIEZA — solo MET (sin jefe — no existe ese rubro)
+  {id:'mant',      l:'HE Mantenimiento',                       t:'HE', a:['MANTENIMIENTO'],                   teatro:'MET',   v:11858,  jefe:false, montaje:false},
+  {id:'limp',      l:'HE Limpieza',                            t:'HE', a:['LIMPIEZA'],                        teatro:'MET',   v:8820,   jefe:false, montaje:false},
 ];
 
 // ════════════════════════════════════
@@ -766,12 +764,14 @@ window.onload = async () => {
     // Valores desde el Sheet
     if (valRes.ok && valRes.data && valRes.data.length > 0) {
       VALORES = valRes.data.map(v => ({
-        id:   v["ID"] || "",
-        l:    v["Concepto"] || "",
-        t:    v["Tipo"] || "HE",
-        a:    (v["Áreas"] || v["Areas"] || "").split(",").map(x => x.trim()).filter(Boolean),
-        v:    parseFloat(v["Valor"]) || 0,
-        jefe: v["Solo Jefe"] === "SI",
+        id:      v["ID"] || "",
+        l:       v["Concepto"] || "",
+        t:       v["Tipo"] || "HE",
+        a:       (v["Áreas"] || v["Areas"] || "").split(",").map(x => x.trim()).filter(Boolean),
+        teatro:  v["Teatro"] || "AMBOS",
+        v:       parseFloat(v["Valor"]) || 0,
+        jefe:    v["Solo Jefe"] === "SI",
+        montaje: v["Solo Montaje"] === "SI",
       }));
       // Tomar vigencia del primer valor
       VIG_DESDE = valRes.data[0]?.["Vigencia Desde"] || VIG_DESDE;
@@ -861,8 +861,9 @@ function buildValores(){
       <td style="font-weight:500">${v.l}</td>
       <td><span class="val-tipo ${v.t}">${v.t}</span></td>
       <td>${v.a.map(x=>`<span class="area-tag">${x.replace('_',' ')}</span>`).join('')}</td>
+      <td style="text-align:center;font-size:11px;font-family:'DM Mono',monospace;color:${v.teatro==='AMBOS'?'var(--mu)':'var(--ac)'}">${v.teatro||'AMBOS'}</td>
       <td class="val-monto">$${fmt(v.v)}</td>
-      <td style="text-align:center;font-size:11px;color:var(--mu)">${v.jefe?'✓':''}</td>
+      <td style="text-align:center;font-size:11px;color:var(--mu)">${v.jefe?(v.montaje?'✓ (montaje)':'✓'):''}</td>
     </tr>`).join('');
 }
 
@@ -874,8 +875,8 @@ function fValores(a,el){
 function buildEditable(){
   document.getElementById('tbody-editable').innerHTML=VALORES.map((v,i)=>`
     <tr>
-      <td style="font-size:12px;max-width:240px">${v.l}</td>
-      <td><span class="val-tipo ${v.t}">${v.t}</span></td>
+      <td style="font-size:12px;max-width:220px">${v.l}</td>
+      <td style="text-align:center;font-size:11px;font-family:'DM Mono',monospace;color:${v.teatro==='AMBOS'?'var(--mu)':'var(--ac)'}">${v.teatro||'AMBOS'}</td>
       <td class="val-monto">$${fmt(v.v)}</td>
       <td><input class="val-input" type="number" id="ev_${i}" value="${v.v.toFixed(2)}" step="0.01" oninput="updDelta(${i})"></td>
       <td class="val-monto" id="ed_${i}" style="font-size:12px"></td>
@@ -899,20 +900,32 @@ function previewGeneral(){
   box.style.display='block';
 }
 
+// PIN de escritura — se pide una vez por sesión y se reutiliza.
+let _pinValores = null;
+function pedirPin(){
+  if(_pinValores) return _pinValores;
+  const p = prompt('PIN para actualizar valores:');
+  if(p) _pinValores = p;
+  return _pinValores;
+}
+
 async function aplicarGeneral(){
   const p=parseFloat(document.getElementById('pct-general').value);
   if(!p||isNaN(p)){alert('Ingresá un porcentaje válido.');return;}
+  const pin = pedirPin();
+  if(!pin) return;
   if(!confirm(`¿Aplicar +${p}% a TODOS los ${VALORES.length} conceptos?`))return;
-  VALORES.forEach(v=>v.v=Math.round(v.v*(1+p/100)*100)/100);
-  HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'general',pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`});
-  buildValores();buildEditable();buildHistorial();
-  document.getElementById('pct-general').value='';
-  document.getElementById('preview-general').style.display='none';
-  // Guardar en Google Sheets
+  // Guardar en Google Sheets PRIMERO — solo tocamos la vista local si se confirma
   try {
-    const r = await apiPost("updateValores",{pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`,usuario:"Director"});
-    alert(`✓ +${p}% aplicado a ${VALORES.length} conceptos.${ r.ok ? ' Guardado en Google Sheets.' : ' ⚠ No se pudo sincronizar con el Sheet.'}`);
-  } catch(e) { alert(`✓ +${p}% aplicado localmente. ⚠ Sin conexión al Sheet.`); }
+    const r = await apiPost("updateValores",{pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`,usuario:"Director",pin});
+    if(!r.ok){ _pinValores=null; alert(`⚠ No se guardó: ${r.error||'error desconocido'}`); return; }
+    VALORES.forEach(v=>v.v=Math.round(v.v*(1+p/100)*100)/100);
+    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'general',pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`});
+    buildValores();buildEditable();buildHistorial();
+    document.getElementById('pct-general').value='';
+    document.getElementById('preview-general').style.display='none';
+    alert(`✓ +${p}% aplicado a ${VALORES.length} conceptos. Guardado en Google Sheets.`);
+  } catch(e) { alert(`⚠ Sin conexión al Sheet — no se aplicó nada.`); }
 }
 
 async function confirmarIndividual(){
@@ -921,17 +934,21 @@ async function confirmarIndividual(){
     const inp=document.getElementById(`ev_${i}`);
     if(!inp)return;
     const n=parseFloat(inp.value);
-    if(!isNaN(n)&&Math.abs(n-v.v)>0.01){cambios.push({id:v.id,l:v.l,antes:v.v,despues:n});v.v=n;}
+    if(!isNaN(n)&&Math.abs(n-v.v)>0.01){cambios.push({id:v.id,l:v.l,antes:v.v,despues:n});}
   });
   if(!cambios.length){alert('No hay cambios.');return;}
-  HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'individual',cambios,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`${cambios.length} concepto(s) actualizado(s)`});
-  buildValores();buildHistorial();
-  // Guardar en Google Sheets
+  const pin = pedirPin();
+  if(!pin) return;
+  // Guardar en Google Sheets PRIMERO — solo tocamos la vista local si se confirma
   try {
-    const payload = { valores: cambios.map(c=>({id:c.id, valor:c.despues})), desde:VIG_DESDE, hasta:VIG_HASTA, nota:`${cambios.length} concepto(s) actualizado(s)`, usuario:"Director" };
+    const payload = { valores: cambios.map(c=>({id:c.id, valor:c.despues})), desde:VIG_DESDE, hasta:VIG_HASTA, nota:`${cambios.length} concepto(s) actualizado(s)`, usuario:"Director", pin };
     const r = await apiPost("updateValores", payload);
-    alert(`✓ ${cambios.length} concepto(s) actualizado(s).${ r.ok ? ' Guardado en Google Sheets.' : ' ⚠ No se pudo sincronizar con el Sheet.'}`);
-  } catch(e) { alert(`✓ ${cambios.length} concepto(s) actualizado(s) localmente. ⚠ Sin conexión al Sheet.`); }
+    if(!r.ok){ _pinValores=null; alert(`⚠ No se guardó: ${r.error||'error desconocido'}`); return; }
+    cambios.forEach(c=>{ const v=VALORES.find(x=>x.id===c.id); if(v) v.v=c.despues; });
+    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'individual',cambios,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`${cambios.length} concepto(s) actualizado(s)`});
+    buildValores();buildHistorial();
+    alert(`✓ ${cambios.length} concepto(s) actualizado(s). Guardado en Google Sheets.`);
+  } catch(e) { alert(`⚠ Sin conexión al Sheet — no se aplicó nada.`); }
 }
 
 function guardarVigencia(){
@@ -1166,15 +1183,15 @@ function exportarReporte(tipo,fmt_){
   const periodo=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;
   if(fmt_==='xlsx'){
     const wb=XLSX.utils.book_new();
-    const rows=[['TEATRO METROPOLITAN — PASEO LA PLAZA'],[`Valores HE — ${periodo}`],[''],[`Concepto`,'Tipo','Áreas','Valor ($)','Solo Jefe']];
-    vals.forEach(v=>rows.push([v.l,v.t,v.a.join('+'),v.v,v.jefe?'Sí':'']));
+    const rows=[['TEATRO METROPOLITAN — PASEO LA PLAZA'],[`Valores HE — ${periodo}`],[''],[`Concepto`,'Tipo','Áreas','Teatro','Valor ($)','Solo Jefe']];
+    vals.forEach(v=>rows.push([v.l,v.t,v.a.join('+'),v.teatro||'AMBOS',v.v,v.jefe?'Sí':'']));
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:45},{wch:6},{wch:30},{wch:15},{wch:10}];
+    ws['!cols']=[{wch:45},{wch:6},{wch:30},{wch:8},{wch:15},{wch:10}];
     XLSX.utils.book_append_sheet(wb,ws,'Valores');
     XLSX.writeFile(wb,`HE_Valores_${tipo}_${VIG_DESDE}.xlsx`);
   } else {
-    const tRows=vals.map(v=>`<tr><td>${v.l}</td><td>${v.t}</td><td style="font-size:10px">${v.a.join(', ')}</td><td style="text-align:right">${fmtN(v.v)}</td><td style="text-align:center">${v.jefe?'✓':''}</td></tr>`).join('');
-    printPDF(`Valores HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Concepto</th><th>Tipo</th><th>Áreas</th><th style="text-align:right">Valor ($)</th><th>Jefe</th></tr></thead><tbody>${tRows}</tbody></table>`);
+    const tRows=vals.map(v=>`<tr><td>${v.l}</td><td>${v.t}</td><td style="font-size:10px">${v.a.join(', ')}</td><td style="text-align:center">${v.teatro||'AMBOS'}</td><td style="text-align:right">${fmtN(v.v)}</td><td style="text-align:center">${v.jefe?'✓':''}</td></tr>`).join('');
+    printPDF(`Valores HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Concepto</th><th>Tipo</th><th>Áreas</th><th>Teatro</th><th style="text-align:right">Valor ($)</th><th>Jefe</th></tr></thead><tbody>${tRows}</tbody></table>`);
   }
 }
 
@@ -1239,7 +1256,8 @@ async function recargarTodo(){
       VALORES = valRes.data.map(v => ({
         id: v["ID"]||"", l: v["Concepto"]||"", t: v["Tipo"]||"HE",
         a: (v["Áreas"]||v["Areas"]||"").split(",").map(x=>x.trim()).filter(Boolean),
-        v: parseFloat(v["Valor"])||0, jefe: v["Solo Jefe"]==="SI",
+        teatro: v["Teatro"]||"AMBOS",
+        v: parseFloat(v["Valor"])||0, jefe: v["Solo Jefe"]==="SI", montaje: v["Solo Montaje"]==="SI",
       }));
     }
     if (obrRes.ok && obrRes.data && obrRes.data.length > 0) {
