@@ -8,7 +8,7 @@
 <style>
 :root{
   --bg:#0f0f0f;--sf:#1a1a1a;--s2:#222;--bd:#2e2e2e;
-  --ac:#c8f542;--ad:#0f0f0f;--tx:#f0f0f0;--mu:#888;
+  --ac:#c8f542;--ad:#0f0f0f;--tx:#f0f0f0;--mu:#b3b3b3;
   --dm:#444;--red:#ff5a5a;--rbg:rgba(255,90,90,.08);
   --amber:#f5a623;--ambg:rgba(245,166,35,.08);
   --r:12px;--rs:8px;
@@ -408,6 +408,18 @@ const ESPECIALES = {
 // ═══════════════════════════════════════════════════
 let VALORES_SHEET = [];
 
+// Parsea el campo "Valor" de la hoja de forma segura:
+// - Si ya es number (caso normal: Apps Script devuelve números como number), se usa tal cual.
+// - Si es texto con coma decimal estilo argentino ("16.411,00"), se convierte.
+// - Si es texto numérico plano ("16411" o "13044.38"), parseFloat lo interpreta bien solo.
+// ¡OJO! Nunca borrar puntos a ciegas: "13044.38" sin este cuidado se leía como 1304438.
+function parseValor(raw) {
+  if (typeof raw === 'number') return raw;
+  const s = String(raw ?? '0').trim();
+  if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+  return parseFloat(s) || 0;
+}
+
 function getValores(area, esJefe, esMontaje, esPatino, teatro) {
   const filas = esPatino
     ? VALORES_SHEET.filter(v => ['MANTENIMIENTO','LIMPIEZA'].includes((v['Áreas']||'').trim()))
@@ -423,7 +435,7 @@ function getValores(area, esJefe, esMontaje, esPatino, teatro) {
   return filas.map(v => ({
     l: v['Concepto'] || '',
     t: (v['Tipo'] || 'HE').toUpperCase(),
-    v: parseFloat(String(v['Valor']||'0').replace(/\./g,'').replace(',','.')) || parseFloat(v['Valor']) || 0,
+    v: parseValor(v['Valor']),
   }));
 }
 
