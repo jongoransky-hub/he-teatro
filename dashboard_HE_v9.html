@@ -316,7 +316,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
     <select class="cc-sel" style="width:auto;min-width:200px" id="filtro-persona-consolid" onchange="buildConsolidado()">
       <option value="">Todas las personas</option>
     </select>
-    <div class="fp" id="btn-clear-consolid2" style="display:none" onclick="document.getElementById('filtro-obra-consolid').value='';document.getElementById('filtro-persona-consolid').value='';buildConsolidado()">✕ Limpiar</div>
+    <select class="cc-sel" style="width:auto;min-width:160px" id="filtro-area-consolid" onchange="buildConsolidado()">
+      <option value="">Todas las áreas</option>
+      <option value="SONIDO">Sonido</option>
+      <option value="ILUMINACION">Iluminación</option>
+      <option value="MAQUINARIA">Maquinaria</option>
+      <option value="SALA">Sala</option>
+      <option value="BOLETERIA">Boletería</option>
+      <option value="MANTENIMIENTO">Mantenimiento</option>
+      <option value="LIMPIEZA">Limpieza</option>
+    </select>
+    <div class="fp" id="btn-clear-consolid2" style="display:none" onclick="document.getElementById('filtro-obra-consolid').value='';document.getElementById('filtro-persona-consolid').value='';document.getElementById('filtro-area-consolid').value='';buildConsolidado()">✕ Limpiar</div>
   </div>
   <div id="consolidado-body"></div>
   <div class="card"><div class="card-head"><span class="card-title">Totales</span></div><div class="card-body" id="consolidado-totales"></div></div>
@@ -1237,6 +1247,7 @@ function registrosConsolidadoFiltrados(){
   const hoy=new Date();const mk=mesK(hoy);
   const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
   const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
+  const fArea=document.getElementById('filtro-area-consolid')?.value||'';
   return registros.filter(r=>{
     if(!r.fecha?.startsWith(mk)||r.sinValidar)return false;
     const tipo=OBRAS_META[r.obra]?.tipo||'PROPIA';
@@ -1244,6 +1255,7 @@ function registrosConsolidadoFiltrados(){
     if(f!=='todos'&&f!==tipo&&f!==r.teatro&&!(f==='ASUME'&&r.salaAsume))return false;
     if(fObra&&r.obra!==fObra)return false;
     if(fPersona&&r.nombre!==fPersona)return false;
+    if(fArea&&!(r.areas||[]).includes(fArea))return false;
     return true;
   });
 }
@@ -1251,7 +1263,8 @@ function buildConsolidado(){
   poblarFiltrosConsolidado();
   const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
   const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
-  document.getElementById('btn-clear-consolid2').style.display=(fObra||fPersona)?'block':'none';
+  const fArea=document.getElementById('filtro-area-consolid')?.value||'';
+  document.getElementById('btn-clear-consolid2').style.display=(fObra||fPersona||fArea)?'block':'none';
   const filtrados=registrosConsolidadoFiltrados();
   const byObra={};
   filtrados.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,teatro:r.teatro,tipo:(OBRAS_META[k]?.tipo||'PROPIA'),salaAsume:false};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].salaAsume=true;});
@@ -1544,9 +1557,12 @@ function guardarEdit(){
 function etiquetaFiltroConsolidado(){
   const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
   const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
+  const fArea=document.getElementById('filtro-area-consolid')?.value||'';
+  const areaLabel={SONIDO:'Sonido',ILUMINACION:'Iluminación',MAQUINARIA:'Maquinaria',SALA:'Sala',BOLETERIA:'Boletería',MANTENIMIENTO:'Mantenimiento',LIMPIEZA:'Limpieza'};
   const partes=[];
   if(fObra)partes.push(fObra);
   if(fPersona)partes.push(fPersona);
+  if(fArea)partes.push(areaLabel[fArea]||fArea);
   if(!partes.length&&filtroConsolid!=='todos')partes.push({PROPIA:'Propias',TERCERO:'Terceros',ASUME:'Sala asume',MET:'MET',PLP:'PLP'}[filtroConsolid]||filtroConsolid);
   return partes.join(' — ');
 }
@@ -1568,6 +1584,31 @@ function exportXLSX(){
   const byP={};delMes.forEach(r=>{if(!byP[r.nombre])byP[r.nombre]={areas:(r.areas||[]).join('+'),total:0};byP[r.nombre].total+=r.total||0;});
   const perP=[['Nombre','Área(s)','Total']];Object.entries(byP).forEach(([n,d])=>perP.push([n,d.areas,d.total]));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(perP),'Por persona');
+  // Matriz persona × obra — misma lógica que usabas a mano: una fila por
+  // persona, una columna por obra, total por fila y por columna.
+  const obrasCols=Object.keys(byObra).sort((a,b)=>byObra[b].total-byObra[a].total);
+  const porPersonaObra={};
+  delMes.forEach(r=>{
+    const n=r.nombre, o=r.obra||'—';
+    if(!porPersonaObra[n])porPersonaObra[n]={};
+    porPersonaObra[n][o]=(porPersonaObra[n][o]||0)+(r.total||0);
+  });
+  const personasOrdenadas=Object.keys(porPersonaObra).sort((a,b)=>a.localeCompare(b));
+  const matriz=[['Nombre',...obrasCols,'TOTAL']];
+  personasOrdenadas.forEach(n=>{
+    const fila=[n];
+    let totalFila=0;
+    obrasCols.forEach(o=>{const v=porPersonaObra[n][o]||0;fila.push(v||'');totalFila+=v;});
+    fila.push(totalFila);
+    matriz.push(fila);
+  });
+  const totalesCol=['TOTAL'];
+  obrasCols.forEach(o=>totalesCol.push(byObra[o].total));
+  totalesCol.push(delMes.reduce((a,r)=>a+(r.total||0),0));
+  matriz.push(totalesCol);
+  const wsMatriz=XLSX.utils.aoa_to_sheet(matriz);
+  wsMatriz['!cols']=[{wch:28},...obrasCols.map(()=>({wch:16})),{wch:14}];
+  XLSX.utils.book_append_sheet(wb,wsMatriz,'Matriz persona x obra');
   const sufijo=etiqueta?`_${etiqueta.replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g,'_')}`:'';
   XLSX.writeFile(wb,`HE_${mk}${sufijo}.xlsx`);
 }
