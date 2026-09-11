@@ -192,9 +192,9 @@ textarea{resize:none;height:90px;line-height:1.5}
     <div id="proxy-nombre-f" style="display:none">
       <div class="field">
         <label>Nombre de la persona</label>
-        <input type="text" id="proxy-nombre" placeholder="APELLIDO, Nombre" oninput="this.value=this.value.toUpperCase()">
+        <input type="text" id="proxy-nombre" placeholder="APELLIDO, Nombre" oninput="this.value=this.value.toUpperCase()" onblur="if(this.value.trim())cargarMisRegistros(this.value.trim())">
       </div>
-      <div class="proxy-note">El ticket quedará a nombre de esa persona. Se registra que lo cargaste vos.</div>
+      <div class="proxy-note">El ticket quedará a nombre de esa persona. Se registra que lo cargaste vos. Los solapamientos se chequean contra los registros reales de esa persona.</div>
     </div>
     <div class="sdiv"></div>
   </div>
@@ -728,10 +728,10 @@ function checkSolapamiento() {
   const hasta  = document.getElementById('hora-hasta').value;
   if (!fecha || !desde || !hasta) return;
 
-  const h = getHistorial();
+  const nombreActivo = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
+  const h = misRegistros(nombreActivo);
   const mDesde = toMins(desde);
   const mHasta = toMins(hasta) + (toMins(hasta) < mDesde ? 1440 : 0);
-  const nombreActivo = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
 
   const bloqueantes = [];
   const advertencias = [];
@@ -837,11 +837,11 @@ function calcular() {
 }
 
 function checkUmbral() {
-  const h = getHistorial();
+  const h = misRegistros(S.nombre);
   const hoy = new Date();
   const mes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
   const totalMes = h
-    .filter(t => t.fecha && t.fecha.startsWith(mes) && (t.nombre||'').toUpperCase() === S.nombre.toUpperCase())
+    .filter(t => t.fecha && t.fecha.startsWith(mes))
     .reduce((a,t) => a + (t.total||0), 0);
   if (totalMes + S.total > UMBRAL_MENSUAL) {
     showA('alert3', `⚠ Con este registro superarías $${fmt2(UMBRAL_MENSUAL)} este mes (acumulado: $${fmt2(totalMes)}). La Administración recibirá una alerta en su dashboard.`);
@@ -929,6 +929,39 @@ function buildResumen() {
 // ═══════════════════════════════════════════════════
 // HISTORIAL
 // ═══════════════════════════════════════════════════
+// FIX: antes esto leía localStorage del DISPOSITIVO sin filtrar por
+// persona — si dos personas cargaban desde el mismo navegador, cada
+// una veía el historial de la otra mezclado, y peor: la detección de
+// solapamiento no cruzaba contra lo que esa persona ya tenía cargado
+// desde OTRO dispositivo, porque nunca consultaba al servidor.
+// Ahora: al elegir nombre, se trae del servidor todo lo real de esa
+// persona; localStorage queda solo como caché de la sesión actual
+// (por si el POST tarda en reflejarse) y siempre se filtra por nombre.
+let MIS_REGISTROS_SERVIDOR = [];
+
+async function cargarMisRegistros(nombre) {
+  if (!nombre) { MIS_REGISTROS_SERVIDOR = []; return; }
+  try {
+    const res = await apiGet('getRegistros', {nombre});
+    MIS_REGISTROS_SERVIDOR = (res.ok && Array.isArray(res.data)) ? res.data.map(r => ({
+      fecha:      r['Fecha'] || '',
+      horaDesde:  r['Hora Desde'] || '',
+      horaHasta:  r['Hora Hasta'] || '',
+      nombre:     r['Nombre'] || '',
+      teatro:     r['Teatro'] || '',
+      sala:       r['Sala'] || '',
+      obra:       r['Obra'] || '',
+      tipoLabel:  r['Tipo HE'] || '',
+      descripcion:r['Descripción'] || '',
+      total:      parseFloat(r['Total']) || 0,
+      cargadoPor: r['Cargado Por'] || null,
+    })) : [];
+  } catch(e) {
+    console.warn('No se pudieron cargar tus registros del servidor:', e);
+    MIS_REGISTROS_SERVIDOR = [];
+  }
+}
+
 function getHistorial() {
   try { return JSON.parse(localStorage.getItem('he_historial') || '[]'); } catch { return []; }
 }
@@ -937,13 +970,29 @@ function saveTicket(t) {
   localStorage.setItem('he_historial', JSON.stringify(h));
 }
 
+// Combina lo que ya sabe el servidor con lo cargado en esta sesión
+// (que puede no haberse reflejado todavía), SIEMPRE filtrado por la
+// persona activa — nunca mezcla con otro nombre que haya usado este
+// mismo dispositivo antes.
+function misRegistros(nombre) {
+  const n = (nombre||'').toUpperCase();
+  const local = getHistorial().filter(t => (t.nombre||'').toUpperCase() === n);
+  const combinado = [...MIS_REGISTROS_SERVIDOR.filter(t => (t.nombre||'').toUpperCase() === n), ...local];
+  const vistos = new Set();
+  return combinado.filter(t => {
+    const k = `${t.fecha}|${t.horaDesde}|${t.horaHasta}|${t.total}`;
+    if (vistos.has(k)) return false;
+    vistos.add(k); return true;
+  });
+}
+
 function showHist() {
-  const h = getHistorial();
+  const h = misRegistros(S.nombre);
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('vis'));
   document.getElementById('success').classList.remove('vis');
   document.getElementById('nav').querySelector('#btn-next').style.display = 'none';
-  document.getElementById('btn-back').style.display = 'none';
   document.getElementById('btn-hist').style.display = 'none';
+  document.getElementById('btn-back').style.display = 'block';
   document.getElementById('hist-view').classList.add('vis');
 
   const hoy = new Date();
@@ -1018,13 +1067,17 @@ function next() {
     localStorage.setItem('he_perfil', JSON.stringify({
       nombre:S.nombre, area:S.area, teatro:S.teatro, esJefe:S.esJefe, esPatino:S.esPatino
     }));
+    cargarMisRegistros(S.nombre); // trae del servidor los registros reales de esta persona
     step = 1; render(); return;
   }
   if (step === 1) {
     S.fecha      = document.getElementById('fecha').value;
     S.horaDesde  = document.getElementById('hora-desde').value;
     S.horaHasta  = document.getElementById('hora-hasta').value;
-    if (S.proxyActivo) S.proxyNombre = document.getElementById('proxy-nombre').value.trim();
+    if (S.proxyActivo) {
+      S.proxyNombre = document.getElementById('proxy-nombre').value.trim();
+      if (S.proxyNombre) cargarMisRegistros(S.proxyNombre); // el solapamiento se chequea contra la persona real, no contra quien carga
+    }
   }
   if (step === 2) S.obra = document.getElementById('obra').value;
   if (step === 3) S.descripcion = document.getElementById('descripcion').value.trim();
