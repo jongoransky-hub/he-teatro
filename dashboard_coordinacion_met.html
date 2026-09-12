@@ -474,6 +474,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
     </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="cerrarModal('modal-edit')">Cancelar</button>
+      <button class="btn red" style="background:transparent;border:1px solid var(--red);color:var(--red)" onclick="anularTicket()">Anular (poner en $0)</button>
       <button class="btn amber" onclick="guardarEdit()">Guardar corrección</button>
     </div>
   </div>
@@ -867,18 +868,6 @@ window.onload = async () => {
 };
 
 // Guardar edición de registro en el backend
-async function guardarEditConBackend(idx, motivo) {
-  const r = registros[idx];
-  if (r._id) {
-    await apiPost("editRegistro", {
-      id: r._id,
-      fecha: r.fecha, horaDesde: r.horaDesde, horaHasta: r.horaHasta,
-      descripcion: r.descripcion, tipoLabel: r.tipoLabel, total: r.total,
-      obra: r.obra, cc: r.cc, motivo, editadoPor: "Carla — Admin",
-    });
-  }
-}
-
 // Guardar nueva persona en el backend
 async function guardarPersonaBackend(persona) {
   await apiPost("addPersona", persona);
@@ -1521,24 +1510,54 @@ function abrirEdit(i){
   document.getElementById('e-motivo').value='';
   document.getElementById('modal-edit').style.display='flex';
 }
-function guardarEdit(){
+async function guardarEdit(){
   const motivo=document.getElementById('e-motivo').value.trim();
-  if(!motivo){alert('El motivo de corrección es obligatorio — le llegará al técnico.');return;}
+  if(!motivo){alert('El motivo de corrección es obligatorio — le va a quedar visible a la persona en su historial.');return;}
   const r=registros[editIdx];
+  const nuevo = {
+    fecha: document.getElementById('e-fecha').value||r.fecha,
+    horaDesde: document.getElementById('e-desde').value||r.horaDesde,
+    horaHasta: document.getElementById('e-hasta').value||r.horaHasta,
+    descripcion: document.getElementById('e-desc').value||r.descripcion,
+    tipoLabel: document.getElementById('e-tipo').value||r.tipoLabel,
+    total: parseFloat(document.getElementById('e-total').value),
+    obra: document.getElementById('e-obra').value||r.obra,
+  };
+  if(isNaN(nuevo.total)) nuevo.total = r.total;
+  await _guardarCorreccion(r, nuevo, motivo);
+}
+
+async function anularTicket(){
+  const r=registros[editIdx];
+  const motivo=document.getElementById('e-motivo').value.trim();
+  if(!motivo){alert('Para anular un ticket también hace falta el motivo — le va a quedar visible a la persona.');return;}
+  if(!confirm(`¿Anular este ticket de ${r.nombre}? Queda en $0 y marcado como anulado, pero no se borra — así el historial de esta persona sigue completo.`))return;
+  await _guardarCorreccion(r, {
+    fecha:r.fecha, horaDesde:r.horaDesde, horaHasta:r.horaHasta,
+    descripcion: `[ANULADO] ${r.descripcion||''}`.trim(),
+    tipoLabel:r.tipoLabel, total:0, obra:r.obra,
+  }, `ANULADO — ${motivo}`);
+}
+
+// Guarda en el servidor PRIMERO — solo se toca la vista y el registro
+// local si el backend confirma éxito. Antes esto solo mutaba `registros`
+// en memoria y jamás llamaba al backend: la corrección se veía en pantalla
+// pero se perdía apenas se refrescaba la página (cada 2 minutos, sola).
+async function _guardarCorreccion(r, nuevo, motivo){
+  if(!r._id){ alert('Este registro no tiene ID de servidor — no se puede guardar la corrección.'); return; }
   const antes={fecha:r.fecha,horaDesde:r.horaDesde,horaHasta:r.horaHasta,descripcion:r.descripcion,tipoLabel:r.tipoLabel,total:r.total,obra:r.obra};
-  r.fecha=document.getElementById('e-fecha').value||r.fecha;
-  r.horaDesde=document.getElementById('e-desde').value||r.horaDesde;
-  r.horaHasta=document.getElementById('e-hasta').value||r.horaHasta;
-  r.descripcion=document.getElementById('e-desc').value||r.descripcion;
-  r.tipoLabel=document.getElementById('e-tipo').value||r.tipoLabel;
-  r.total=parseFloat(document.getElementById('e-total').value)||r.total;
-  r.obra=document.getElementById('e-obra').value||r.obra;
+  const resp = await apiPost("editRegistro", {
+    id: r._id, ...nuevo, cc: r.cc, motivo, editadoPor: TEATRO_FIJO ? `Coordinación ${TEATRO_FIJO}` : "Admin",
+  });
+  if(!resp.ok){
+    alert(`No se pudo guardar: ${resp.error||'error desconocido'}`);
+    return;
+  }
+  Object.assign(r, nuevo);
   if(!r.edits)r.edits=[];
   r.edits.push({fecha:new Date().toISOString(),antes,motivo,editadoPor:'Administración'});
-  // Simula notificación al técnico
-  console.log(`NOTIFICACIÓN → ${r.nombre}: Tu registro del ${fmtF(antes.fecha)} fue corregido. Motivo: "${motivo}". Total anterior: $${fmt2(antes.total)} → Nuevo: $${fmt2(r.total)}`);
   cerrarModal('modal-edit');buildAll();
-  alert(`Corrección guardada. Se notificará a ${r.nombre}:\n"${motivo}"`);
+  alert(`Guardado en el Sheet. La persona va a ver este cambio y el motivo la próxima vez que abra "Mi Historial" en el formulario — hoy no existe ningún otro aviso automático (ni mail, ni notificación push).`);
 }
 
 // ════════════════════════════════════════════

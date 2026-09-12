@@ -941,6 +941,15 @@ function buildResumen() {
 // (por si el POST tarda en reflejarse) y siempre se filtra por nombre.
 let MIS_REGISTROS_SERVIDOR = [];
 
+// El campo "Edits" en el Sheet es un string con un JSON por corrección,
+// separados por "|" (ej: {"ts":...,"motivo":...,"por":...}|{...}|).
+function parseEditsCol(raw) {
+  if (!raw) return [];
+  return String(raw).split('|').filter(Boolean).map(s => {
+    try { return JSON.parse(s); } catch { return null; }
+  }).filter(Boolean);
+}
+
 async function cargarMisRegistros(nombre) {
   if (!nombre) { MIS_REGISTROS_SERVIDOR = []; return; }
   try {
@@ -957,6 +966,9 @@ async function cargarMisRegistros(nombre) {
       descripcion:r['Descripción'] || '',
       total:      parseFloat(r['Total']) || 0,
       cargadoPor: r['Cargado Por'] || null,
+      edits:      parseEditsCol(r['Edits']),
+      aprobJefe:  r['Aprobado Jefe'] || null,
+      notaJefe:   r['Nota Jefe'] || '',
     })) : [];
   } catch(e) {
     console.warn('No se pudieron cargar tus registros del servidor:', e);
@@ -1033,6 +1045,14 @@ function showHist() {
       <div class="ticket-desc">${t.descripcion||''}</div>
       <div class="ticket-obra">${t.teatro||''} · ${t.sala||''} · ${t.obra||''}</div>
       ${t.cargadoPor ? `<div class="ticket-proxy">Cargado por ${t.cargadoPor}</div>` : ''}
+      ${t.aprobJefe === 'RECHAZADO' ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(255,90,90,.09);border:1px solid rgba(255,90,90,.3);border-radius:8px;font-size:12px">
+        <strong style="color:var(--red)">✗ Tu jefe de área rechazó este registro</strong>
+        ${t.notaJefe ? `<div style="margin-top:3px;color:var(--tx)">${t.notaJefe}</div>` : ''}
+      </div>` : ''}
+      ${(t.edits && t.edits.length) ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(245,166,35,.09);border:1px solid rgba(245,166,35,.3);border-radius:8px;font-size:12px">
+        <strong style="color:var(--amber)">⚠ ${t.edits.slice(-1)[0].por || 'Administración'} corrigió este registro</strong>
+        ${t.edits.slice(-1).map(e=>`<div style="margin-top:3px;color:var(--tx)">${e.motivo||'Sin motivo detallado.'}</div>`).join('')}
+      </div>` : ''}
     </div>`).join('');
 }
 

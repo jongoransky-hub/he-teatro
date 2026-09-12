@@ -1031,33 +1031,45 @@ function buildObras(){
   document.getElementById('obras-plp').innerHTML=plpFiltered||'<div class="empty">Sin resultados.</div>';
 }
 
-function cambiarTipoObra(i,tipo){
+async function cambiarTipoObra(i,tipo){
+  const anterior=OBRAS[i].tipo;
   OBRAS[i].tipo=tipo;
-  apiPost("editObra",{nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, tipo});
+  const r=await apiPost("editObra",{nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, tipo});
+  if(!r.ok){ OBRAS[i].tipo=anterior; buildObras(); alert(`No se pudo guardar: ${r.error||'error desconocido'}`); }
 }
 
-function editarFechaObra(i,campo,valor){
+async function editarFechaObra(i,campo,valor){
   // valor puede ser "MM|YYYY" o "" (en cartel)
   let fecha = '';
   if(valor && valor.includes('|')){
     const [mes,anio] = valor.split('|');
     if(mes && anio) fecha = `${anio}-${mes}`;
   }
+  const anterior=OBRAS[i][campo];
   OBRAS[i][campo] = fecha || null;
-  apiPost("editObra",{nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, hasta:OBRAS[i].hasta||''});
+  const r=await apiPost("editObra",{nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, hasta:OBRAS[i].hasta||''});
+  if(!r.ok){ OBRAS[i][campo]=anterior; buildObras(); alert(`No se pudo guardar: ${r.error||'error desconocido'}`); }
 }
 
-function toggleObra(i){
+async function toggleObra(i){
   const hoy=new Date();
   const activa=OBRAS[i].activa&&(!OBRAS[i].hasta||new Date(OBRAS[i].hasta+'-28')>=hoy);
+  const anteriorHasta=OBRAS[i].hasta, anteriorActiva=OBRAS[i].activa;
+  let r;
   if(activa){
     if(!confirm(`¿Dar de baja "${OBRAS[i].n}"? Dejará de aparecer en el formulario de carga.`))return;
     const hasta=new Date().toISOString().slice(0,7);
     OBRAS[i].hasta=hasta;
-    apiPost("editObra",{nombre:OBRAS[i].n,teatro:OBRAS[i].teatro,hasta,activa:true});
+    buildObras();
+    r=await apiPost("editObra",{nombre:OBRAS[i].n,teatro:OBRAS[i].teatro,hasta,activa:true});
   } else {
     OBRAS[i].hasta=null;OBRAS[i].activa=true;
-    apiPost("editObra",{nombre:OBRAS[i].n,teatro:OBRAS[i].teatro,hasta:'',activa:true});
+    buildObras();
+    r=await apiPost("editObra",{nombre:OBRAS[i].n,teatro:OBRAS[i].teatro,hasta:'',activa:true});
+  }
+  if(!r.ok){
+    OBRAS[i].hasta=anteriorHasta; OBRAS[i].activa=anteriorActiva;
+    alert(`No se pudo guardar: ${r.error||'error desconocido'}`);
   }
   buildObras();
 }
@@ -1083,8 +1095,10 @@ async function guardarObra(){
   const desde=`${desdeAnio}-${desdeMes}`;
   const hasta=hastaMes?`${hastaAnio}-${hastaMes}`:null;
   const nueva={n,teatro:document.getElementById('mo-teatro').value,tipo:document.getElementById('mo-tipo').value,activa:true,desde,hasta,nota:''};
+  // Guardar en el servidor PRIMERO — solo se agrega a la lista local si se confirma
+  const r=await apiPost("addObra",{nombre:nueva.n,teatro:nueva.teatro,tipo:nueva.tipo,desde:nueva.desde,hasta:nueva.hasta||''});
+  if(!r.ok){ alert(`No se pudo guardar la obra: ${r.error||'error desconocido'}`); return; }
   OBRAS.push(nueva);
-  try{ await apiPost("addObra",{nombre:nueva.n,teatro:nueva.teatro,tipo:nueva.tipo,desde:nueva.desde,hasta:nueva.hasta||''}); }catch(e){}
   cerrarModal('modal-obra');buildObras();
 }
 
@@ -1137,12 +1151,17 @@ function buildPersonal3(){
       </td>
     </tr>`).join('');
 }
-function toggleP3(n){
+async function toggleP3(n){
   const p=PERSONAL3.find(x=>x.n===n);
-  if(p){
-    p.ok=!p.ok;
-    apiPost("editPersona",{nombre:p.n, activo:p.ok});
+  if(!p) return;
+  const anterior=p.ok;
+  p.ok=!p.ok;
+  buildPersonal3();
+  const r=await apiPost("editPersona",{nombre:p.n, activo:p.ok});
+  if(!r.ok){
+    p.ok=anterior;
     buildPersonal3();
+    alert(`No se pudo guardar: ${r.error||'error desconocido'}`);
   }
 }
 function abrirModalPersona(){document.getElementById('mp-nombre').value='';document.getElementById('modal-persona').style.display='flex';}
@@ -1156,12 +1175,10 @@ async function guardarPersona(){
   // Verificar en PERSONAL3 (variable correcta)
   if(PERSONAL3.find(p=>p.n===n)){alert(`${n} ya existe en la nómina.`);return;}
   const nueva={n,a:a2?[a,a2]:[a],t,j,ok:true};
+  // Guardar en el servidor PRIMERO — solo se agrega a la nómina local si se confirma
+  const r=await apiPost("addPersona",{nombre:n,areas:a2?[a,a2]:[a],teatro:t,jefe:j,validado:true});
+  if(!r.ok){ alert(`No se pudo guardar en la nómina: ${r.error||'error desconocido'}`); return; }
   PERSONAL3.push(nueva);
-  try{
-    const r=await apiPost("addPersona",{nombre:n,areas:a2?[a,a2]:[a],teatro:t,jefe:j,validado:true});
-    if(r.ok) console.log('Guardado en Sheet:', n);
-    else console.warn('Error Sheet:', r.error);
-  }catch(e){console.warn('Sin conexión, guardado solo local:', e);}
   cerrarModal('modal-persona');
   buildPersonal3();
 }
