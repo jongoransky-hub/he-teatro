@@ -474,8 +474,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
     </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="cerrarModal('modal-edit')">Cancelar</button>
-      <button class="btn red" style="background:transparent;border:1px solid var(--red);color:var(--red)" onclick="anularTicket()">Anular (poner en $0)</button>
-      <button class="btn amber" onclick="guardarEdit()">Guardar corrección</button>
+      <button class="btn red" id="btn-anular" style="background:transparent;border:1px solid var(--red);color:var(--red)" onclick="anularTicket()">Anular (poner en $0)</button>
+      <button class="btn amber" id="btn-guardar-edit" onclick="guardarEdit()">Guardar corrección</button>
     </div>
   </div>
 </div>
@@ -1499,6 +1499,7 @@ function fReg(f,el){document.querySelectorAll('#f-registros .fp').forEach(p=>p.c
 // EDITAR REGISTRO
 function abrirEdit(i){
   editIdx=i;const r=registros[i];
+  _setBotonesEdicion(true); // por si quedaron deshabilitados de un intento anterior
   document.getElementById('edit-info').innerHTML=`<strong>${r.nombre}</strong> · ${fmtF(r.fecha)} · ${r.tipoLabel}`;
   document.getElementById('e-fecha').value=r.fecha||'';
   document.getElementById('e-desde').value=r.horaDesde||'';
@@ -1539,16 +1540,30 @@ async function anularTicket(){
   }, `ANULADO — ${motivo}`);
 }
 
+function _setBotonesEdicion(activos){
+  const b1=document.getElementById('btn-anular'), b2=document.getElementById('btn-guardar-edit');
+  if(b1)b1.disabled=!activos; if(b2)b2.disabled=!activos;
+}
+
 // Guarda en el servidor PRIMERO — solo se toca la vista y el registro
 // local si el backend confirma éxito. Antes esto solo mutaba `registros`
 // en memoria y jamás llamaba al backend: la corrección se veía en pantalla
 // pero se perdía apenas se refrescaba la página (cada 2 minutos, sola).
 async function _guardarCorreccion(r, nuevo, motivo){
   if(!r._id){ alert('Este registro no tiene ID de servidor — no se puede guardar la corrección.'); return; }
+  // Desactivar los dos botones ANTES de llamar al servidor — si el click
+  // anterior todavía está esperando respuesta, un segundo click no debe
+  // disparar un segundo guardado (y un segundo mail al técnico).
+  _setBotonesEdicion(false);
   const antes={fecha:r.fecha,horaDesde:r.horaDesde,horaHasta:r.horaHasta,descripcion:r.descripcion,tipoLabel:r.tipoLabel,total:r.total,obra:r.obra};
-  const resp = await apiPost("editRegistro", {
-    id: r._id, ...nuevo, cc: r.cc, motivo, editadoPor: TEATRO_FIJO ? `Coordinación ${TEATRO_FIJO}` : "Admin",
-  });
+  let resp;
+  try {
+    resp = await apiPost("editRegistro", {
+      id: r._id, ...nuevo, cc: r.cc, motivo, editadoPor: TEATRO_FIJO ? `Coordinación ${TEATRO_FIJO}` : "Admin",
+    });
+  } finally {
+    _setBotonesEdicion(true); // siempre reactivar, tanto en éxito como en error
+  }
   if(!resp.ok){
     alert(`No se pudo guardar: ${resp.error||'error desconocido'}`);
     return;
@@ -1557,7 +1572,7 @@ async function _guardarCorreccion(r, nuevo, motivo){
   if(!r.edits)r.edits=[];
   r.edits.push({fecha:new Date().toISOString(),antes,motivo,editadoPor:'Administración'});
   cerrarModal('modal-edit');buildAll();
-  alert(`Guardado en el Sheet. La persona va a ver este cambio y el motivo la próxima vez que abra "Mi Historial" en el formulario — hoy no existe ningún otro aviso automático (ni mail, ni notificación push).`);
+  alert(`Guardado en el Sheet. Si esta persona tiene mail cargado en Personal, le va a llegar un correo con el motivo — y de todas formas lo va a ver en "Mi Historial" la próxima vez que entre al formulario.`);
 }
 
 // ════════════════════════════════════════════
