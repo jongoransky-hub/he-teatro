@@ -1559,6 +1559,20 @@ function etiquetaFiltroConsolidado(){
   if(!partes.length&&filtroConsolid!=='todos')partes.push({PROPIA:'Propias',TERCERO:'Terceros',ASUME:'Sala asume',MET:'MET',PLP:'PLP'}[filtroConsolid]||filtroConsolid);
   return partes.join(' — ');
 }
+// Formato moneda (separador de miles + $) para las celdas numéricas de
+// las columnas indicadas — Excel usa el separador de miles del sistema
+// del usuario que abre el archivo, así que se ve bien tanto acá como
+// para quien lo reciba.
+function aplicarFormatoMoneda(ws, colIdxs, filaDesde, filaHasta){
+  const fmt = '"$"#,##0';
+  colIdxs.forEach(c=>{
+    for(let r=filaDesde;r<=filaHasta;r++){
+      const addr = XLSX.utils.encode_cell({r, c});
+      if(ws[addr] && typeof ws[addr].v === 'number') ws[addr].z = fmt;
+    }
+  });
+}
+
 function exportXLSX(){
   const hoy=new Date();const mk=mesK(hoy);
   const delMes=registrosConsolidadoFiltrados();
@@ -1570,13 +1584,19 @@ function exportXLSX(){
     const horario=(r.horaDesde||r.horaHasta)?(r.horaDesde||'?')+'–'+(r.horaHasta||'?'):'—';
     reg.push([fmtF(r.fecha),r.nombre,(r.areas||[]).join('+'),r.teatro,r.sala,r.obra||'—',r.tipoLabel,horario,r.descripcion||'—',r.horas!=null?r.horas:r.cantidad!=null?r.cantidad:'—',r.total,CC_LABEL[r.cc]||r.cc||'—',r.sinValidar?'SÍ':'NO',r.aprobJefe||'—',r.overrideOverlap?'SÍ':'NO',(r.edits||[]).length,flags]);
   });
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(reg),'Registros');
+  const wsReg=XLSX.utils.aoa_to_sheet(reg);
+  aplicarFormatoMoneda(wsReg, [10], 1, reg.length-1);
+  XLSX.utils.book_append_sheet(wb,wsReg,'Registros');
   const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—',teatro:r.teatro};byObra[k].total+=r.total||0;});
   const cons=[['Obra','Tipo','Teatro','Total']];Object.entries(byObra).forEach(([o,d])=>cons.push([o,d.tipo,d.teatro,d.total]));cons.push(['','','TOTAL',delMes.reduce((a,r)=>a+(r.total||0),0)]);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(cons),'Consolidado');
+  const wsCons=XLSX.utils.aoa_to_sheet(cons);
+  aplicarFormatoMoneda(wsCons, [3], 1, cons.length-1);
+  XLSX.utils.book_append_sheet(wb,wsCons,'Consolidado');
   const byP={};delMes.forEach(r=>{if(!byP[r.nombre])byP[r.nombre]={areas:(r.areas||[]).join('+'),total:0};byP[r.nombre].total+=r.total||0;});
   const perP=[['Nombre','Área(s)','Total']];Object.entries(byP).forEach(([n,d])=>perP.push([n,d.areas,d.total]));
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(perP),'Por persona');
+  const wsPerP=XLSX.utils.aoa_to_sheet(perP);
+  aplicarFormatoMoneda(wsPerP, [2], 1, perP.length-1);
+  XLSX.utils.book_append_sheet(wb,wsPerP,'Por persona');
   // Matriz persona × obra — misma lógica que usabas a mano: una fila por
   // persona, una columna por obra, total por fila y por columna.
   const obrasCols=Object.keys(byObra).sort((a,b)=>byObra[b].total-byObra[a].total);
@@ -1601,6 +1621,7 @@ function exportXLSX(){
   matriz.push(totalesCol);
   const wsMatriz=XLSX.utils.aoa_to_sheet(matriz);
   wsMatriz['!cols']=[{wch:28},...obrasCols.map(()=>({wch:16})),{wch:14}];
+  aplicarFormatoMoneda(wsMatriz, Array.from({length: obrasCols.length+1}, (_,i)=>i+1), 1, matriz.length-1);
   XLSX.utils.book_append_sheet(wb,wsMatriz,'Matriz persona x obra');
   const sufijo=etiqueta?`_${etiqueta.replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g,'_')}`:'';
   XLSX.writeFile(wb,`HE_${mk}${sufijo}.xlsx`);

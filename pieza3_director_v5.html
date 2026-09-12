@@ -1187,6 +1187,11 @@ function exportarReporte(tipo,fmt_){
     vals.forEach(v=>rows.push([v.l,v.t,v.a.join('+'),v.teatro||'AMBOS',v.v,v.jefe?'Sí':'']));
     const ws=XLSX.utils.aoa_to_sheet(rows);
     ws['!cols']=[{wch:45},{wch:6},{wch:30},{wch:8},{wch:15},{wch:10}];
+    // Formato moneda en la columna Valor ($) — fila 4 (índice 4) en adelante
+    for(let r=4;r<rows.length;r++){
+      const addr=XLSX.utils.encode_cell({r,c:4});
+      if(ws[addr] && typeof ws[addr].v==='number') ws[addr].z='"$"#,##0';
+    }
     XLSX.utils.book_append_sheet(wb,ws,'Valores');
     XLSX.writeFile(wb,`HE_Valores_${tipo}_${VIG_DESDE}.xlsx`);
   } else {

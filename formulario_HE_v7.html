@@ -744,18 +744,20 @@ function checkSolapamiento() {
     const tD = toMins(t.horaDesde || '00:00');
     const tH = toMins(t.horaHasta || '00:00') + (toMins(t.horaHasta||'00:00') < tD ? 1440 : 0);
     const solapa = mDesde < tH && mHasta > tD;
+    const mismoHorarioExacto = t.horaDesde === desde && t.horaHasta === hasta;
 
-    if (solapa) {
+    if (mismoHorarioExacto) {
+      // Mismo nombre, misma fecha, MISMO horario exacto (no un solapamiento parcial) —
+      // esto es casi siempre una recarga por error, no dos tareas distintas. Se bloquea
+      // de verdad, no se deja pasar con un "confirmar de todas formas".
+      bloqueantes.push(`Ya cargaste una HE con este mismo horario exacto hoy (${t.horaDesde}–${t.horaHasta}, "${t.tipoLabel||'sin tipo aún'}"). Si es un error, no la cargues de nuevo. Si de verdad son dos tareas distintas en el mismo horario exacto, pedile a tu jefe o a Administración que la cargue manualmente.`);
+    } else if (solapa) {
       // ¿mismo teatro?
       if (t.teatro && t.teatro !== S.teatro && S.teatro) {
         bloqueantes.push(`Conflicto: ya tiene una HE en ${t.teatro} (${t.horaDesde}–${t.horaHasta}). No podés estar en dos teatros al mismo tiempo.`);
       } else {
         advertencias.push(`Ya existe una HE en el mismo horario: "${t.tipoLabel}" (${t.horaDesde}–${t.horaHasta}). ¿Es una tarea diferente simultánea?`);
       }
-    }
-    // Duplicado exacto
-    if (t.tipoLabel === S.tipoLabel && t.obra === S.obra && t.fecha === fecha) {
-      advertencias.push(`Esta misma HE ya fue registrada hoy para la misma producción. ¿Es un registro duplicado?`);
     }
   });
 
@@ -1153,6 +1155,20 @@ async function enviar() {
   S.obs  = document.getElementById('obs').value;
   S.obra = document.getElementById('obra').value;
   const nombreReal = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
+
+  // Chequeo final contra duplicados que el paso 1 no puede ver todavía
+  // (mismo día, misma obra, mismo tipo de HE — pero horario distinto, así
+  // que no lo agarró el bloqueo por horario exacto). No bloquea, pero
+  // exige una confirmación explícita antes de mandarlo.
+  const posiblesDup = misRegistros(nombreReal).filter(t =>
+    t.fecha === S.fecha && t.obra === S.obra && t.tipoLabel === S.tipoLabel &&
+    !(t.horaDesde === S.horaDesde && t.horaHasta === S.horaHasta) // el horario exacto ya se bloqueó antes
+  );
+  if (posiblesDup.length && !S._dupConfirmado) {
+    const ok = confirm(`Ya cargaste "${S.tipoLabel}" para "${S.obra}" hoy (${posiblesDup[0].horaDesde}–${posiblesDup[0].horaHasta}). ¿Esta carga es una tarea distinta y confirmás que no es un error?`);
+    if (!ok) return;
+    S._dupConfirmado = true;
+  }
 
   // Obtener tipo de obra para el CC
   const obraObj = OBRAS.find(o => o.n === S.obra);
