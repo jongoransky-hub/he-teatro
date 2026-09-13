@@ -1090,8 +1090,18 @@ function buildEstado(){
   const fTeatro=document.getElementById('filtro-teatro-estado')?.value||'';
 
   // Personas en nómina
+  // CLAVE: "AMBOS" es la condición de nómina de la persona (en qué teatros
+  // puede cargar), no el teatro de un ticket puntual. teatroActivo es el
+  // teatro que está realmente en foco: el filtro manual (fTeatro) si existe,
+  // o TEATRO_FIJO en las vistas de coordinación (donde el selector está
+  // oculto pero el teatro también está acotado). Los tickets que se
+  // cuentan/muestran para cada fila deben acotarse a ese teatro (r.teatro)
+  // — si no, una persona AMBOS con tickets solo de MET aparece en PLP
+  // cargando esos mismos tickets MET como si fueran de PLP.
+  const teatroActivo = fTeatro || TEATRO_FIJO || '';
   let rows=PERSONAL.filter(p=>p.activo&&p.validado).map(p=>{
-    const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&normNombre(r.nombre)===normNombre(p.n));
+    const delMesPersona=registros.filter(r=>r.fecha?.startsWith(mk)&&normNombre(r.nombre)===normNombre(p.n));
+    const delMes=teatroActivo?delMesPersona.filter(r=>r.teatro===teatroActivo):delMesPersona;
     const total=delMes.reduce((a,r)=>a+(r.total||0),0);
     const sorted=delMes.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
     const ultimo=sorted.length?sorted[0].fecha:null;
@@ -1100,13 +1110,14 @@ function buildEstado(){
   });
 
   // ── CLAVE: cualquier persona que cargó y NO está en nómina → Sin validar ──
+  // También acotado a teatroActivo, por la misma razón que arriba.
   const nombresEnNomina = new Set(PERSONAL.filter(p=>p.activo&&p.validado).map(p=>normNombre(p.n)));
-  const delMesTodos = registros.filter(r=>r.fecha?.startsWith(mk));
+  const delMesTodos = registros.filter(r=>r.fecha?.startsWith(mk)&&(!teatroActivo||r.teatro===teatroActivo));
   const nombresConCarga = new Set(delMesTodos.map(r=>normNombre(r.nombre)));
   nombresConCarga.forEach(nk=>{
     if(!nombresEnNomina.has(nk)){
       // Recuperar el nombre original (sin normalizar) para mostrarlo
-      const recs=registros.filter(r=>normNombre(r.nombre)===nk);
+      const recs=delMesTodos.filter(r=>normNombre(r.nombre)===nk);
       const nombreOriginal=recs[0]?.nombre||nk;
       const areaDetectada=(recs[0]?.areas||['?'])[0]||'?';
       const teatroDetectado=recs[0]?.teatro||'?';
@@ -1140,7 +1151,7 @@ function buildEstado(){
 
   document.getElementById('tbody-estado').innerHTML=rows.map(({p,delMes,total,ultimo,al,sinValidar})=>`
     <tr ${sinValidar?'style="background:#fffde7"':''}>
-      <td><span class="fw" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}')" title="Ver tickets de ${p.n}">${p.n}</span>${p.jefe?' <span class="mono" style="color:var(--mu)">(jefe)</span>':''}</td>
+      <td><span class="fw" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}','${teatroActivo}')" title="Ver tickets de ${p.n}">${p.n}</span>${p.jefe?' <span class="mono" style="color:var(--mu)">(jefe)</span>':''}</td>
       <td><div class="p-areas">${(p.areas||[]).map(a=>`<span class="p-area">${a.replace(/_/g,' ')}</span>`).join('')}</div></td>
       <td class="monto ${total>UMBRAL?'err':total>0?'ok':''}">${total>0?'$'+fmt2(total):'—'}</td>
       <td style="text-align:center">${delMes.length}</td>
@@ -2125,15 +2136,20 @@ function _mesNomSiguiente(hoy){
 </div>
 
 <script>
-function abrirDetallPersona(nombre, teatro) {
+function abrirDetallPersona(nombre, teatroPersona, filtroActivo) {
   const hoy = new Date();
   const mk = mesK(hoy);
-  const tickets = registros.filter(r => r.nombre === nombre && r.fecha?.startsWith(mk));
+  // Si se abrió con un teatro activo (filtro manual o TEATRO_FIJO de la
+  // vista de coordinación), mostrar solo los tickets de ESE teatro — una
+  // persona AMBOS no debe mostrar sus tickets MET al mirarla desde PLP.
+  let tickets = registros.filter(r => r.nombre === nombre && r.fecha?.startsWith(mk));
+  if (filtroActivo) tickets = tickets.filter(r => r.teatro === filtroActivo);
   const total = tickets.reduce((a,r) => a + (r.total||0), 0);
-  
+
+  const etiquetaTeatro = filtroActivo || teatroPersona;
   document.getElementById('detalle-persona-titulo').textContent = nombre;
   document.getElementById('detalle-persona-resumen').innerHTML = 
-    `<strong>${tickets.length} registro(s) este mes</strong> · Total: <strong style="color:var(--green)">$${fmt2(total)}</strong> · Teatro: ${teatro}`;
+    `<strong>${tickets.length} registro(s) este mes</strong> · Total: <strong style="color:var(--green)">$${fmt2(total)}</strong> · Teatro: ${etiquetaTeatro}${filtroActivo?' <span style="color:var(--mu);font-weight:400">(filtrado por vista activa)</span>':teatroPersona==='AMBOS'?' <span style="color:var(--mu);font-weight:400">(nómina — puede incluir tickets de ambos teatros)</span>':''}`;
   
   if (!tickets.length) {
     document.getElementById('detalle-persona-tickets').innerHTML = '<div class="empty">Sin registros este mes.</div>';
