@@ -1702,7 +1702,7 @@ async function cargarMesesCerrados(){
       mes: m['Mes']||'', teatro: m['Teatro']||'AMBOS', mesNom: m['Nombre Mes']||'',
       fechaCierre: m['Fecha Cierre']||'', total: parseFloat(m['Total'])||0,
       registros: parseInt(m['Cant Registros'])||0, personas: parseInt(m['Personas'])||0,
-      cerradoPor: m['Cerrado Por']||'',
+      cerradoPor: m['Cerrado Por']||'', avisoPago: m['Aviso Pago']==='SI',
     })) : [];
   }catch(e){ console.warn('No se pudieron cargar los meses cerrados del servidor:', e); }
 }
@@ -1765,7 +1765,11 @@ function renderCierreCard(teatro, mk, mesNom, hoy){
       <div class="btn-row">
         <button class="btn primary" onclick="abrirNuevoMes('${teatro}')">Abrir ${_mesNomSiguiente(hoy)} →</button>
         <button class="btn ghost" onclick="exportXLSX()">Exportar XLSX del mes cerrado</button>
-      </div></div>`;
+      </div>
+      ${yaCerrado.avisoPago
+        ? `<div style="margin-top:10px;font-size:12px;color:var(--green)">✓ Ya se avisó a los técnicos que pueden retirar sus HE.</div>`
+        : `<div class="btn-row" style="margin-top:10px"><button class="btn" id="btn-aviso-pago" style="background:var(--purple);color:#fff;border:none" onclick="avisarPagoListo('${teatro}','${yaCerrado.mes}')">Avisar que ya se puede cobrar</button></div>`
+      }</div>`;
   }
   const checks=[
     {ok:sinCarga===0, label:`Todos cargaron`, detalle:sinCarga===0?'✓ OK':`${sinCarga} persona(s) sin registro`},
@@ -1799,6 +1803,26 @@ function renderCierreCard(teatro, mk, mesNom, hoy){
       </button>
       <button class="btn ghost" onclick="exportXLSX()">Exportar XLSX antes de cerrar</button>
     </div></div>`;
+}
+
+async function avisarPagoListo(teatro, mes){
+  const btn = document.getElementById('btn-aviso-pago');
+  if(!confirm(`¿Confirmás que el pago de ${teatro} (${mes}) ya está disponible? Se le va a avisar por mail a cada persona que cargó HE ese mes — esto solo se puede hacer una vez.`))return;
+  if(btn){ btn.disabled=true; btn.textContent='Enviando…'; }
+  try{
+    const r = await apiPost('avisarPagoListo', {teatro, mes});
+    if(!r.ok){
+      alert(`No se pudo avisar: ${r.error||'error desconocido'}`);
+      if(btn){ btn.disabled=false; btn.textContent='Avisar que ya se puede cobrar'; }
+      return;
+    }
+    alert(`✓ Se avisó a ${r.cant} persona(s) que ya pueden retirar sus HE.`);
+    await cargarMesesCerrados();
+    buildCierreMes();
+  }catch(e){
+    alert('⚠ Sin conexión al servidor — no se avisó a nadie. Probá de nuevo.');
+    if(btn){ btn.disabled=false; btn.textContent='Avisar que ya se puede cobrar'; }
+  }
 }
 
 async function confirmarCierreMes(teatro){
