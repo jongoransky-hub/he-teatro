@@ -221,6 +221,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
   <div class="nav-item" id="nav-mails" onclick="showView('mails')">Generar mails</div>
   <div class="nav-item" id="nav-cierremes" onclick="showView('cierremes')" style="color:var(--amber)">⊙ Cierre de mes</div>
   <div class="ndiv"></div>
+  <div class="nav-lbl">Análisis</div>
+  <div class="nav-item" id="nav-tendencias" onclick="showView('tendencias')">Tendencias</div>
+  <div class="ndiv"></div>
   <div class="nav-lbl">Configuración</div>
   <div class="nav-item" id="nav-personal" onclick="showView('personal')">
     <span>Personal</span>
@@ -412,6 +415,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
       <th>Obra</th><th>Tipo HE</th><th>Hs/Q</th><th>Total</th><th>CC</th><th>Flags</th><th>Editar</th>
     </tr></thead><tbody id="tbody-registros"></tbody></table>
   </div></div>
+</div>
+
+<!-- ═══ TENDENCIAS ═══ -->
+<div class="view" id="view-tendencias">
+  <div id="tendencias-body"><div class="empty">Cargando…</div></div>
 </div>
 
 <!-- ═══ CIERRE DE MES ═══ -->
@@ -767,6 +775,7 @@ function mapRegistroRow(r) {
     overrideOverlap: r["Override Overlap"] === "SI",
     cargadoPor:      r["Cargado Por"] || null,
     sinValidar:      r["Sin Validar"] === "SI",
+    casoEspecial:    r["Caso Especial"] === "SI",
     aprobJefe:       r["Aprobado Jefe"] || "PENDIENTE",
     notaJefe:        r["Nota Jefe"] || "",
     edits:           [],
@@ -1294,7 +1303,7 @@ function buildImputar(){
       <div class="imp-name">${r.nombre}${r.sinValidar?` <span class="tag warn" style="font-size:9px">?</span>`:''}</div>
       <div class="imp-info">${fmtF(r.fecha)} · ${r.tipoLabel.slice(0,28)}${r.tipoLabel.length>28?'…':''}<br><span style="font-size:10px;color:var(--dm)">${r.obra||'—'}</span></div>
       <div class="imp-monto">$${fmt2(r.total)}</div>
-      <select class="cc-sel" onchange="registros[${i}].cc=this.value;buildAll()">
+      <select class="cc-sel" id="cc-sel-${i}" onchange="cambiarCC(${i}, this.value)">
         <optgroup label="CC general">
           <option value="vitama" ${r.cc==='vitama'?'selected':''}>Vitama (MET)</option>
           <option value="rosepa" ${r.cc==='rosepa'?'selected':''}>Rosepa (PLP)</option>
@@ -1307,13 +1316,26 @@ function buildImputar(){
         </optgroup>
       </select>
       <label style="font-size:12px;color:var(--mu);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
-        <input type="checkbox" ${r.salaAsume?'checked':''} onchange="registros[${i}].salaAsume=this.checked;if(this.checked)registros[${i}].cc='sala_asume';buildAll()">
+        <input type="checkbox" ${r.salaAsume?'checked':''} onchange="registros[${i}].salaAsume=this.checked;if(this.checked)cambiarCC(${i},'sala_asume');else buildAll()">
         Sala asume
       </label>
     </div>`).join('');
 }
+async function cambiarCC(i, valor){
+  const r = registros[i];
+  const anterior = r.cc;
+  r.cc = valor; // optimista en pantalla — se revierte abajo si el servidor rechaza
+  const sel = document.getElementById('cc-sel-'+i);
+  if(!r._id){ return; } // registro sin ID de servidor (no debería pasar) — no hay nada que persistir
+  const resp = await apiPost('actualizarCC', {id:r._id, cc:valor});
+  if(!resp.ok){
+    r.cc = anterior;
+    if(sel) sel.value = anterior;
+    alert(`No se pudo guardar la imputación: ${resp.error||'error desconocido'}`);
+  }
+}
 function aplicarDefaults(){registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});buildAll();}
-function guardarImput(){buildAll();alert('Imputaciones guardadas.');}
+function guardarImput(){buildAll();alert('Los cambios de imputación ya se guardan al toque, cada vez que cambiás un CC — no hace falta este botón, pero lo dejamos por si preferís revisar todo antes de irte de la pantalla.');}
 
 // ════════════════════════════════════════════
 // MAILS — ampliados
@@ -1477,6 +1499,7 @@ function buildRegistros(){
     if(r.cargadoPor)flags.push('<span style="color:var(--mu);font-size:11px">Proxy</span>');
     if(r.sinValidar)flags.push('<span style="color:var(--amber);font-size:11px;font-weight:700">SinValidar</span>');
     if((r.edits||[]).length>0)flags.push(`<span style="color:var(--green);font-size:11px">Editado×${r.edits.length}</span>`);
+    if(r.casoEspecial)flags.push('<span style="color:var(--purple);font-size:11px;font-weight:700">★ Especial</span>');
     const necesitaJefe=['SONIDO','ILUMINACION','MAQUINARIA'].includes((r.areas||[])[0]||'');
     if(necesitaJefe)flags.push(aprobBadge(r));
     return`<tr ${r.sinValidar?'style="background:#fffde7"':''}>
@@ -1490,9 +1513,176 @@ function buildRegistros(){
       <td class="monto ok">$${fmt2(r.total)}</td>
       <td style="font-size:10px;color:var(--mu)">${CC_LABEL[r.cc]?.split(' ')[0]||r.cc||'—'}</td>
       <td>${flags.join(' ')}</td>
-      <td><button class="btn ghost" style="padding:3px 8px;font-size:11px" onclick="abrirEdit(${i})">Editar</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn ghost" style="padding:3px 8px;font-size:11px" onclick="abrirEdit(${i})">Editar</button>
+        <button class="btn ghost" title="${r.casoEspecial?'Es un caso especial — no cuenta en Tendencias. Click para revertir.':'Marcar como caso especial (no comparable) — se excluye de Tendencias'}" style="padding:3px 8px;font-size:11px;color:${r.casoEspecial?'var(--purple)':'var(--mu)'}" onclick="toggleCasoEspecial(${i})">★</button>
+      </td>
     </tr>`;
   }).join('');
+}
+async function toggleCasoEspecial(i){
+  const r = registros[i];
+  const nuevoEstado = !r.casoEspecial;
+  let motivo = '';
+  if(nuevoEstado){
+    motivo = prompt('¿Por qué es un caso especial (no comparable)? Ej: "Sueldo de alta reciente pagado como HE hasta regularizar recibo". Esto NO se le muestra a la persona, es solo para el registro interno.');
+    if(motivo===null) return; // canceló
+  } else if(!confirm('¿Sacarlo de "caso especial"? Vuelve a contar normal en Tendencias.')){
+    return;
+  }
+  const anterior = r.casoEspecial;
+  r.casoEspecial = nuevoEstado;
+  buildRegistros();
+  const resp = await apiPost('marcarCasoEspecial', {id:r._id, marcado:nuevoEstado, motivo});
+  if(!resp.ok){
+    r.casoEspecial = anterior;
+    buildRegistros();
+    alert(`No se pudo guardar: ${resp.error||'error desconocido'}`);
+  }
+}
+
+// ════════════════════════════════════════════
+// TENDENCIAS — histórico entre meses (cerrados + el actual)
+// ════════════════════════════════════════════
+let TENDENCIAS_CACHE = null; // {mesKey: [registros...]}
+
+async function _regsDeMes(mesKey, teatro){
+  const res = await apiGet('getRegistros', teatro?{mes:mesKey,teatro}:{mes:mesKey});
+  return (res.ok && Array.isArray(res.data)) ? res.data : [];
+}
+
+function _barraHTML(label, valor, max, color, sublabel){
+  const pct = max>0 ? Math.max(2, Math.round(valor/max*100)) : 0;
+  return `<div style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+      <span>${label}${sublabel?` <span style="color:var(--mu)">${sublabel}</span>`:''}</span>
+      <span class="mono" style="font-weight:600">$${fmt2(valor)}</span>
+    </div>
+    <div style="background:var(--grbg);border-radius:4px;height:10px;overflow:hidden">
+      <div style="width:${pct}%;height:100%;background:${color||'var(--ac)'};border-radius:4px"></div>
+    </div>
+  </div>`;
+}
+
+async function buildTendencias(){
+  const cont = document.getElementById('tendencias-body');
+  cont.innerHTML = '<div class="empty">Cargando histórico…</div>';
+
+  const teatros = TEATRO_FIJO ? [TEATRO_FIJO] : ['MET','PLP'];
+  // Meses a incluir: todos los cerrados + el mes en curso
+  const hoy = new Date();
+  const mkActual = mesK(hoy);
+  const mesesSet = new Set([mkActual]);
+  MESES_CERRADOS_SERVIDOR.forEach(m=>{ if(teatros.includes(m.teatro)) mesesSet.add(m.mes); });
+  const meses = Array.from(mesesSet).sort();
+
+  if(!TENDENCIAS_CACHE) TENDENCIAS_CACHE = {};
+  for(const mk of meses){
+    for(const t of teatros){
+      const key = mk+'_'+t;
+      if(!TENDENCIAS_CACHE[key]) TENDENCIAS_CACHE[key] = await _regsDeMes(mk, t);
+    }
+  }
+
+  // Aplanar todo, excluyendo "Caso Especial" y "Sin Validar"
+  let todos = [];
+  for(const mk of meses){
+    for(const t of teatros){
+      const regs = (TENDENCIAS_CACHE[mk+'_'+t]||[]).map(r=>({...r, _mes:mk, _teatro:t}));
+      todos = todos.concat(regs);
+    }
+  }
+  const validos = todos.filter(r => r["Sin Validar"]!=="SI" && r["Caso Especial"]!=="SI");
+  const excluidosEspeciales = todos.filter(r => r["Caso Especial"]==="SI");
+
+  if(!validos.length){
+    cont.innerHTML = '<div class="empty">Todavía no hay suficientes datos para mostrar tendencias — esto se va a ir llenando solo a medida que pasan los meses.</div>';
+    return;
+  }
+
+  const valorDe = r => parseFloat(String(r["Total"]||"0").replace(",","."))||0;
+
+  // Por mes y teatro
+  const porMesTeatro = {};
+  validos.forEach(r=>{
+    const k = r._mes+'|'+r._teatro;
+    porMesTeatro[k] = (porMesTeatro[k]||0) + valorDe(r);
+  });
+
+  // Top personas (acumulado)
+  const porPersona = {};
+  validos.forEach(r=>{
+    const n = r["Nombre"]; if(!n) return;
+    porPersona[n] = (porPersona[n]||0) + valorDe(r);
+  });
+  const totalGeneral = Object.values(porPersona).reduce((a,b)=>a+b,0);
+  const topPersonas = Object.entries(porPersona).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const top5 = Object.entries(porPersona).sort((a,b)=>b[1]-a[1]).slice(0,5).reduce((a,[,v])=>a+v,0);
+
+  // Por CC
+  const porCC = {};
+  validos.forEach(r=>{
+    const cc = r["Centro de Costo"] || 'sin_imputar';
+    porCC[cc] = (porCC[cc]||0) + valorDe(r);
+  });
+
+  // Por día de semana
+  const diasEs = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const porDia = {};
+  validos.forEach(r=>{
+    if(!r["Fecha"]) return;
+    const d = new Date(r["Fecha"]+'T12:00:00');
+    if(isNaN(d)) return;
+    const dia = diasEs[d.getDay()];
+    porDia[dia] = (porDia[dia]||0) + valorDe(r);
+  });
+
+  const maxMes = Math.max(...Object.values(porMesTeatro), 1);
+  const maxPersona = Math.max(...topPersonas.map(p=>p[1]), 1);
+  const maxCC = Math.max(...Object.values(porCC), 1);
+  const maxDia = Math.max(...Object.values(porDia), 1);
+
+  const nombreMesLbl = mk => { const [y,m]=mk.split('-'); const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']; return meses[+m-1]+' '+y; };
+
+  cont.innerHTML = `
+    <div class="metrics" style="margin-bottom:20px">
+      <div class="metric"><div class="m-lbl">Total (${meses.length} mes(es))</div><div class="m-val">$${fmt2(totalGeneral)}</div></div>
+      <div class="metric"><div class="m-lbl">Personas distintas</div><div class="m-val">${Object.keys(porPersona).length}</div></div>
+      <div class="metric"><div class="m-lbl">Top 5 concentran</div><div class="m-val">${totalGeneral?Math.round(top5/totalGeneral*100):0}%</div></div>
+      <div class="metric"><div class="m-lbl">Casos especiales excluidos</div><div class="m-val">${excluidosEspeciales.length}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Evolución mensual${teatros.length>1?' (MET vs PLP)':''}</span></div>
+      <div class="card-body">
+      ${meses.map(mk => teatros.map(t => {
+        const v = porMesTeatro[mk+'|'+t]||0;
+        if(v===0 && teatros.length>1) return '';
+        return _barraHTML(nombreMesLbl(mk) + (teatros.length>1?` · ${t}`:'') + (mk===mkActual?' (en curso)':''), v, maxMes, t==='PLP'?'var(--blue)':'var(--ac)');
+      }).join('')).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Quién concentra más costo (acumulado del período)</span></div>
+      <div class="card-body">${topPersonas.map(([n,v]) => _barraHTML(n, v, maxPersona)).join('')}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Por centro de costo</span></div>
+      <div class="card-body">${Object.entries(porCC).sort((a,b)=>b[1]-a[1]).map(([cc,v]) => _barraHTML(CC_LABEL[cc]||cc, v, maxCC, 'var(--purple)')).join('')}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Por día de la semana</span></div>
+      <div class="card-body">${['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map(d => _barraHTML(d, porDia[d]||0, maxDia, 'var(--green)')).join('')}</div>
+    </div>
+
+    ${excluidosEspeciales.length ? `<div class="card" style="border-color:var(--purple)">
+      <div class="card-head"><span class="card-title" style="color:var(--purple)">Casos especiales excluidos de estos números</span></div>
+      <div class="card-body" style="font-size:12px;color:var(--mu)">${excluidosEspeciales.length} registro(s) marcados con ★ no están contados arriba — revisalos en "Todos los registros" si querés ver el detalle.</div>
+    </div>` : ''}
+  `;
 }
 function fReg(f,el){document.querySelectorAll('#f-registros .fp').forEach(p=>p.classList.remove('active'));el.classList.add('active');filtroReg=f;buildRegistros();}
 
@@ -1680,6 +1870,7 @@ function showView(id){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById(`view-${id}`).classList.add('active');
   const ni=document.getElementById(`nav-${id}`);if(ni)ni.classList.add('active');
+  if(id==='tendencias') buildTendencias();
 }
 function cerrarModal(id){document.getElementById(id).style.display='none';}
 function mesK(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
