@@ -52,12 +52,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
   .main{padding:14px}
   .tb-title{font-size:13px}
   .tb-mes{display:none}
-  /* Estado por persona: en celular escondemos Área(s) y Último para que
-     el Total (lo que realmente se quiere ver de un vistazo) entre en la
-     primera pantalla sin tener que scrollear hacia la derecha. */
-  #tbl-estado th:nth-child(2), #tbl-estado td:nth-child(2),
-  #tbl-estado th:nth-child(5), #tbl-estado td:nth-child(5){display:none}
+  /* Estado por persona: en celular escondemos Teatro y Estado (quedan
+     al final del nuevo orden) para que Nombre-Área-Total-Reg-Último
+     entren en la primera pantalla sin scrollear hacia la derecha. */
+  #tbl-estado th:nth-child(6), #tbl-estado td:nth-child(6),
+  #tbl-estado th:nth-child(7), #tbl-estado td:nth-child(7){display:none}
   #tbl-estado th, #tbl-estado td{padding:6px 6px;font-size:11px}
+  .fp{padding:4px 8px;font-size:11px}
 }
 
 .nav-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;padding:10px 16px 4px}
@@ -298,8 +299,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
         <thead><tr>
           <th style="cursor:pointer;user-select:none" onclick="sortEstado('nombre')">Nombre <span id="sort-nombre">↕</span></th>
           <th style="cursor:pointer;user-select:none" onclick="sortEstado('area')">Área(s) <span id="sort-area">↕</span></th>
+          <th>Total</th><th>Reg.</th><th>Último</th>
           <th style="cursor:pointer;user-select:none" onclick="sortEstado('teatro')">Teatro <span id="sort-teatro">↕</span></th>
-          <th>Reg.</th><th>Último</th><th>Total</th><th>Estado</th>
+          <th>Estado</th>
         </tr></thead>
         <tbody id="tbody-estado"></tbody>
       </table>
@@ -1133,10 +1135,10 @@ function buildEstado(){
     <tr ${sinValidar?'style="background:#fffde7"':''}>
       <td><span class="fw" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}')" title="Ver tickets de ${p.n}">${p.n}</span>${p.jefe?' <span class="mono" style="color:var(--mu)">(jefe)</span>':''}</td>
       <td><div class="p-areas">${(p.areas||[]).map(a=>`<span class="p-area">${a.replace(/_/g,' ')}</span>`).join('')}</div></td>
-      <td class="mono">${p.teatro}</td>
+      <td class="monto ${total>UMBRAL?'err':total>0?'ok':''}">${total>0?'$'+fmt2(total):'—'}</td>
       <td style="text-align:center">${delMes.length}</td>
       <td class="mono">${ultimo?fmtF(ultimo):'—'}</td>
-      <td class="monto ${total>UMBRAL?'err':total>0?'ok':''}">${total>0?'$'+fmt2(total):'—'}</td>
+      <td class="mono">${p.teatro}</td>
       <td>${sinValidar
         ?`<span class="tag warn"><span class="tdot"></span>Sin validar</span> <button class="btn amber" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="abrirValidar('${p.n.replace(/'/g,"\\'")}')">Validar</button>`
         :al?`<span class="tag ${al.nivel}" style="cursor:pointer" onclick="showView('alertas')" title="Ver alertas"><span class="tdot"></span>${al.msg}</span>`
