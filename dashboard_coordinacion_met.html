@@ -52,6 +52,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
   .main{padding:14px}
   .tb-title{font-size:13px}
   .tb-mes{display:none}
+  /* Las 4 tarjetas de arriba (Con carga, Sin registros, etc.) quedaban muy
+     angostas en 4 columnas — el "↗ ver" se pisaba con el título. Con 2
+     columnas entra todo sin superponerse. */
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  /* Los filtros (Todos/Con carga/etc.) ya no se van a una segunda línea —
+     quedan en una sola fila que se puede deslizar si no entra todo. */
+  .filters{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .filters .fp{flex-shrink:0}
   /* Estado por persona: en celular escondemos Teatro y Estado (quedan
      al final del nuevo orden) para que Nombre-Área-Total-Reg-Último
      entren en la primera pantalla sin scrollear hacia la derecha. */
