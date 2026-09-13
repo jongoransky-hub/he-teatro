@@ -52,6 +52,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
   .main{padding:14px}
   .tb-title{font-size:13px}
   .tb-mes{display:none}
+  /* Estado por persona: en celular escondemos Área(s) y Último para que
+     el Total (lo que realmente se quiere ver de un vistazo) entre en la
+     primera pantalla sin tener que scrollear hacia la derecha. */
+  #tbl-estado th:nth-child(2), #tbl-estado td:nth-child(2),
+  #tbl-estado th:nth-child(5), #tbl-estado td:nth-child(5){display:none}
+  #tbl-estado th, #tbl-estado td{padding:6px 6px;font-size:11px}
 }
 
 .nav-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;padding:10px 16px 4px}
@@ -288,7 +294,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
       </div>
     </div>
     <div style="overflow-x:auto">
-      <table class="tbl">
+      <table class="tbl" id="tbl-estado">
         <thead><tr>
           <th style="cursor:pointer;user-select:none" onclick="sortEstado('nombre')">Nombre <span id="sort-nombre">↕</span></th>
           <th style="cursor:pointer;user-select:none" onclick="sortEstado('area')">Área(s) <span id="sort-area">↕</span></th>
