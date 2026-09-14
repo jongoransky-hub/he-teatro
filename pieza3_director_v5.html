@@ -458,6 +458,22 @@ textarea{resize:none;height:60px;line-height:1.5}
   </div>
 </div>
 
+<!-- MODAL EDITAR PERSONA -->
+<div class="modal-overlay" id="modal-editar-persona" style="display:none" onclick="if(event.target===this)cerrarModal('modal-editar-persona')">
+  <div class="modal">
+    <h3>Editar a <span id="ep-nombre-titulo"></span></h3>
+    <input type="hidden" id="ep-nombre">
+    <div class="field"><label>Teatro</label><select id="ep-teatro"><option value="MET">MET</option><option value="PLP">PLP</option><option value="AMBOS">Ambos</option></select></div>
+    <div class="field"><label>Área principal</label><select id="ep-area"><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
+    <div class="field"><label>Área secundaria (opcional)</label><select id="ep-area2"><option value="">— Ninguna —</option><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
+    <div class="field"><label>Rol</label><select id="ep-rol"><option value="TECNICO">Técnico</option><option value="JEFE">Jefe de área</option></select></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-editar-persona')">Cancelar</button>
+      <button class="btn ac" onclick="guardarEdicionPersona()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL OBRA -->
 <div class="modal-overlay" id="modal-obra" style="display:none" onclick="if(event.target===this)cerrarModal('modal-obra')">
   <div class="modal">
@@ -1144,12 +1160,50 @@ function buildPersonal3(){
       <td style="font-family:'DM Mono',monospace;font-size:11px">${p.t}</td>
       <td style="font-size:12px;color:var(--mu)">${p.j?'Jefe':'Técnico'}</td>
       <td>${p.ok?`<span class="badge green">Activo</span>`:`<span class="badge red">Inactivo</span>`}</td>
-      <td>
+      <td style="white-space:nowrap">
+        <button class="btn ghost" style="padding:3px 10px;font-size:11px;margin-right:4px" onclick="abrirEditarPersona('${p.n.replace(/'/g,"\\'")}')">Editar</button>
         ${p.ok
           ?`<button class="btn red" style="padding:3px 10px;font-size:11px" onclick="toggleP3('${p.n.replace(/'/g,"\\'")}')">Dar de baja</button>`
           :`<button class="btn green" style="padding:3px 10px;font-size:11px" onclick="toggleP3('${p.n.replace(/'/g,"\\'")}')">Reactivar</button>`}
       </td>
     </tr>`).join('');
+}
+
+// ════════════════════════════════════
+// EDITAR PERSONA — área/teatro/rol de alguien que ya está en nómina
+// ════════════════════════════════════
+function abrirEditarPersona(n){
+  const p=PERSONAL3.find(x=>x.n===n);
+  if(!p){alert('No se encontró a '+n+' en la nómina.');return;}
+  document.getElementById('ep-nombre-titulo').textContent=p.n;
+  document.getElementById('ep-nombre').value=p.n;
+  document.getElementById('ep-teatro').value=p.t||'MET';
+  document.getElementById('ep-area').value=(p.a||[])[0]||'SALA';
+  document.getElementById('ep-area2').value=(p.a||[])[1]||'';
+  document.getElementById('ep-rol').value=p.j?'JEFE':'TECNICO';
+  document.getElementById('modal-editar-persona').style.display='flex';
+}
+async function guardarEdicionPersona(){
+  const n=document.getElementById('ep-nombre').value;
+  const t=document.getElementById('ep-teatro').value;
+  const a=document.getElementById('ep-area').value;
+  const a2=document.getElementById('ep-area2').value;
+  const j=document.getElementById('ep-rol').value==='JEFE';
+  const p=PERSONAL3.find(x=>x.n===n);
+  if(!p)return;
+  const anterior={a:p.a,t:p.t,j:p.j};
+  const nuevasAreas=a2?[a,a2]:[a];
+  // Optimista: actualizar en pantalla, confirmar contra el servidor, revertir si falla
+  p.a=nuevasAreas;p.t=t;p.j=j;
+  buildPersonal3();
+  const r=await apiPost("editPersona",{nombre:n, areas:nuevasAreas, teatro:t, jefe:j});
+  if(!r.ok){
+    p.a=anterior.a;p.t=anterior.t;p.j=anterior.j;
+    buildPersonal3();
+    alert(`No se pudo guardar el cambio: ${r.error||'error desconocido'}. Si el error persiste, es probable que el backend (Apps Script) todavía no acepte "areas"/"teatro"/"jefe" en editPersona — avisale a Jon para actualizarlo.`);
+    return;
+  }
+  cerrarModal('modal-editar-persona');
 }
 async function toggleP3(n){
   const p=PERSONAL3.find(x=>x.n===n);
