@@ -432,6 +432,24 @@ function getValores(area, esJefe, esMontaje, esPatino, teatro) {
         if ((v['Solo Montaje']||'NO') === 'SI' && !esMontaje) return false;
         return true;
       });
+
+  // Jefa de sala (área SALA + Es Jefe = SI, hoy Luciana Calarota en MET):
+  // además de sus valores normales de Asistente de Sala, puede cargar los
+  // mismos tres montos técnicos que usan Sonido/Iluminación/Maquinaria
+  // para citación de Infantiles, Evento corto y Evento largo. No se logra
+  // marcando esas filas técnicas como "Solo Jefe" (eso le rompería el
+  // acceso a los técnicos no-jefes que las usan todo el tiempo) — se
+  // buscan por ID puntual y se agregan solo para este caso. Al buscarlas
+  // por ID en vez de copiar el monto, si el valor técnico se actualiza en
+  // un ajuste general de tarifas, esto se actualiza solo.
+  const esJefaDeSala = esJefe && area === 'SALA';
+  if (esJefaDeSala) {
+    ['infantil', 'evco', 'evla'].forEach(id => {
+      const filaTecnica = VALORES_SHEET.find(v => v['ID'] === id);
+      if (filaTecnica && !filas.includes(filaTecnica)) filas.push(filaTecnica);
+    });
+  }
+
   return filas.map(v => ({
     l: v['Concepto'] || '',
     t: (v['Tipo'] || 'HE').toUpperCase(),
