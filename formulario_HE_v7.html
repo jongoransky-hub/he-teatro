@@ -1172,6 +1172,16 @@ function borrarPerfil() {
 // ENVIAR
 // ═══════════════════════════════════════════════════
 async function enviar() {
+  // Traba anti doble-envío: un doble tap/click dispara enviar() dos veces
+  // casi en simultáneo, antes de que el primer ticket llegue a guardarse
+  // en localStorage — el chequeo de duplicados de abajo no lo puede ver
+  // todavía, así que sin esto se cuelan dos tickets idénticos.
+  if (S._enviando) return;
+  S._enviando = true;
+  const btnNext = document.getElementById('btn-next');
+  const textoOriginalBtn = btnNext ? btnNext.textContent : null;
+  if (btnNext) { btnNext.disabled = true; btnNext.textContent = 'Enviando…'; }
+
   S.obs  = document.getElementById('obs').value;
   S.obra = document.getElementById('obra').value;
   const nombreReal = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
@@ -1186,7 +1196,11 @@ async function enviar() {
   );
   if (posiblesDup.length && !S._dupConfirmado) {
     const ok = confirm(`Ya cargaste "${S.tipoLabel}" para "${S.obra}" hoy (${posiblesDup[0].horaDesde}–${posiblesDup[0].horaHasta}). ¿Esta carga es una tarea distinta y confirmás que no es un error?`);
-    if (!ok) return;
+    if (!ok) {
+      S._enviando = false;
+      if (btnNext) { btnNext.disabled = false; btnNext.textContent = textoOriginalBtn; }
+      return;
+    }
     S._dupConfirmado = true;
   }
 

@@ -1106,7 +1106,28 @@ function buildEstado(){
     const sorted=delMes.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
     const ultimo=sorted.length?sorted[0].fecha:null;
     const al=evalAlerta(p.n,p.areas[0],delMes,hoy);
-    return{p,delMes,total,ultimo,al,sinValidar:false};
+    // Estado de aprobación del mes — cada ticket cae siempre en una sola de
+    // las tres bolsas (el backend le pone "PENDIENTE" por default si nadie
+    // lo tocó todavía), así que la clasificación es exhaustiva:
+    //   - Si hay AL MENOS UN pendiente → "Pendiente" (gana, sea cual sea el resto)
+    //   - Si no hay pendientes pero hay AL MENOS UN aprobado → "OK"
+    //     (un rechazado que convive con un aprobado no tapa el OK acá — sigue
+    //     visible en el contador de Alertas y en el modal de la persona)
+    //   - Si no hay pendientes ni aprobados, y sí hay tickets → todos
+    //     rechazados → "Rechazado"
+    //   - Si no cargó nada este mes → ninguna de las tres aplica, cae al OK
+    //     por defecto (la alerta de cadencia de evalAlerta, si corresponde,
+    //     ya lo cubrió más arriba en la prioridad)
+    const pendJefe=delMes.some(r=>r.aprobJefe==='PENDIENTE');
+    const algunAprobado=delMes.some(r=>r.aprobJefe==='APROBADO');
+    const algunRechazado=delMes.some(r=>r.aprobJefe==='RECHAZADO');
+    const soloRechazados=delMes.length>0&&!pendJefe&&!algunAprobado;
+    // Caso mixto: hay aprobado (por eso se muestra OK) pero además hay algún
+    // rechazado conviviendo con él — se marca con un puntito rojo al lado
+    // del OK para no taparlo del todo, sin que compita en prioridad con
+    // Pendiente ni ocupe un estado propio.
+    const okConRechazo=algunAprobado&&!pendJefe&&algunRechazado;
+    return{p,delMes,total,ultimo,al,sinValidar:false,pendJefe,soloRechazados,okConRechazo};
   });
 
   // ── CLAVE: cualquier persona que cargó y NO está en nómina → Sin validar ──
@@ -1149,7 +1170,7 @@ function buildEstado(){
     });
   }
 
-  document.getElementById('tbody-estado').innerHTML=rows.map(({p,delMes,total,ultimo,al,sinValidar})=>`
+  document.getElementById('tbody-estado').innerHTML=rows.map(({p,delMes,total,ultimo,al,sinValidar,pendJefe,soloRechazados,okConRechazo})=>`
     <tr ${sinValidar?'style="background:#fffde7"':''}>
       <td><span class="fw" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}','${teatroActivo}')" title="Ver tickets de ${p.n}">${p.n}</span>${p.jefe?' <span class="mono" style="color:var(--mu)">(jefe)</span>':''}</td>
       <td><div class="p-areas">${(p.areas||[]).map(a=>`<span class="p-area">${a.replace(/_/g,' ')}</span>`).join('')}</div></td>
@@ -1160,7 +1181,9 @@ function buildEstado(){
       <td>${sinValidar
         ?`<span class="tag warn"><span class="tdot"></span>Sin validar</span> <button class="btn amber" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="abrirValidar('${p.n.replace(/'/g,"\\'")}')">Validar</button>`
         :al?`<span class="tag ${al.nivel}" style="cursor:pointer" onclick="showView('alertas')" title="Ver alertas"><span class="tdot"></span>${al.msg}</span>`
-        :`<span class="tag ok"><span class="tdot"></span>OK</span>`}</td>
+        :pendJefe?`<span class="tag amber" style="cursor:pointer" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}','${teatroActivo}')" title="Tiene ticket(s) esperando aprobación del jefe de área"><span class="tdot"></span>⏳ Pend. jefe</span>`
+        :soloRechazados?`<span class="tag err" style="cursor:pointer" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}','${teatroActivo}')" title="Todos los tickets del mes fueron rechazados"><span class="tdot"></span>✕ Rechazado</span>`
+        :`<span class="tag ok"><span class="tdot"></span>OK</span>${okConRechazo?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red,#e5484d);margin-left:5px;cursor:pointer;vertical-align:middle" onclick="abrirDetallPersona('${p.n.replace(/'/g,"\\'")}','${p.teatro}','${teatroActivo}')" title="Tiene además algún ticket rechazado este mes — ver detalle"></span>`:''}`}</td>
     </tr>`).join('')||'<tr><td colspan="7" class="empty">Sin resultados para este filtro.</td></tr>';
 }
 
