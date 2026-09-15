@@ -647,6 +647,7 @@ let PERSONAL = [
   {n:'BUCCHINO, AGOSTINA',     areas:['SALA','BOLETERIA'],  teatro:'MET', jefe:false,activo:true,validado:true},
   {n:'ARAGONES, PATRICIA',     areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
   {n:'SOTTOSANTI, ROMINA',     areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
+  {n:'CALAROTA, LUCIANA',      areas:['SALA'],              teatro:'MET', jefe:true, activo:true,validado:true},
   {n:'SALOMON, VERONICA',      areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
   {n:'SALOMON, AYELEN',        areas:['SALA'],              teatro:'MET', jefe:false,activo:true,validado:true},
   {n:'RODRIGUEZ, DANIEL',      areas:['SALA','BOLETERIA'],  teatro:'MET', jefe:false,activo:true,validado:true},
@@ -983,9 +984,13 @@ function rolLabel(area){
 }
 
 function aprobBadge(r) {
-  // Solo técnicos (Sonido/Iluminación/Maquinaria) necesitan aprobación de jefe
+  // Sonido/Iluminación/Maquinaria (jefes técnicos) + Sala en MET (Luciana
+  // Calarota, jefa de sala — sumada en septiembre 2026). El resto (Sala PLP
+  // sin jefe todavía, Boletería, Mantenimiento, Limpieza) sigue en
+  // Aprobación directa Admin.
   const area = (r.areas||[])[0]||'';
-  const necesitaJefe = ['SONIDO','ILUMINACION','MAQUINARIA'].includes(area);
+  const necesitaJefe = ['SONIDO','ILUMINACION','MAQUINARIA'].includes(area) ||
+    (area === 'SALA' && r.teatro === 'MET');
   if (!necesitaJefe) return '<span style="font-size:10px;color:var(--mu)">✓ Aprobación directa Admin</span>';
   const estado = r.aprobJefe || 'PENDIENTE';
   if (estado === 'APROBADO') return '<span style="background:var(--grbg);color:var(--green);border:1px solid var(--grbd);border-radius:999px;font-size:10px;font-weight:700;padding:2px 8px;font-family:\'DM Mono\',monospace">✓ Aprobado jefe</span>';
@@ -1118,10 +1123,16 @@ function buildEstado(){
     //   - Si no cargó nada este mes → ninguna de las tres aplica, cae al OK
     //     por defecto (la alerta de cadencia de evalAlerta, si corresponde,
     //     ya lo cubrió más arriba en la prioridad)
-    const pendJefe=delMes.some(r=>r.aprobJefe==='PENDIENTE');
-    const algunAprobado=delMes.some(r=>r.aprobJefe==='APROBADO');
-    const algunRechazado=delMes.some(r=>r.aprobJefe==='RECHAZADO');
-    const soloRechazados=delMes.length>0&&!pendJefe&&!algunAprobado;
+    // Solo Sonido/Iluminación/Maquinaria pasan por aprobación de jefe (mismo
+    // criterio que aprobBadge() en el modal de ticket) — Boletería, Sala,
+    // Mantenimiento y Limpieza son "Aprobación directa Admin" y NUNCA deben
+    // mostrar Pendiente/Rechazado acá, aunque el backend les ponga
+    // "PENDIENTE" por defecto igual que a cualquier otro ticket.
+    const delMesConJefe=delMes.filter(r=>['SONIDO','ILUMINACION','MAQUINARIA'].includes((r.areas||[])[0]) || ((r.areas||[])[0]==='SALA' && r.teatro==='MET'));
+    const pendJefe=delMesConJefe.some(r=>r.aprobJefe==='PENDIENTE');
+    const algunAprobado=delMesConJefe.some(r=>r.aprobJefe==='APROBADO');
+    const algunRechazado=delMesConJefe.some(r=>r.aprobJefe==='RECHAZADO');
+    const soloRechazados=delMesConJefe.length>0&&!pendJefe&&!algunAprobado;
     // Caso mixto: hay aprobado (por eso se muestra OK) pero además hay algún
     // rechazado conviviendo con él — se marca con un puntito rojo al lado
     // del OK para no taparlo del todo, sin que compita en prioridad con
@@ -1568,8 +1579,12 @@ function buildRegistros(){
     if(r.sinValidar)flags.push('<span style="color:var(--amber);font-size:11px;font-weight:700">SinValidar</span>');
     if((r.edits||[]).length>0)flags.push(`<span style="color:var(--green);font-size:11px">Editado×${r.edits.length}</span>`);
     if(r.casoEspecial)flags.push('<span style="color:var(--purple);font-size:11px;font-weight:700">★ Especial</span>');
-    const necesitaJefe=['SONIDO','ILUMINACION','MAQUINARIA'].includes((r.areas||[])[0]||'');
-    if(necesitaJefe)flags.push(aprobBadge(r));
+    // Antes duplicaba la lista de áreas acá para decidir si llamar a
+    // aprobBadge() — quedaba desincronizada cada vez que se tocaba solo la
+    // de adentro de aprobBadge() (pasó con el alta de jefa de sala). Ahora
+    // aprobBadge() decide todo internamente: siempre se la llama, y ella
+    // devuelve "Aprobación directa Admin" cuando el área no lo necesita.
+    flags.push(aprobBadge(r));
     return`<tr ${r.sinValidar?'style="background:#fffde7"':''}>
       <td class="mono">${fmtF(r.fecha)}</td>
       <td class="fw" style="white-space:nowrap;font-size:12px">${r.nombre}</td>
