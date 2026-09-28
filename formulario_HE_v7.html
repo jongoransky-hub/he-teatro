@@ -192,7 +192,7 @@ textarea{resize:none;height:90px;line-height:1.5}
     <div id="proxy-nombre-f" style="display:none">
       <div class="field">
         <label>Nombre de la persona</label>
-        <input type="text" id="proxy-nombre" placeholder="APELLIDO, Nombre" oninput="this.value=this.value.toUpperCase()" onblur="if(this.value.trim())cargarMisRegistros(this.value.trim())">
+        <select id="proxy-nombre" onchange="onSelProxy()"><option value="">— Seleccioná a la persona —</option></select>
       </div>
       <div class="proxy-note">El ticket quedará a nombre de esa persona. Se registra que lo cargaste vos. Los solapamientos se chequean contra los registros reales de esa persona.</div>
     </div>
@@ -485,7 +485,7 @@ const OBRAS = [
 // ═══════════════════════════════════════════════════
 const S = {
   nombre:'', area:'', teatro:'', esJefe:false, esPatino:false,
-  proxyActivo:false, proxyNombre:'',
+  proxyActivo:false, proxyNombre:'', proxyPerfil:null, // perfil (de la hoja Personal) de la persona por la que se carga
   fecha:'', horaDesde:'', horaHasta:'',
   sala:'', obra:'', autorizo:'',
   esMontaje:'', descripcion:'',
@@ -721,6 +721,63 @@ function setProxy(on, el) {
   document.querySelectorAll('#proxy-block .pills .pill').forEach(p => p.classList.remove('sel'));
   el.classList.add('sel'); S.proxyActivo = on;
   document.getElementById('proxy-nombre-f').style.display = on ? 'block' : 'none';
+  if (on) poblarSelectorProxy();
+  else { S.proxyNombre = ''; S.proxyPerfil = null; }
+}
+
+// Perfil de cualquier persona, leído de la hoja Personal (misma lógica que el perfil propio)
+function perfilDe(nombre) {
+  const p = PERSONAL_SHEET.find(x => x["Nombre"] === nombre);
+  if (!p) return null;
+  const area  = p["Áreas"] || p["Areas"] || p["Área"] || "";
+  const area2 = p["Área Secundaria"] || p["Area Secundaria"] || "";
+  return {
+    nombre:   p["Nombre"],
+    area:     area,
+    area2:    area2,
+    teatro:   p["Teatro"] || "",
+    esJefe:   p["Es Jefe"] === "SI",
+    esPatino: area === "MANTENIMIENTO" && area2 === "LIMPIEZA",
+  };
+}
+
+// Datos de la persona a cuyo nombre queda el ticket: la persona elegida si se
+// carga por otro, o el propio perfil. Nunca mezclar con los datos de quien carga.
+function perfilCarga() {
+  if (S.proxyActivo && S.proxyPerfil) return S.proxyPerfil;
+  return { nombre:S.nombre, area:S.area, esJefe:S.esJefe, esPatino:S.esPatino };
+}
+
+// El nombre sale de la hoja Personal tal cual ("APELLIDO, NOMBRE"), nunca tipeado a mano
+function poblarSelectorProxy() {
+  const sel = document.getElementById('proxy-nombre');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">— Seleccioná a la persona —</option>';
+  const otros = PERSONAL_SHEET.filter(p => p["Nombre"] && p["Nombre"] !== S.nombre);
+  const esDeMiSector = p => {
+    const a  = p["Áreas"] || p["Areas"] || p["Área"] || "";
+    const a2 = p["Área Secundaria"] || p["Area Secundaria"] || "";
+    return a === S.area || a2 === S.area;
+  };
+  const porNombre = (x, y) => x["Nombre"].localeCompare(y["Nombre"], 'es');
+  [['Tu sector', otros.filter(esDeMiSector)],
+   ['Resto del personal', otros.filter(p => !esDeMiSector(p))]].forEach(([lbl, lst]) => {
+    if (!lst.length) return;
+    const og = document.createElement('optgroup'); og.label = lbl;
+    lst.sort(porNombre).forEach(p => {
+      const o = document.createElement('option');
+      o.value = p["Nombre"]; o.textContent = p["Nombre"]; og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+  if (actual) sel.value = actual;
+}
+
+function onSelProxy() {
+  const nombre = document.getElementById('proxy-nombre').value;
+  S.proxyNombre = nombre;
+  S.proxyPerfil = nombre ? perfilDe(nombre) : null;
+  if (nombre) cargarMisRegistros(nombre); // el solapamiento se chequea contra la persona real
 }
 
 // ═══════════════════════════════════════════════════
@@ -809,7 +866,8 @@ function confirmDuplicate() {
 // ═══════════════════════════════════════════════════
 function poblarTipos() {
   const esMontaje = S.esMontaje === 'SI';
-  const lista = getValores(S.area, S.esJefe, esMontaje, S.esPatino, S.teatro);
+  const pc = perfilCarga(); // si el jefe carga por otro, las tarifas son las de esa persona
+  const lista = getValores(pc.area, pc.esJefe, esMontaje, pc.esPatino, S.teatro);
   const sel = document.getElementById('tipo-he');
   sel.innerHTML = '<option value="">— Seleccioná el tipo —</option>';
   const hs  = lista.filter(x => x.t === 'HE');
@@ -921,8 +979,9 @@ function render() {
     if (S.teatro === 'PLP') document.getElementById('sala-plp-f').style.display = 'block';
   }
   if (step === 3) {
-    document.getElementById('montaje-f').style.display = S.esJefe ? 'block' : 'none';
-    if (!S.esJefe) poblarTipos();
+    const pc = perfilCarga();
+    document.getElementById('montaje-f').style.display = pc.esJefe ? 'block' : 'none';
+    if (!pc.esJefe) { S.esMontaje = ''; poblarTipos(); }
   }
   if (step === 4) buildResumen();
 }
@@ -931,7 +990,7 @@ function buildResumen() {
   const nombreReal = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
   const rows = [
     ['Nombre', nombreReal + (S.proxyActivo ? ` (cargado por ${S.nombre})` : '')],
-    ['Área', S.area.replace('_',' ') + (S.esJefe ? ' · Jefe' : '')],
+    ['Área', perfilCarga().area.replace('_',' ') + (perfilCarga().esJefe ? ' · Jefe' : '')],
     ['Fecha', fmtF(S.fecha)],
     ['Horario', S.horaDesde && S.horaHasta ? `${S.horaDesde} → ${S.horaHasta}` : '—'],
     ['Teatro · Sala', `${S.teatro} · ${S.sala}`],
@@ -1115,7 +1174,8 @@ function next() {
     S.horaDesde  = document.getElementById('hora-desde').value;
     S.horaHasta  = document.getElementById('hora-hasta').value;
     if (S.proxyActivo) {
-      S.proxyNombre = document.getElementById('proxy-nombre').value.trim();
+      S.proxyNombre = document.getElementById('proxy-nombre').value;
+      S.proxyPerfil = perfilDe(S.proxyNombre);
       if (S.proxyNombre) cargarMisRegistros(S.proxyNombre); // el solapamiento se chequea contra la persona real, no contra quien carga
     }
   }
@@ -1149,8 +1209,8 @@ function validate() {
     const h = document.getElementById('hora-hasta').value;
     if (!f || !d || !h) { showA('alert1','Ingresá la fecha y el horario completo.'); return false; }
     if (S._overlapBlocked) { showA('alert1','Resolvé el conflicto de horario antes de continuar.'); return false; }
-    if (S.proxyActivo && !document.getElementById('proxy-nombre').value.trim()) {
-      showA('alert1','Ingresá el nombre de la persona.'); return false;
+    if (S.proxyActivo && !perfilDe(document.getElementById('proxy-nombre').value)) {
+      showA('alert1','Seleccioná de la lista a la persona por la que cargás.'); return false;
     }
     return true;
   }
@@ -1228,11 +1288,12 @@ async function enviar() {
   const cc = tipoObra === "tercero" ? "otro_tercero" :
              S.teatro === "PLP" ? "rosepa" : "vitama";
 
+  const pc = perfilCarga(); // datos de la persona a cuyo nombre queda el ticket
   const ticket = {
     nombre:      nombreReal,
-    areas:       [S.area].filter(Boolean),
-    area:        S.area, // fallback singular
-    esJefe:      S.esJefe,
+    areas:       [pc.area].filter(Boolean),
+    area:        pc.area, // fallback singular
+    esJefe:      pc.esJefe, // es jefe la persona del ticket, no quien lo carga
     teatro:      S.teatro,
     fecha:       S.fecha,
     horaDesde:   S.horaDesde,
