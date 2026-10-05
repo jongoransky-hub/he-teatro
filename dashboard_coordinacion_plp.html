@@ -36,6 +36,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .layout{display:grid;grid-template-columns:258px 1fr;min-height:calc(100vh - 52px)}
 .sidebar{background:var(--sf);border-right:1px solid var(--bd);padding:14px 0;overflow-y:auto;position:sticky;top:52px;height:calc(100vh - 52px)}
 .main{padding:20px 24px;overflow-y:auto}
+/* BARRA DE PERÍODO — qué mes se está mirando, siempre visible */
+.periodo-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:13px;box-shadow:var(--sh)}
+.periodo-bar.vencido{background:var(--ambg);border-color:var(--ambd)}
+.periodo-bar.cerrado{background:var(--grbg);border-color:var(--grbd)}
+.periodo-bar .pb-lbl{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+.periodo-bar select{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:6px 10px;border:1px solid var(--bd);border-radius:var(--rs);background:var(--sf);color:var(--tx);cursor:pointer}
+.periodo-bar .pb-msg{flex:1;min-width:220px;line-height:1.4}
+.periodo-bar.vencido .pb-msg{color:var(--amber)}
+.periodo-bar.cerrado .pb-msg{color:var(--green)}
 .hamburger{display:none;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;width:30px;height:30px;font-size:15px;cursor:pointer;align-items:center;justify-content:center}
 .sb-overlay{display:none}
 
@@ -266,6 +275,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 </div>
 
 <div class="main">
+
+<!-- ═══ PERÍODO EN PANTALLA ═══ -->
+<div class="periodo-bar" id="periodo-bar"></div>
 
 <!-- ═══ ESTADO ═══ -->
 <div class="view active" id="view-estado">
@@ -757,6 +769,118 @@ let filtroPersonal='activos';
 let mailActivo=0;
 const UMBRAL=500000;
 
+// ════════════════════════════════════════════
+// PERÍODO — qué mes está mirando el dashboard
+// ════════════════════════════════════════════
+// REGLA: el mes NO cambia solo el día 1. El período en pantalla es el mes
+// MÁS VIEJO QUE TODAVÍA NO SE CERRÓ: septiembre sigue visible el 3, el 6 o
+// el 15 de octubre, hasta que coordinación toca "Cerrar mes". Recién ahí el
+// panel pasa a octubre.
+// (Bug anterior: todas las vistas usaban `new Date()` como mes, así que el
+// 1° de octubre septiembre desaparecía con las cargas todavía sin cerrar —
+// y peor: el botón "Cerrar mes" pasaba a apuntar a octubre.)
+const PRIMER_MES = '2026-09'; // primer mes real del sistema: nada anterior cuenta como "pendiente de cierre"
+let PERIODO = null;           // 'YYYY-MM' que se está mirando
+let PERIODO_MANUAL = false;   // true si lo eligió la persona — el refresco automático no lo pisa
+let MESES_OK = false;         // false si no se pudo leer la hoja "Meses"
+
+function mkHoy(){return mesK(new Date());}
+function mkSumar(mk,n){const[y,m]=mk.split('-').map(Number);return mesK(new Date(y,m-1+n,1));}
+function mkNombre(mk){const[y,m]=mk.split('-').map(Number);return new Date(y,m-1,1,12).toLocaleString('es-AR',{month:'long',year:'numeric'});}
+function mkLista(desde,hasta){const out=[];for(let mk=desde;mk<=hasta&&out.length<240;mk=mkSumar(mk,1))out.push(mk);return out;}
+function teatrosEnVista(){return TEATRO_FIJO?[TEATRO_FIJO]:['MET','PLP'];}
+function mesCerrado(mk,teatro){return getMesesCerrados(teatro).some(m=>m.mes===mk);}
+// "Cerrado" para esta vista = lo cerraron TODOS los teatros que la vista
+// muestra. En el panel general, si MET cerró y PLP no, el mes sigue abierto.
+function mesCerradoEnVista(mk){return teatrosEnVista().every(t=>mesCerrado(mk,t));}
+function periodoPorDefecto(){
+  const actual=mkHoy();
+  if(!MESES_OK){
+    // Sin la hoja "Meses" no se sabe qué está cerrado: gracia de calendario
+    // (hasta el 15 se sigue mostrando el mes anterior).
+    const ant=mkSumar(actual,-1);
+    return (new Date().getDate()<=15 && ant>=PRIMER_MES) ? ant : actual;
+  }
+  const desde=PRIMER_MES<=actual?PRIMER_MES:actual;
+  return mkLista(desde,actual).find(mk=>!mesCerradoEnVista(mk)) || actual;
+}
+function paramsRegistros(){return TEATRO_FIJO?{mes:PERIODO,teatro:TEATRO_FIJO}:{mes:PERIODO};}
+
+// Estado del mes en palabras, para el selector y el cartel
+function estadoMesLbl(mk){
+  const ts=teatrosEnVista();
+  const cerr=ts.filter(t=>mesCerrado(mk,t));
+  if(cerr.length===ts.length)return'cerrado';
+  if(cerr.length)return ts.map(t=>`${t} ${cerr.includes(t)?'cerrado':'abierto'}`).join(' · ');
+  return mk===mkHoy()?'en curso':'abierto — falta cerrar';
+}
+
+// Pinta el selector de mes + el cartel de estado. Se llama en cada buildAll().
+function pintarPeriodo(cargando){
+  const bar=document.getElementById('periodo-bar');
+  if(!bar||!PERIODO)return;
+  const actual=mkHoy(), def=periodoPorDefecto();
+  const nom=mkNombre(PERIODO), NOM=nom.toUpperCase();
+  document.getElementById('tb-mes').textContent=NOM;
+
+  // Meses elegibles: desde el primero del sistema hasta hoy + cualquier mes
+  // cerrado que figure en el historial.
+  const set=new Set(mkLista(PRIMER_MES<=actual?PRIMER_MES:actual,actual));
+  getMesesCerrados(TEATRO_FIJO).forEach(m=>{if(/^\d{4}-\d{2}$/.test(m.mes))set.add(m.mes);});
+  set.add(PERIODO);
+  const opts=Array.from(set).sort().reverse().map(mk=>{
+    const n=mkNombre(mk);
+    return `<option value="${mk}" ${mk===PERIODO?'selected':''}>${n.charAt(0).toUpperCase()+n.slice(1)} — ${estadoMesLbl(mk)}</option>`;
+  }).join('');
+
+  const cerrado=mesCerradoEnVista(PERIODO);
+  const vencido=PERIODO<actual&&!cerrado;
+  const quien=TEATRO_FIJO?'lo cierres':'se cierre';
+  let msg='', btns='';
+  if(cargando){
+    msg=`Cargando ${nom}…`;
+  }else if(vencido){
+    const sig=mkNombre(mkSumar(PERIODO,1));
+    msg=`<strong>${NOM} sigue abierto.</strong> El mes ya terminó, pero se sigue viendo y se puede seguir cargando y corrigiendo hasta que ${quien}. ${sig.charAt(0).toUpperCase()+sig.slice(1)} aparece acá recién después del cierre (o eligiéndolo en el selector).`;
+    btns=`<button class="btn primary" onclick="showView('cierremes')">Ir al cierre de mes →</button>`;
+  }else if(cerrado){
+    msg=`<strong>${NOM} está cerrado.</strong> Solo lectura — los registros ya no se pueden editar.`;
+    if(def!==PERIODO)btns=`<button class="btn ghost" onclick="cambiarPeriodo('${def}')">Volver a ${mkNombre(def)} →</button>`;
+  }else{
+    msg=`Mes en curso.`;
+    if(def<PERIODO){
+      msg+=` <strong style="color:var(--amber)">Ojo: ${mkNombre(def)} todavía no se cerró.</strong>`;
+      btns=`<button class="btn amber" onclick="cambiarPeriodo('${def}')">Ver ${mkNombre(def)} →</button>`;
+    }
+  }
+  if(!MESES_OK&&!cargando)msg+=` <span style="color:var(--red)">⚠ No se pudo leer qué meses están cerrados — tocá Actualizar.</span>`;
+
+  bar.className='periodo-bar'+(cargando?'':vencido?' vencido':cerrado?' cerrado':'');
+  bar.innerHTML=`<span class="pb-lbl">Período</span>
+    <select id="sel-periodo" onchange="cambiarPeriodo(this.value)" title="Elegí qué mes mirar">${opts}</select>
+    <span class="pb-msg">${msg}</span>${btns}`;
+}
+
+// Cambia el mes en pantalla y trae sus registros del servidor.
+async function cambiarPeriodo(mk){
+  if(!mk||mk===PERIODO){pintarPeriodo();return;}
+  PERIODO=mk;
+  PERIODO_MANUAL=(mk!==periodoPorDefecto());
+  registros=[];            // nunca mostrar los datos de un mes bajo el título de otro
+  buildAll();
+  pintarPeriodo(true);
+  const res=await apiGet('getRegistros',paramsRegistros());
+  if(PERIODO!==mk)return;  // eligió otro mes mientras este cargaba
+  if(res.ok&&Array.isArray(res.data)){
+    registros=res.data.map(mapRegistroRow);
+    normalizarNombresRegistros();
+    registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});
+  }else{
+    alert(`No se pudieron traer los registros de ${mkNombre(mk)}. Tocá "Actualizar" para reintentar.`);
+  }
+  buildAll();
+}
+
 // Sin datos demo — todo viene del Google Sheet
 
 // ════════════════════════════════════════════
@@ -821,7 +945,6 @@ function mapRegistroRow(r) {
 window.onload = async () => {
   const hoy = new Date();
   document.getElementById('tb-date').textContent = fmtF(hoy.toISOString().split('T')[0]);
-  document.getElementById('tb-mes').textContent = hoy.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
 
   // Vista de coordinación: el teatro ya está fijo, así que los selectores
   // de teatro (que acá solo confundirían) se ocultan, y el título lo dice.
@@ -841,14 +964,16 @@ window.onload = async () => {
   document.getElementById('tb-badge').style.display = 'block';
 
   try {
-    // Cargar registros del mes desde el backend
-    const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
-    const [regRes, perRes, obrRes, valRes] = await Promise.all([
-      apiGet("getRegistros", TEATRO_FIJO ? {mes: mesKey, teatro: TEATRO_FIJO} : {mes: mesKey}),
+    // Primero: qué meses están cerrados (define qué período se muestra).
+    // Después: los registros de ESE período — no los del mes calendario.
+    const [, perRes, obrRes, valRes] = await Promise.all([
+      cargarMesesCerrados(),
       apiGet("getPersonal"),
       apiGet("getObras", TEATRO_FIJO ? {teatro: TEATRO_FIJO} : {}),
       apiGet("getValores"),
     ]);
+    PERIODO = periodoPorDefecto();
+    const regRes = await apiGet("getRegistros", paramsRegistros());
 
     // Registros — mapeo robusto contra variaciones de nombres de columna del Sheet
     if (regRes.ok && Array.isArray(regRes.data) && regRes.data.length > 0) {
@@ -903,9 +1028,9 @@ window.onload = async () => {
     document.getElementById('tb-badge').style.display = 'none';
   }
 
+  if (!PERIODO) PERIODO = periodoPorDefecto();
   poblarObraSelects();
   normalizarNombresRegistros();
-  await cargarMesesCerrados();
   buildAll();
   // Auto-refresco cada 2 minutos
   setInterval(() => recargarDatos(), 2 * 60 * 1000);
@@ -927,19 +1052,27 @@ function poblarObraSelects(){
   document.getElementById('e-obra').innerHTML=opts;
 }
 
-function buildAll(){buildMetrics();buildEstado();buildAlertas();buildConsolidado();buildImputar();buildMails();buildRegistros();buildPersonal();buildCierreMes();}
+function buildAll(){pintarPeriodo();buildMetrics();buildEstado();buildAlertas();buildConsolidado();buildImputar();buildMails();buildRegistros();buildPersonal();buildCierreMes();}
 
 async function recargarDatos(){
   const btn = document.getElementById('btn-refresh');
   btn.textContent = '⏳ Cargando...';
   btn.disabled = true;
   try {
-    const hoy = new Date();
-    const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+    // El período se recalcula con el estado real de cierres: si alguien
+    // cerró el mes desde otra compu, esta pasa sola al siguiente — salvo
+    // que la persona haya elegido un mes a mano en el selector.
+    await cargarMesesCerrados();
+    if (!PERIODO_MANUAL) PERIODO = periodoPorDefecto();
+    const mkPedido = PERIODO;
     const [regRes, perRes] = await Promise.all([
-      apiGet("getRegistros", TEATRO_FIJO ? {mes: mesKey, teatro: TEATRO_FIJO} : {mes: mesKey}),
+      apiGet("getRegistros", paramsRegistros()),
       apiGet("getPersonal"),
     ]);
+    if (mkPedido !== PERIODO) {            // cambió de mes mientras esto cargaba
+      btn.textContent = '↻ Actualizar'; btn.disabled = false;
+      return;
+    }
     if (regRes.ok && Array.isArray(regRes.data)) {
       registros = regRes.data.map(mapRegistroRow);
     }
@@ -956,7 +1089,6 @@ async function recargarDatos(){
     }
     normalizarNombresRegistros();
     registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});
-    await cargarMesesCerrados();
     buildAll();
     btn.textContent = '✓ Actualizado';
     setTimeout(()=>{btn.textContent='↻ Actualizar';btn.disabled=false;}, 2000);
@@ -1025,7 +1157,7 @@ function normalizarNombresRegistros(){
 // MÉTRICAS — clickeables
 // ════════════════════════════════════════════
 function buildMetrics(){
-  const hoy=new Date();const mk=mesK(hoy);
+  const hoy=new Date();const mk=PERIODO;
   const delMes=registros.filter(r=>r.fecha?.startsWith(mk));
   const delMesVal=delMes.filter(r=>!r.sinValidar);
   const conCarga=new Set(delMes.map(r=>r.nombre)).size;
@@ -1089,7 +1221,7 @@ function sortEstado(col) {
 }
 
 function buildEstado(){
-  const hoy=new Date();const mk=mesK(hoy);
+  const hoy=new Date();const mk=PERIODO;
   const buscar=(document.getElementById('buscar-persona')?.value||'').toUpperCase().trim();
   const fArea=document.getElementById('filtro-area-estado')?.value||'';
   const fTeatro=document.getElementById('filtro-teatro-estado')?.value||'';
@@ -1210,6 +1342,13 @@ function fEstado(f,el){
 // EVAL ALERTA
 // ════════════════════════════════════════════
 function evalAlerta(nombre,area,delMes,hoy){
+  // Mes vencido (ej.: mirando septiembre el 5 de octubre): "X días sin
+  // cargar" deja de tener sentido — lo único que importa antes de cerrar
+  // es quién quedó en cero. Mes ya cerrado: sin alertas.
+  if(PERIODO&&PERIODO<mesK(hoy)){
+    if(delMes.length||mesCerradoEnVista(PERIODO))return null;
+    return{nivel:'err',msg:`Sin registros en ${mkNombre(PERIODO).split(' ')[0]}`};
+  }
   const regla=getRegla(nombre,area||'');
   const sorted=delMes.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const ultimo=sorted.length?sorted[0].fecha:null;
@@ -1237,7 +1376,7 @@ function evalAlerta(nombre,area,delMes,hoy){
 // ALERTAS — clickeables con detalle
 // ════════════════════════════════════════════
 function getAlertasList(){
-  const hoy=new Date();const mk=mesK(hoy);
+  const hoy=new Date();const mk=PERIODO;
   const alerts=[];
   PERSONAL.filter(p=>p.activo&&p.validado).forEach(p=>{
     const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&normNombre(r.nombre)===normNombre(p.n));
@@ -1314,7 +1453,7 @@ function poblarFiltrosConsolidado(){
 // tipo/teatro (pills) + obra + persona (selects). Se reutiliza para
 // construir la vista y para exportar exactamente lo que se está viendo.
 function registrosConsolidadoFiltrados(){
-  const hoy=new Date();const mk=mesK(hoy);
+  const hoy=new Date();const mk=PERIODO;
   const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
   const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
   const fArea=document.getElementById('filtro-area-consolid')?.value||'';
@@ -1420,9 +1559,9 @@ function guardarImput(){buildAll();alert('Los cambios de imputación ya se guard
 // MAILS — ampliados
 // ════════════════════════════════════════════
 function buildMails(){
-  const hoy=new Date();const mk=mesK(hoy);
+  const hoy=new Date();const mk=PERIODO;
   const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
-  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'});
+  const mesNom=mkNombre(mk);
   const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
   const propias=delMes.filter(r=>OBRAS_META[r.obra]?.tipo==='PROPIA');
   const terceros=delMes.filter(r=>OBRAS_META[r.obra]?.tipo==='TERCERO');
@@ -1656,6 +1795,9 @@ async function buildTendencias(){
   const hoy = new Date();
   const mkActual = mesK(hoy);
   const mesesSet = new Set([mkActual]);
+  // + los meses vencidos que todavía no se cerraron (y el que esté en pantalla)
+  mkLista(periodoPorDefecto(), mkActual).forEach(mk=>mesesSet.add(mk));
+  if (PERIODO) mesesSet.add(PERIODO);
   MESES_CERRADOS_SERVIDOR.forEach(m=>{ if(teatros.includes(m.teatro)) mesesSet.add(m.mes); });
   const meses = Array.from(mesesSet).sort();
 
@@ -1881,7 +2023,7 @@ function aplicarFormatoMoneda(ws, colIdxs, filaDesde, filaHasta){
 }
 
 function exportXLSX(){
-  const hoy=new Date();const mk=mesK(hoy);
+  const hoy=new Date();const mk=PERIODO;
   const delMes=registrosConsolidadoFiltrados();
   const etiqueta=etiquetaFiltroConsolidado();
   const wb=XLSX.utils.book_new();
@@ -1934,10 +2076,10 @@ function exportXLSX(){
   XLSX.writeFile(wb,`HE_${mk}${sufijo}.xlsx`);
 }
 function exportPDF(){
-  const hoy=new Date();const mk=mesK(hoy);
+  const hoy=new Date();const mk=PERIODO;
   const delMes=registrosConsolidadoFiltrados();
   const etiqueta=etiquetaFiltroConsolidado();
-  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'});
+  const mesNom=mkNombre(mk);
   const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
   const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—'};byObra[k].total+=r.total||0;});
   const tituloCorte=etiqueta?` — ${etiqueta}`:'';
@@ -1980,13 +2122,17 @@ let MESES_CERRADOS_SERVIDOR = [];
 async function cargarMesesCerrados(){
   try{
     const res = await apiGet('getMeses');
-    MESES_CERRADOS_SERVIDOR = (res.ok && Array.isArray(res.data)) ? res.data.map(m => ({
-      mes: m['Mes']||'', teatro: m['Teatro']||'AMBOS', mesNom: m['Nombre Mes']||'',
+    MESES_OK = !!(res.ok && Array.isArray(res.data));
+    if (!MESES_OK) return; // no pisar lo que ya se sabía con una lista vacía
+    MESES_CERRADOS_SERVIDOR = res.data.map(m => ({
+      // "2026-09" tal cual, o los primeros 7 caracteres si la planilla lo
+      // devolvió como fecha completa
+      mes: String(m['Mes']||'').slice(0,7), teatro: m['Teatro']||'AMBOS', mesNom: m['Nombre Mes']||'',
       fechaCierre: m['Fecha Cierre']||'', total: parseFloat(m['Total'])||0,
       registros: parseInt(m['Cant Registros'])||0, personas: parseInt(m['Personas'])||0,
       cerradoPor: m['Cerrado Por']||'', avisoPago: m['Aviso Pago']==='SI',
-    })) : [];
-  }catch(e){ console.warn('No se pudieron cargar los meses cerrados del servidor:', e); }
+    }));
+  }catch(e){ MESES_OK = false; console.warn('No se pudieron cargar los meses cerrados del servidor:', e); }
 }
 function getMesesCerrados(teatro){
   if(!teatro) return MESES_CERRADOS_SERVIDOR;
@@ -1995,8 +2141,8 @@ function getMesesCerrados(teatro){
 
 function buildCierreMes(){
   const hoy=new Date();
-  const mk=mesK(hoy);
-  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
+  const mk=PERIODO;
+  const mesNom=mkNombre(mk).toUpperCase();
   document.getElementById('cierremes-titulo').textContent=`Cierre de mes — ${mesNom}`;
   document.getElementById('cierremes-badge').style.display='none'; // cada teatro tiene su propio badge en su card
 
@@ -2017,6 +2163,12 @@ function buildCierreMes(){
       <div style="text-align:right">
         <div style="font-weight:600;color:var(--green);font-family:'DM Mono',monospace">$${fmt2(m.total)}</div>
         <span class="tag ok" style="font-size:9px">CERRADO</span>
+        <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
+          ${m.mes!==PERIODO?`<button class="btn ghost" style="padding:3px 8px;font-size:11px" onclick="cambiarPeriodo('${m.mes}')">Ver este mes</button>`:''}
+          ${m.teatro!=='AMBOS'?(m.avisoPago
+            ?`<span style="font-size:11px;color:var(--green)">✓ pago avisado</span>`
+            :`<button class="btn" style="padding:3px 8px;font-size:11px;background:var(--purple);color:#fff;border:none" onclick="avisarPagoListo('${m.teatro}','${m.mes}',this)">Avisar que ya se puede cobrar</button>`):''}
+        </div>
       </div>
     </div>`).join('');
 }
@@ -2029,6 +2181,8 @@ function renderCierreCard(teatro, mk, mesNom, hoy){
   const total=delMes.reduce((a,r)=>a+(r.total||0),0);
   const yaCerrado=getMesesCerrados(teatro).find(m=>m.mes===mk);
   const teatroLbl=teatro==='MET'?'Teatro Metropolitan':'Paseo La Plaza';
+  const sig=mkSumar(mk,1), sigNom=mkNombre(sig).toUpperCase(), sigDisponible=sig<=mkHoy();
+  const enCurso=mk>=mkHoy(); // el mes todavía no terminó
 
   const header=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <div style="font-weight:700;font-size:14px">${teatroLbl}</div>
@@ -2042,15 +2196,17 @@ function renderCierreCard(teatro, mk, mesNom, hoy){
         <div style="font-size:12px;color:var(--mu)">${yaCerrado.registros} registros · Total $${fmt2(yaCerrado.total)} · ${yaCerrado.personas} personas</div>
       </div>
       <div style="background:var(--blbg);border:1px solid var(--blbd);border-radius:var(--rs);padding:14px 16px;margin-bottom:16px;font-size:13px">
-        <strong>Próximo mes:</strong> Una vez que empiece ${_mesNomSiguiente(hoy)}, podés abrir el nuevo período desde aquí.
+        <strong>Próximo mes:</strong> ${sigDisponible
+          ?`${sigNom} ya está corriendo — la próxima vez que entres, el panel arranca directo ahí.`
+          :`${sigNom} todavía no empezó. Cuando empiece, el panel pasa solo.`}
       </div>
       <div class="btn-row">
-        <button class="btn primary" onclick="abrirNuevoMes('${teatro}')">Abrir ${_mesNomSiguiente(hoy)} →</button>
+        ${sigDisponible?`<button class="btn primary" onclick="cambiarPeriodo('${sig}')">Ver ${sigNom} →</button>`:''}
         <button class="btn ghost" onclick="exportXLSX()">Exportar XLSX del mes cerrado</button>
       </div>
       ${yaCerrado.avisoPago
         ? `<div style="margin-top:10px;font-size:12px;color:var(--green)">✓ Ya se avisó a los técnicos que pueden retirar sus HE.</div>`
-        : `<div class="btn-row" style="margin-top:10px"><button class="btn" id="btn-aviso-pago" style="background:var(--purple);color:#fff;border:none" onclick="avisarPagoListo('${teatro}','${yaCerrado.mes}')">Avisar que ya se puede cobrar</button></div>`
+        : `<div class="btn-row" style="margin-top:10px"><button class="btn" id="btn-aviso-pago" style="background:var(--purple);color:#fff;border:none" onclick="avisarPagoListo('${teatro}','${yaCerrado.mes}',this)">Avisar que ya se puede cobrar</button></div>`
       }</div>`;
   }
   const checks=[
@@ -2075,20 +2231,21 @@ function renderCierreCard(teatro, mk, mesNom, hoy){
         <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">PERSONAS</div><div style="font-size:20px;font-weight:600">${conCarga}<span style="font-size:11px;color:var(--mu)">/${totalActivos}</span></div></div>
         <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">REGISTROS</div><div style="font-size:20px;font-weight:600">${delMes.length}</div></div>
         <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">TOTAL</div><div style="font-size:18px;font-weight:600;color:var(--green)">$${fmt2(total)}</div></div>
-        <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">MES</div><div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${mesNom.slice(0,3)} ${hoy.getFullYear()}</div></div>
+        <div><div style="font-size:10px;color:var(--mu);margin-bottom:3px">MES</div><div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${mesNom.slice(0,3)} ${mk.slice(0,4)}</div></div>
       </div>
     </div>
+    ${enCurso?`<div style="background:var(--redbg);border:1px solid var(--redbd);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:12px">⚠ ${mesNom} todavía no terminó. Si lo cerrás ahora, lo que falta del mes queda afuera y nadie va a poder corregir lo ya cargado.</div>`:''}
     ${!allOk?`<div style="background:var(--ambg);border:1px solid var(--ambd);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:12px">⚠ Hay ítems pendientes. Podés cerrar igual, pero se recomienda resolverlos primero.</div>`:''}
     <div class="btn-row">
-      <button class="btn primary" onclick="confirmarCierreMes('${teatro}')" ${!allOk?'style="background:var(--amber);border-color:var(--amber)"':''}>
-        ${allOk?`Cerrar ${teatroLbl} →`:`Cerrar de todas formas →`}
+      <button class="btn primary" onclick="confirmarCierreMes('${teatro}')" ${(!allOk||enCurso)?'style="background:var(--amber);border-color:var(--amber)"':''}>
+        ${enCurso?`Cerrar ${mesNom} antes de que termine →`:allOk?`Cerrar ${mesNom} — ${teatroLbl} →`:`Cerrar ${mesNom} de todas formas →`}
       </button>
       <button class="btn ghost" onclick="exportXLSX()">Exportar XLSX antes de cerrar</button>
     </div></div>`;
 }
 
-async function avisarPagoListo(teatro, mes){
-  const btn = document.getElementById('btn-aviso-pago');
+async function avisarPagoListo(teatro, mes, btnEl){
+  const btn = btnEl || document.getElementById('btn-aviso-pago');
   if(!confirm(`¿Confirmás que el pago de ${teatro} (${mes}) ya está disponible? Se le va a avisar por mail a cada persona que cargó HE ese mes — esto solo se puede hacer una vez.`))return;
   if(btn){ btn.disabled=true; btn.textContent='Enviando…'; }
   try{
@@ -2100,7 +2257,7 @@ async function avisarPagoListo(teatro, mes){
     }
     alert(`✓ Se avisó a ${r.cant} persona(s) que ya pueden retirar sus HE.`);
     await cargarMesesCerrados();
-    buildCierreMes();
+    buildAll();
   }catch(e){
     alert('⚠ Sin conexión al servidor — no se avisó a nadie. Probá de nuevo.');
     if(btn){ btn.disabled=false; btn.textContent='Avisar que ya se puede cobrar'; }
@@ -2110,9 +2267,10 @@ async function avisarPagoListo(teatro, mes){
 async function confirmarCierreMes(teatro){
   teatro = teatro || TEATRO_FIJO || 'AMBOS';
   const hoy=new Date();
-  const mk=mesK(hoy);
-  const mesNom=hoy.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
+  const mk=PERIODO; // se cierra el mes que está en pantalla — nunca "el mes de hoy"
+  const mesNom=mkNombre(mk).toUpperCase();
   const teatroLbl=teatro==='MET'?'Teatro Metropolitan':teatro==='PLP'?'Paseo La Plaza':'ambos teatros';
+  if(mk>=mkHoy() && !confirm(`ATENCIÓN: ${mesNom} todavía no terminó.\n\nSi lo cerrás ahora, lo que falta del mes queda afuera y nadie va a poder corregir lo ya cargado.\n\n¿Seguro que querés cerrar ${mesNom} antes de tiempo?`))return;
   if(!confirm(`¿Confirmar cierre de ${teatroLbl} — ${mesNom}?\n\nLos registros de ese teatro y mes quedarán bloqueados para edición.`))return;
 
   const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar&&r.teatro===teatro);
@@ -2126,39 +2284,13 @@ async function confirmarCierreMes(teatro){
   }catch(e){ alert('⚠ Sin conexión al servidor — no se cerró el mes. Probá de nuevo.'); return; }
 
   await cargarMesesCerrados(); // traer el estado real ya actualizado
-  buildCierreMes();
+  // Quedarse en el mes recién cerrado (para exportar y avisar el pago) en
+  // vez de saltar solo al siguiente en el próximo refresco automático.
+  PERIODO_MANUAL = true;
+  buildAll();
   alert(`✓ ${teatroLbl} — ${mesNom} cerrado correctamente.\n${delMes.length} registros · $${fmt2(total)}`);
 }
 
-async function abrirNuevoMes(teatro){
-  const hoy=new Date();
-  const sigMes=new Date(hoy.getFullYear(), hoy.getMonth()+1, 1);
-  const sigMesNom=sigMes.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
-  if(!confirm(`¿Abrir ${sigMesNom}?\n\nEl panel de control cambiará al nuevo período. Los registros del mes anterior quedan en el historial.`))return;
-
-  // Limpiar registros locales y cargar del nuevo mes
-  registros=[];
-  const mk=mesK(sigMes);
-  try{
-    const regRes=await apiGet('getRegistros',TEATRO_FIJO?{mes:mk,teatro:TEATRO_FIJO}:{mes:mk});
-    if(regRes.ok&&Array.isArray(regRes.data)&&regRes.data.length>0){
-      registros=regRes.data.map(mapRegistroRow);
-    }
-  }catch(e){console.warn('No se pudo cargar mes nuevo desde Sheet:',e);}
-
-  // Actualizar label del topbar con el nuevo mes
-  document.getElementById('tb-mes').textContent=sigMesNom;
-  document.getElementById('tb-date').textContent=fmtF(sigMes.toISOString().split('T')[0]);
-
-  buildAll();
-  buildCierreMes();
-  alert(`✓ Ahora estás viendo ${sigMesNom}. El mes anterior quedó en el historial.`);
-}
-
-function _mesNomSiguiente(hoy){
-  const sig=new Date(hoy.getFullYear(),hoy.getMonth()+1,1);
-  return sig.toLocaleString('es-AR',{month:'long',year:'numeric'}).toUpperCase();
-}
 </script>
 
 <!-- MODAL DETALLE PERSONA -->
@@ -2175,8 +2307,8 @@ function _mesNomSiguiente(hoy){
 
 <script>
 function abrirDetallPersona(nombre, teatroPersona, filtroActivo) {
-  const hoy = new Date();
-  const mk = mesK(hoy);
+  const mk = PERIODO;
+  const enMes = `en ${mkNombre(mk).split(' ')[0]}`;
   // Si se abrió con un teatro activo (filtro manual o TEATRO_FIJO de la
   // vista de coordinación), mostrar solo los tickets de ESE teatro — una
   // persona AMBOS no debe mostrar sus tickets MET al mirarla desde PLP.
@@ -2187,10 +2319,10 @@ function abrirDetallPersona(nombre, teatroPersona, filtroActivo) {
   const etiquetaTeatro = filtroActivo || teatroPersona;
   document.getElementById('detalle-persona-titulo').textContent = nombre;
   document.getElementById('detalle-persona-resumen').innerHTML = 
-    `<strong>${tickets.length} registro(s) este mes</strong> · Total: <strong style="color:var(--green)">$${fmt2(total)}</strong> · Teatro: ${etiquetaTeatro}${filtroActivo?' <span style="color:var(--mu);font-weight:400">(filtrado por vista activa)</span>':teatroPersona==='AMBOS'?' <span style="color:var(--mu);font-weight:400">(nómina — puede incluir tickets de ambos teatros)</span>':''}`;
+    `<strong>${tickets.length} registro(s) ${enMes}</strong> · Total: <strong style="color:var(--green)">$${fmt2(total)}</strong> · Teatro: ${etiquetaTeatro}${filtroActivo?' <span style="color:var(--mu);font-weight:400">(filtrado por vista activa)</span>':teatroPersona==='AMBOS'?' <span style="color:var(--mu);font-weight:400">(nómina — puede incluir tickets de ambos teatros)</span>':''}`;
   
   if (!tickets.length) {
-    document.getElementById('detalle-persona-tickets').innerHTML = '<div class="empty">Sin registros este mes.</div>';
+    document.getElementById('detalle-persona-tickets').innerHTML = `<div class="empty">Sin registros ${enMes}.</div>`;
   } else {
     const sorted = tickets.slice().sort((a,b) => b.fecha.localeCompare(a.fecha));
     document.getElementById('detalle-persona-tickets').innerHTML = sorted.map((r, i) => {

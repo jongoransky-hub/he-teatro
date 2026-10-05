@@ -91,6 +91,11 @@ textarea{resize:none;height:90px;line-height:1.5}
 /* HISTORIAL */
 .hist-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .hist-mes{font-size:16px;font-weight:600}
+.hist-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.hpill{padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s2);color:var(--mu);user-select:none}
+.hpill.sel{background:var(--ac);border-color:var(--ac);color:var(--ad)}
+.hpill small{font-weight:500;opacity:.8}
+.hist-nota{font-size:12px;color:var(--mu);line-height:1.45;margin-bottom:14px}
 .hist-tot{font-family:'DM Mono',monospace;font-size:14px;color:var(--ac)}
 .ticket{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
 .ticket-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
@@ -339,6 +344,8 @@ textarea{resize:none;height:90px;line-height:1.5}
 <div class="hist-view" id="hist-view">
   <div class="stag">Mi historial</div>
   <div id="cierre-cnt"></div>
+  <div class="hist-pills" id="hist-pills"></div>
+  <div class="hist-nota" id="hist-nota"></div>
   <div class="hist-header">
     <div class="hist-mes" id="hist-mes"></div>
     <div class="hist-tot" id="hist-tot"></div>
@@ -507,15 +514,65 @@ const UMBRAL_MENSUAL = 500000; // alerta si supera este monto en el mes
 // Lista de personal cargada del Sheet
 let PERSONAL_SHEET = [];
 
+// ═══════════════════════════════════════════════════
+// MESES — un mes sigue abierto hasta que coordinación lo cierra
+// ═══════════════════════════════════════════════════
+// (Bug anterior: "Mi historial" mostraba solo el mes calendario, así que
+// el 1° de octubre nadie veía lo que había cargado en septiembre, aunque
+// septiembre siguiera abierto para cargar y corregir.)
+const PRIMER_MES = '2026-09'; // primer mes real del sistema
+let MESES_CERRADOS_F = [];    // [{mes:'2026-09', teatro:'MET'}, ...]
+let MESES_F_OK = false;       // false si no se pudo leer qué meses están cerrados
+let HIST_MES = null;          // mes elegido en "Mi historial"
+
+function mesK(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+function mkSumar(mk,n){const[y,m]=mk.split('-').map(Number);return mesK(new Date(y,m-1+n,1));}
+function mkNombre(mk){const[y,m]=mk.split('-').map(Number);const n=new Date(y,m-1,1,12).toLocaleString('es-AR',{month:'long',year:'numeric'});return n.charAt(0).toUpperCase()+n.slice(1);}
+function mkLista(desde,hasta){const out=[];for(let mk=desde;mk<=hasta&&out.length<240;mk=mkSumar(mk,1))out.push(mk);return out;}
+function mesCerradoF(mk,teatro){return MESES_CERRADOS_F.some(m=>m.mes===mk&&(m.teatro===teatro||m.teatro==='AMBOS'));}
+// Teatros en los que trabaja la persona según la nómina (AMBOS → los dos)
+function teatrosDe(nombre){
+  const p=PERSONAL_SHEET.find(x=>x["Nombre"]===nombre);
+  const t=p?(p["Teatro"]||''):'';
+  return (t==='MET'||t==='PLP')?[t]:['MET','PLP'];
+}
+// Meses que la persona puede ver en su historial: los que siguen abiertos
+// en alguno de sus teatros + el mes en curso.
+function mesesAbiertosDe(nombre){
+  const actual=mesK(new Date());
+  const desde=PRIMER_MES<=actual?PRIMER_MES:actual;
+  if(!MESES_F_OK)return [mkSumar(actual,-1),actual].filter(mk=>mk>=desde);
+  const ts=teatrosDe(nombre);
+  return mkLista(desde,actual).filter(mk=>mk===actual||!ts.every(t=>mesCerradoF(mk,t)));
+}
+// Una obra se puede elegir si seguía vigente en el mes del ticket que se
+// está cargando — no "hoy": una obra que bajó de cartel el 28/9 tiene que
+// seguir disponible para cargar, el 2/10, una HE del 27/9.
+function obraVigenteEn(o,mkRef){
+  if(!o.fin)return true;
+  const f=String(o.fin);
+  if(/^\d{4}-\d{2}/.test(f))return f.slice(0,7)>=mkRef;
+  const[y,m]=mkRef.split('-').map(Number);
+  return new Date(f)>=new Date(y,m-1,1);
+}
+
 window.onload = async () => {
   document.getElementById('fecha').valueAsDate = new Date();
 
   try {
-    const [perRes, obrRes, valRes] = await Promise.all([
+    const [perRes, obrRes, valRes, mesRes] = await Promise.all([
       apiGet("getPersonal"),
       apiGet("getObras"),
       apiGet("getValores"),
+      apiGet("getMeses"),
     ]);
+
+    // Meses cerrados por coordinación (para el historial y para no dejar
+    // cargar en un mes que ya se cerró)
+    MESES_F_OK = !!(mesRes.ok && Array.isArray(mesRes.data));
+    if (MESES_F_OK) {
+      MESES_CERRADOS_F = mesRes.data.map(m => ({mes: String(m['Mes']||'').slice(0,7), teatro: m['Teatro']||'AMBOS'}));
+    }
 
     // Valores — si no cargan, no dejamos avanzar: sin esto no se puede
     // calcular ningún monto de forma confiable.
@@ -681,8 +738,8 @@ function calcularHoras() {
 
 function poblarObras() {
   const sel = document.getElementById('obra');
-  const hoy = new Date();
-  const activas = OBRAS.filter(o => !o.fin || new Date(o.fin) >= hoy);
+  const mkTicket = (document.getElementById('fecha').value || '').slice(0,7) || mesK(new Date());
+  const activas = OBRAS.filter(o => obraVigenteEn(o, mkTicket));
   sel.innerHTML = '<option value="">— Para qué producción —</option>';
   ['PROPIA','TERCERO'].forEach(tipo => {
     const lst = activas.filter(o => o.tipo === tipo);
@@ -916,8 +973,7 @@ function calcular() {
 
 function checkUmbral() {
   const h = misRegistros(S.nombre);
-  const hoy = new Date();
-  const mes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+  const mes = (S.fecha || '').slice(0,7) || mesK(new Date());
   const totalMes = h
     .filter(t => t.fecha && t.fecha.startsWith(mes))
     .reduce((a,t) => a + (t.total||0), 0);
@@ -970,6 +1026,8 @@ function render() {
     document.getElementById('proxy-block').style.display = S.esJefe ? 'block' : 'none';
   }
   if (step === 2) {
+    // La lista de producciones depende de la fecha elegida en el paso 1
+    { const selObra = document.getElementById('obra'); const prev = selObra.value; poblarObras(); selObra.value = prev; }
     // pre-select teatro del perfil
     document.querySelectorAll('#teatro-pills .pill').forEach(p => {
       const isMet = p.textContent.includes('Metropolitan');
@@ -1097,10 +1155,23 @@ function showHist() {
     </div>`;
   } else cc.innerHTML = '';
 
-  const mes = hoy.toLocaleString('es-AR', {month:'long', year:'numeric'});
-  document.getElementById('hist-mes').textContent = mes.charAt(0).toUpperCase() + mes.slice(1);
+  // Meses a mostrar: los que siguen abiertos + el mes en curso. Por defecto,
+  // el más viejo que siga abierto (lo que está por cerrarse) — o el mes del
+  // ticket recién cargado, si se llega acá desde "¡Registrado!".
+  const actual = mesK(hoy);
+  const meses = mesesAbiertosDe(S.nombre);
+  if (HIST_MES && !meses.includes(HIST_MES)) { meses.push(HIST_MES); meses.sort(); }
+  if (!HIST_MES) HIST_MES = meses[0];
+  const mesKey = HIST_MES;
+  document.getElementById('hist-pills').innerHTML = meses.length > 1 ? meses.map(mk => {
+    const n = h.filter(t => t.fecha && t.fecha.startsWith(mk)).length;
+    return `<div class="hpill ${mk===mesKey?'sel':''}" onclick="HIST_MES='${mk}';showHist()">${mkNombre(mk).split(' ')[0]} <small>· ${mk<actual?'falta cerrar':'en curso'} · ${n}</small></div>`;
+  }).join('') : '';
+  document.getElementById('hist-nota').textContent = (mesKey < actual && !teatrosDe(S.nombre).every(t => mesCerradoF(mesKey, t)))
+    ? `${mkNombre(mesKey).split(' ')[0]} ya terminó, pero sigue abierto hasta que coordinación lo cierre: si te falta cargar algo de ese mes, todavía podés.`
+    : '';
+  document.getElementById('hist-mes').textContent = mkNombre(mesKey);
 
-  const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
   const delMes = h.filter(t => t.fecha && t.fecha.startsWith(mesKey));
   const totalMes = delMes.reduce((a,t) => a + (t.total||0), 0);
   document.getElementById('hist-tot').textContent = '$' + fmt2(totalMes);
@@ -1110,7 +1181,7 @@ function showHist() {
 
   const list = document.getElementById('hist-list');
   if (!delMes.length) {
-    list.innerHTML = '<div class="empty-hist">No hay registros este mes todavía.</div>'; return;
+    list.innerHTML = `<div class="empty-hist">No hay registros en ${mkNombre(mesKey).toLowerCase()}.</div>`; return;
   }
   list.innerHTML = delMes.map(t => `
     <div class="ticket">
@@ -1218,6 +1289,11 @@ function validate() {
     const o = document.getElementById('obra').value;
     if (!S.teatro || !S.sala || !o || !S.autorizo) {
       showA('alert2','Completá teatro, sala, producción y quién lo solicitó.'); return false;
+    }
+    const mkTicket = (S.fecha || '').slice(0,7);
+    if (mkTicket && mesCerradoF(mkTicket, S.teatro)) {
+      showA('alert2', `${mkNombre(mkTicket)} ya está cerrado para ${S.teatro==='MET'?'el Metropolitan':'Paseo La Plaza'} — no se pueden sumar cargas a ese mes. Si te quedó algo afuera, hablalo con coordinación.`);
+      return false;
     }
     return true;
   }
@@ -1329,6 +1405,7 @@ async function enviar() {
     console.warn("No se pudo enviar al backend, guardado solo localmente:", e);
   }
 
+  HIST_MES = (S.fecha || '').slice(0,7) || null;
   document.getElementById('nav').style.display = 'none';
   document.querySelector('.hdr').style.display = 'none';
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('vis'));

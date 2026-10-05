@@ -40,6 +40,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .fp{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--mu);transition:all .1s}
 .fp.active{background:var(--ac);border-color:var(--ac);color:var(--ad)}
 
+/* MESES ABIERTOS — un mes se sigue viendo hasta que coordinación lo cierra */
+.meses{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.mp{padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--mu);transition:all .1s}
+.mp.active{background:var(--ac);border-color:var(--ac);color:var(--ad)}
+.mp small{font-weight:500;opacity:.8}
+.mp-sel{padding:7px 12px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-family:'DM Sans',sans-serif;cursor:pointer;max-width:100%}
+.mp-sel.active{border-color:var(--ac);color:var(--ac)}
+.mes-nota{font-size:12px;color:var(--mu);margin-bottom:14px;line-height:1.4}
+
 /* TICKET CARDS */
 .ticket{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;transition:border-color .15s}
 .ticket.aprobado{border-color:var(--grbd)}
@@ -112,9 +121,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 </div>
 
 <div class="main">
+  <div class="meses" id="meses-pills"></div>
+  <div class="mes-nota" id="mes-nota"></div>
   <div class="resumen-grid">
     <div class="rcard"><div class="rcard-lbl">Pendientes</div><div class="rcard-val amber" id="r-pendientes">—</div><div class="rcard-sub">para revisar</div></div>
-    <div class="rcard"><div class="rcard-lbl">Aprobados</div><div class="rcard-val green" id="r-aprobados">—</div><div class="rcard-sub">este mes</div></div>
+    <div class="rcard"><div class="rcard-lbl">Aprobados</div><div class="rcard-val green" id="r-aprobados">—</div><div class="rcard-sub">en el mes</div></div>
     <div class="rcard"><div class="rcard-lbl">Total</div><div class="rcard-val" id="r-total" style="font-size:16px">—</div><div class="rcard-sub">acumulado</div></div>
   </div>
 
@@ -174,6 +185,75 @@ let tickets = [];
 let filtro = 'todos';
 
 // ═══════════════════════════════════════
+// MESES ABIERTOS
+// ═══════════════════════════════════════
+// REGLA: un mes NO desaparece el día 1 del siguiente. Se sigue viendo —y
+// aprobando— hasta que coordinación lo cierra. El panel muestra una
+// pastilla por cada mes que siga abierto, más el mes en curso.
+// (Bug anterior: solo se pedía el mes calendario, así que el 1° de octubre
+// los tickets de septiembre pendientes de aprobar dejaban de verse.)
+const PRIMER_MES = '2026-09'; // primer mes real del sistema
+let MESES_CERRADOS = [];      // [{mes:'2026-09', teatro:'MET'}, ...]
+let mesesVisibles = [];       // meses abiertos — con pastilla
+let mesesCerradosMios = [];   // meses ya cerrados para este jefe — se consultan desde el desplegable
+let mesesHistorial = [];      // meses cerrados que el jefe abrió para consultar en esta sesión
+let mesSel = null;            // mes en pantalla
+let mesSelManual = false;     // true si el jefe lo eligió a mano
+
+function mesK(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+function mkSumar(mk,n){const[y,m]=mk.split('-').map(Number);return mesK(new Date(y,m-1+n,1));}
+function mkNombre(mk){const[y,m]=mk.split('-').map(Number);const n=new Date(y,m-1,1,12).toLocaleString('es-AR',{month:'long'});return n.charAt(0).toUpperCase()+n.slice(1);}
+function mkLista(desde,hasta){const out=[];for(let mk=desde;mk<=hasta&&out.length<240;mk=mkSumar(mk,1))out.push(mk);return out;}
+function teatrosJefe(){return (!JEFE_CONFIG.teatro||JEFE_CONFIG.teatro==='AMBOS')?['MET','PLP']:[JEFE_CONFIG.teatro];}
+function mesCerrado(mk,teatro){return MESES_CERRADOS.some(m=>m.mes===mk&&(m.teatro===teatro||m.teatro==='AMBOS'));}
+// Para un jefe de ambos teatros, el mes sigue abierto mientras alguno de los dos no haya cerrado
+function mesCerradoParaMi(mk){return teatrosJefe().every(t=>mesCerrado(mk,t));}
+function ticketCerrado(t){return mesCerrado(t.mes,(t.teatro||'').toUpperCase());}
+
+function setMes(mk){
+  mesSel = mk;
+  mesSelManual = true;
+  renderMeses(); renderTickets(); actualizarResumen();
+}
+
+// Meses ya cerrados: no se pierden. Se eligen del desplegable y se ven
+// completos, pero solo para consultar (sin aprobar / rechazar / editar).
+async function verMesCerrado(mk){
+  if (!mk) return;
+  if (!mesesHistorial.includes(mk)) mesesHistorial.push(mk);
+  mesSel = mk;
+  mesSelManual = true;
+  document.getElementById('tickets-container').innerHTML = `<div class="loading"><div class="spinner"></div>Cargando ${mkNombre(mk).toLowerCase()}...</div>`;
+  await cargarTickets();
+}
+
+function renderMeses(){
+  const actual = mesK(new Date());
+  const viendoCerrado = !!mesSel && mesesCerradosMios.includes(mesSel);
+  const selCerrados = mesesCerradosMios.length
+    ? `<select class="mp-sel ${viendoCerrado?'active':''}" onchange="verMesCerrado(this.value)" title="Consultar un mes ya cerrado">
+        <option value="">Meses cerrados…</option>
+        ${mesesCerradosMios.slice().reverse().map(mk => `<option value="${mk}" ${mk===mesSel?'selected':''}>${mkNombre(mk)} ${mk.slice(0,4)} · cerrado</option>`).join('')}
+      </select>`
+    : '';
+  document.getElementById('meses-pills').innerHTML = mesesVisibles.map(mk => {
+    const pend = tickets.filter(t => t.mes===mk && t.aprobJefe==='PENDIENTE' && !ticketCerrado(t)).length;
+    const estado = mk<actual ? 'falta cerrar' : 'en curso';
+    return `<div class="mp ${mk===mesSel?'active':''}" onclick="setMes('${mk}')">${mkNombre(mk)} <small>· ${estado}${pend?` · ${pend} pend.`:''}</small></div>`;
+  }).join('') + selCerrados;
+  const nota = document.getElementById('mes-nota');
+  if (viendoCerrado) {
+    nota.textContent = `${mkNombre(mesSel)} ${mesSel.slice(0,4)} está cerrado: lo podés consultar completo, pero ya no se puede modificar.`;
+  } else if (mesSel && mesSel < actual) {
+    nota.textContent = `${mkNombre(mesSel)} ya terminó, pero sigue abierto hasta que coordinación lo cierre: todavía podés aprobar, rechazar y corregir.`;
+  } else if (mesesVisibles.length > 1) {
+    nota.textContent = `Ojo: ${mkNombre(mesesVisibles[0])} todavía no se cerró — revisá si te quedó algo pendiente ahí.`;
+  } else {
+    nota.textContent = '';
+  }
+}
+
+// ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
 window.onload = async () => {
@@ -202,13 +282,35 @@ async function cargarTickets() {
   btn.disabled = true;
 
   try {
-    const hoy = new Date();
-    const mes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
-    const res = await apiGet('getRegistros', {mes});
+    const actual = mesK(new Date());
+    const desde = PRIMER_MES <= actual ? PRIMER_MES : actual;
 
-    if (res.ok && Array.isArray(res.data)) {
+    // 1) Qué meses cerró coordinación
+    const mRes = await apiGet('getMeses');
+    const mesesOk = mRes.ok && Array.isArray(mRes.data);
+    if (mesesOk) {
+      MESES_CERRADOS = mRes.data.map(m => ({mes: String(m['Mes']||'').slice(0,7), teatro: m['Teatro']||'AMBOS'}));
+    }
+    // 2) Meses a mostrar: los que siguen abiertos + el mes en curso. Si no se
+    //    pudo leer qué está cerrado, por las dudas: el mes anterior y el actual.
+    const mesesAb = mesesOk
+      ? mkLista(desde, actual).filter(mk => mk === actual || !mesCerradoParaMi(mk))
+      : [mkSumar(actual,-1), actual].filter(mk => mk >= desde);
+    // Meses ya cerrados (para consulta) + los que el jefe abrió para mirar
+    if (mesesOk) mesesCerradosMios = mkLista(desde, actual).filter(mk => mk !== actual && mesCerradoParaMi(mk));
+    mesesHistorial = mesesHistorial.filter(mk => mesesCerradosMios.includes(mk));
+    const meses = mesesAb.concat(mesesHistorial);
+    // 3) Los tickets de cada uno de esos meses
+    const resps = await Promise.all(meses.map(mes => apiGet('getRegistros', {mes})));
+
+    if (resps.every(res => res.ok && Array.isArray(res.data))) {
+      mesesVisibles = mesesAb;
+      // Por defecto: el mes más viejo que siga abierto (lo que hay que
+      // resolver primero). Si el jefe eligió uno a mano, se respeta.
+      if (!mesSelManual || !meses.includes(mesSel)) { mesSel = mesesAb[0]; mesSelManual = false; }
+      const abiertos = new Set(tickets.filter(t => t._open).map(t => t.id)); // no cerrarle al jefe lo que tenía desplegado
       // Filtrar solo los tickets del área/teatro de este jefe
-      tickets = res.data
+      tickets = [].concat(...resps.map(res => res.data))
         .filter(r => {
           const area = r["Área(s)"] || r["Areas"] || r["Área"] || "";
           const teatro = r["Teatro"] || "";
@@ -237,9 +339,10 @@ async function cargarTickets() {
           notaJefe:    r["Nota Jefe"] || "",
           sinValidar:  r["Sin Validar"] === "SI",
           overrideOverlap: r["Override Overlap"] === "SI",
-          _open:       false,
+          _open:       abiertos.has(r["ID"] || ""),
           _editOpen:   false,
-        }));
+        }))
+        .map(t => Object.assign(t, {mes: (t.fecha||'').slice(0,7)}));
     }
   } catch(e) {
     console.error(e);
@@ -247,6 +350,7 @@ async function cargarTickets() {
 
   btn.textContent = '↻ Actualizar';
   btn.disabled = false;
+  renderMeses();
   renderTickets();
   actualizarResumen();
 }
@@ -256,7 +360,7 @@ async function cargarTickets() {
 // ═══════════════════════════════════════
 function renderTickets() {
   const container = document.getElementById('tickets-container');
-  let lista = tickets.slice().sort((a,b) => {
+  let lista = tickets.filter(t => t.mes === mesSel).sort((a,b) => {
     // Pendientes primero
     const orden = {PENDIENTE:0, RECHAZADO:1, APROBADO:2};
     return (orden[a.aprobJefe]||0) - (orden[b.aprobJefe]||0) || b.fecha.localeCompare(a.fecha);
@@ -265,7 +369,7 @@ function renderTickets() {
     lista = lista.filter(t => t.aprobJefe.toLowerCase() === filtro);
   }
   if (!lista.length) {
-    container.innerHTML = `<div class="empty"><div class="empty-icon">${filtro==='aprobado'?'✅':filtro==='rechazado'?'❌':'📭'}</div>${filtro==='todos'?'Sin tickets este mes para tu área.':'Sin tickets en esta categoría.'}</div>`;
+    container.innerHTML = `<div class="empty"><div class="empty-icon">${filtro==='aprobado'?'✅':filtro==='rechazado'?'❌':'📭'}</div>${filtro==='todos'?`Sin tickets en ${mesSel?mkNombre(mesSel).toLowerCase():'el mes'} para tu área.`:'Sin tickets en esta categoría.'}</div>`;
     return;
   }
   container.innerHTML = lista.map((t,i) => ticketHTML(t, i)).join('');
@@ -293,12 +397,12 @@ function ticketHTML(t, i) {
       <div class="det-row"><span class="det-l">Descripción</span><span class="det-r">${t.descripcion||'—'}</span></div>
       <div class="det-row"><span class="det-l">Horas</span><span class="det-r">${t.horas!=null?t.horas+'hs':'—'}</span></div>
       ${t.notaJefe ? `<div class="det-row"><span class="det-l">Tu nota</span><span class="det-r" style="color:var(--amber)">${t.notaJefe}</span></div>` : ''}
-      <div class="ticket-actions">
+      ${ticketCerrado(t) ? `<div class="det-row"><span class="det-l">🔒 Mes cerrado por coordinación</span><span class="det-r">ya no se puede modificar</span></div>` : `<div class="ticket-actions">
         ${t.aprobJefe !== 'APROBADO' ? `<button class="btn aprobar" onclick="aprobar(${idx})">✓ Aprobar</button>` : ''}
         ${t.aprobJefe !== 'RECHAZADO' ? `<button class="btn rechazar" onclick="rechazar(${idx})">✗ Rechazar</button>` : ''}
         <button class="btn editar" onclick="toggleEditar(${idx})">✎ Editar</button>
         ${t.aprobJefe !== 'APROBADO' ? '' : `<button class="btn ghost" onclick="desaprobar(${idx})">Revertir</button>`}
-      </div>
+      </div>`}
       <div class="edit-panel ${t._editOpen?'open':''}" id="edit-${idx}">
         <div class="edit-field"><label>Fecha</label><input type="date" id="ef-fecha-${idx}" value="${t.fecha}"></div>
         <div class="edit-field"><label>Hora desde</label>
@@ -325,9 +429,11 @@ function estadoBadge(s) {
 }
 
 function actualizarResumen() {
-  const pendientes = tickets.filter(t => t.aprobJefe === 'PENDIENTE').length;
-  const aprobados  = tickets.filter(t => t.aprobJefe === 'APROBADO').length;
-  const total      = tickets.reduce((a,t) => a + t.total, 0);
+  const delMes     = tickets.filter(t => t.mes === mesSel);
+  const pendientes = delMes.filter(t => t.aprobJefe === 'PENDIENTE').length;
+  const aprobados  = delMes.filter(t => t.aprobJefe === 'APROBADO').length;
+  const total      = delMes.reduce((a,t) => a + t.total, 0);
+  renderMeses();
   document.getElementById('r-pendientes').textContent = pendientes;
   document.getElementById('r-aprobados').textContent  = aprobados;
   document.getElementById('r-total').textContent      = '$' + fmt(total);
