@@ -145,7 +145,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .cc-sel:focus{outline:none;border-color:var(--ac)}
 
 /* IMPUTAR */
-.imp-row{display:grid;grid-template-columns:155px 1fr 88px 220px 110px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}
+.imp-row{display:grid;grid-template-columns:22px 150px 1fr 88px 230px 150px 104px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}
+.imp-row.sel{background:var(--ambg)}
+.imp-row input.chk-sel,.imp-tools input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+.imp-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.imp-tools input[type=search]{flex:1;min-width:200px;font-size:13px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--rs);background:var(--sf);color:var(--tx);font-family:'DM Sans',sans-serif}
+.imp-tools input[type=search]:focus{outline:none;border-color:var(--ac)}
+.imp-tools select{width:auto}
+.imp-tools label{font-size:12px;color:var(--mu);display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+.imp-grupo{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:14px 0 2px;padding:6px 8px;background:var(--s2);border-radius:var(--rs);font-size:12px}
+.imp-grupo strong{font-size:13px}
+.imp-grupo a{color:var(--blue);cursor:pointer;text-decoration:underline;white-space:nowrap}
+.imp-bulk{position:fixed;left:12px;right:12px;bottom:18px;margin:0 auto;width:fit-content;z-index:300;background:var(--ac);color:#fff;border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:13px}
+.imp-bulk select{font-size:13px;padding:6px 8px;border-radius:var(--rs);border:none;max-width:260px;font-family:'DM Sans',sans-serif}
+.imp-bulk button{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;border-radius:var(--rs);padding:7px 14px;cursor:pointer;border:none}
+.imp-bulk .ok{background:var(--ac2);color:#111}
+.imp-bulk .no{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35)}
+.imp-bulk button:disabled{opacity:.6;cursor:default}
+.imp-row.movido{background:linear-gradient(90deg,var(--blbg),transparent 60%)}
+.imp-orig{font-size:10px;color:var(--blue);font-weight:600}
+@media (max-width:1100px){.imp-row{grid-template-columns:22px 1fr 88px}.imp-row .imp-info,.imp-row select,.imp-row label{grid-column:2/-1}}
 .imp-row:last-child{border-bottom:none}
 .imp-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .imp-info{font-size:11px;color:var(--mu);overflow:hidden}
@@ -386,7 +405,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 <div class="view" id="view-imputar">
   <div class="card">
     <div class="card-head">
-      <span class="card-title">Imputar centro de costo</span>
+      <span class="card-title">Imputar producción y centro de costo</span>
       <div class="btn-row">
         <button class="btn ghost" onclick="aplicarDefaults()">Aplicar defaults</button>
         <button class="btn primary" onclick="guardarImput()">Guardar</button>
@@ -730,7 +749,7 @@ const OBRAS_LIST = Object.keys(OBRAS_META);
 
 const CC_LABEL = {
   vitama:'Vitama (MET)',rosepa:'Rosepa (PLP)',kprod:'K Producciones',
-  krental:'K Rental',sala_asume:'Sala asume',
+  krental:'K Rental',sala_asume:'Sala asume',otro_tercero:'Tercero / cooperativa',
   bossi:'Bossi Live',petroleo:'Petroleo',juampi:'Juampi González',
   eventos_met:'Eventos MET',eventos_plp:'Eventos PLP',
 };
@@ -949,7 +968,10 @@ function mapRegistroRow(r) {
     obra:            r["Obra"] || "",
     descripcion:     r["Descripción"] || r["Descripcion"] || "",
     cc:              r["Centro de Costo"] || r["CC"] || null,
-    salaAsume:       r["Sala Asume"] === "SI",
+    // "Sala asume" vale si lo dice su columna o si el CC guardado es sala_asume
+    // (antes el tilde vivía solo en la pantalla y se perdía en cada refresco)
+    salaAsume:       r["Sala Asume"] === "SI" || (r["Centro de Costo"] || r["CC"]) === "sala_asume",
+    obraOriginal:    r["Obra Original"] || "",   // con qué producción se cargó, si después se reimputó
     overrideHorario: r["Override Horario"] === "SI",
     overrideOverlap: r["Override Overlap"] === "SI",
     tipoObra:        normTipoObra(r["Tipo Obra"]),
@@ -990,7 +1012,7 @@ window.onload = async () => {
     const [, perRes, obrRes, valRes] = await Promise.all([
       cargarMesesCerrados(),
       apiGet("getPersonal"),
-      apiGet("getObras", TEATRO_FIJO ? {teatro: TEATRO_FIJO} : {}),
+      apiGet("getObras", TEATRO_FIJO ? {teatro: TEATRO_FIJO, todas: 1} : {todas: 1}), // todas: también las terminadas, para clasificar bien meses anteriores
       apiGet("getValores"),
     ]);
     PERIODO = periodoPorDefecto();
@@ -1021,6 +1043,13 @@ window.onload = async () => {
 
     // Obras desde el backend — actualizar OBRAS_META
     if (obrRes.ok && Array.isArray(obrRes.data) && obrRes.data.length > 0) {
+      // La hoja "Obras" es la ÚNICA fuente. La lista embebida más arriba es
+      // solo un respaldo por si la planilla no responde: si respondió, se
+      // descarta entera. (Antes se mezclaban las dos, y quedaban en los
+      // desplegables producciones viejas que no existen en la planilla
+      // —Votemos, Momi, El Cuarto de Verónica…— con un tipo que nadie podía
+      // corregir desde Pieza 3.)
+      Object.keys(OBRAS_META).forEach(k => delete OBRAS_META[k]);
       obrRes.data.forEach(o => {
         const nombre = o["Nombre"];
         if (nombre) {
@@ -1033,7 +1062,8 @@ window.onload = async () => {
         }
       });
       // Regenerar lista de obras
-      Object.assign(OBRAS_LIST, Object.keys(OBRAS_META));
+      OBRAS_LIST.length = 0;
+      OBRAS_LIST.push(...Object.keys(OBRAS_META));
     }
 
     // Imputar CC defaults a registros que no tienen
@@ -1074,7 +1104,27 @@ function poblarObraSelects(){
   document.getElementById('e-obra').innerHTML=opts;
 }
 
-function buildAll(){pintarPeriodo();buildMetrics();buildEstado();buildAlertas();buildConsolidado();buildImputar();buildMails();buildRegistros();buildPersonal();buildCierreMes();}
+// Si un registro nombra una producción que no está en la hoja Obras (se
+// renombró o se borró la fila), se la suma a las listas con el tipo que
+// quedó grabado en el propio registro — así no se pierde en los filtros ni
+// se cambia sola de producción al editar ese registro.
+function asegurarObrasDeRegistros(){
+  let sumadas=0;
+  registros.forEach(r=>{
+    if(!r.obra||OBRAS_META[r.obra])return;
+    const tipo=r.tipoObra||'PROPIA';
+    OBRAS_META[r.obra]={tipo,teatro:r.teatro||'',cc:tipo!=='PROPIA'?'otro_tercero':r.teatro==='PLP'?'rosepa':'vitama'};
+    OBRAS_LIST.push(r.obra);
+    sumadas++;
+  });
+  if(sumadas){
+    poblarObraSelects();
+    const sel=document.getElementById('filtro-obra-consolid');
+    if(sel){const v=sel.value;sel.innerHTML='<option value="">Todas las obras</option>';sel.value=v;} // se vuelve a llenar en buildConsolidado
+  }
+}
+
+function buildAll(){asegurarObrasDeRegistros();pintarPeriodo();buildMetrics();buildEstado();buildAlertas();buildConsolidado();buildImputar();buildMails();buildRegistros();buildPersonal();buildCierreMes();}
 
 async function recargarDatos(){
   const btn = document.getElementById('btn-refresh');
@@ -1498,11 +1548,15 @@ function buildConsolidado(){
   document.getElementById('btn-clear-consolid2').style.display=(fObra||fPersona||fArea)?'block':'none';
   const filtrados=registrosConsolidadoFiltrados();
   const byObra={};
-  filtrados.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,teatro:r.teatro,tipo:tipoObraDe(r),salaAsume:false};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].salaAsume=true;});
+  filtrados.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,asumido:0,teatro:r.teatro,tipo:tipoObraDe(r)};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].asumido+=r.total||0;});
   let tP=0,tT=0,tS=0,html='';
   Object.entries(byObra).sort((a,b)=>b[1].total-a[1].total).forEach(([obra,data])=>{
-    const{tipo,teatro,salaAsume}=data;
-    if(salaAsume)tS+=data.total;else if(tipo==='PROPIA')tP+=data.total;else tT+=data.total;
+    const{tipo,teatro}=data;
+    // Cada registro cae en UNA bolsa. (Antes, con un solo registro marcado
+    // "Sala asume", toda la producción pasaba a "asumido por sala".)
+    const resto=data.total-data.asumido;
+    tS+=data.asumido; if(tipo==='PROPIA')tP+=resto; else tT+=resto;
+    const salaAsume=data.total>0&&data.asumido>=data.total; // toda la producción la asume la sala
     // Desglose por persona dentro de la obra — clickeable a su detalle mensual
     const byPersona={};data.rows.forEach(r=>{if(!byPersona[r.nombre])byPersona[r.nombre]={total:0,n:0,teatro:r.teatro};byPersona[r.nombre].total+=r.total||0;byPersona[r.nombre].n++;});
     const tCls=salaAsume?'asume':tipo.toLowerCase();const tLbl=salaAsume?'Sala asume':tipo==='PROPIA'?'Propia':tipo==='COOPERATIVA'?'Cooperativa':'Tercero';
@@ -1513,7 +1567,7 @@ function buildConsolidado(){
       </div>`).join('');
     html+=`<div class="obra-block">
       <div class="obra-head" onclick="this.nextElementSibling.classList.toggle('open')">
-        <div class="obra-meta"><span class="obra-nom">${obra}</span><span class="otag ${tCls}">${tLbl}</span><span class="mono" style="color:var(--mu);font-size:10px">${teatro}</span></div>
+        <div class="obra-meta"><span class="obra-nom">${obra}</span><span class="otag ${tCls}">${tLbl}</span>${(!salaAsume&&data.asumido>0)?`<span class="otag asume">Sala asume $${fmt2(data.asumido)}</span>`:''}<span class="mono" style="color:var(--mu);font-size:10px">${teatro}</span></div>
         <span class="obra-tot">$${fmt2(data.total)}</span>
       </div>
       <div class="obra-rows">
@@ -1534,45 +1588,232 @@ function fConsolid(f,el){document.querySelectorAll('#f-consolidado .fp').forEach
 // ════════════════════════════════════════════
 // IMPUTAR — con obras específicas
 // ════════════════════════════════════════════
+function ccPorDefecto(r){return getCCDefault((r.areas||[''])[0],r.teatro,r.obra);}
+const TIPO_LBL={PROPIA:'Propia',COOPERATIVA:'Cooperativa',TERCERO:'Tercero'};
+
+// Estado de la vista Imputar (sobrevive a los refrescos del panel)
+let impSel=new Set();     // IDs de los registros tildados
+let impBuscar='';         // texto del buscador
+let impOrden='carga';     // 'carga' | 'persona' | 'fecha' | 'obra'
+let impBulkObra='';       // producción elegida en la barra de selección múltiple
+
+// Texto para comparar: sin acentos ni mayúsculas
+function normTxt(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+
+// Índices (en `registros`) de las filas que pasan el buscador, ya ordenados
+function impVisibles(){
+  const q=normTxt(impBuscar).trim();
+  const palabras=q?q.split(/\s+/):[];
+  let idx=registros.map((r,i)=>i).filter(i=>{
+    if(!palabras.length)return true;
+    const r=registros[i];
+    const donde=normTxt([r.nombre,r.obra,r.obraOriginal,r.descripcion,r.tipoLabel,fmtF(r.fecha)].join(' '));
+    return palabras.every(p=>donde.includes(p));
+  });
+  const R=i=>registros[i];
+  const porFecha=(a,b)=>String(R(a).fecha).localeCompare(String(R(b).fecha))||String(R(a).horaDesde).localeCompare(String(R(b).horaDesde));
+  if(impOrden==='persona')idx.sort((a,b)=>R(a).nombre.localeCompare(R(b).nombre)||porFecha(a,b));
+  else if(impOrden==='obra')idx.sort((a,b)=>String(R(a).obra).localeCompare(String(R(b).obra))||R(a).nombre.localeCompare(R(b).nombre)||porFecha(a,b));
+  else if(impOrden==='fecha')idx.sort((a,b)=>porFecha(a,b)||R(a).nombre.localeCompare(R(b).nombre));
+  return idx; // 'carga': el orden en que se fueron cargando
+}
+
 function buildImputar(){
   const body=document.getElementById('imputar-body');
   if(!registros.length){body.innerHTML='<div class="empty">Sin registros.</div>';return;}
-  body.innerHTML=`<p style="font-size:11px;color:var(--mu);margin-bottom:12px;font-family:'DM Mono',monospace">CC sugerido por defecto según obra/teatro. Ajustá si corresponde.</p>`+
-  registros.map((r,i)=>`
-    <div class="imp-row">
+  // La barra de herramientas se arma una sola vez — si se regenerara en cada
+  // refresco, se perdería el foco mientras alguien escribe en el buscador.
+  if(!document.getElementById('imp-buscar')){
+    body.innerHTML=`<p style="font-size:11px;color:var(--mu);margin-bottom:12px;font-family:'DM Mono',monospace;line-height:1.5">
+      <strong>Producción</strong>: a qué obra va el costo. Si alguien cargó "Vitama" pero la HE fue para Desde el Jardín, se cambia acá y pasa a sumar en Desde el Jardín (consolidado, mails y Excel).<br>
+      <strong>CC</strong>: centro de costo contable; se acomoda solo según la producción, cambialo únicamente si corresponde otro. <strong>Sala asume</strong>: la sala absorbe el costo y no se le descuenta a nadie. Cada cambio se guarda al toque.<br>
+      <strong>Varios a la vez</strong>: tildá los registros (o buscá a la persona y tildá "los que se ven") y elegí la producción en la barra que aparece abajo.</p>
+    <div class="imp-tools">
+      <input type="search" id="imp-buscar" placeholder="🔍 Buscar por persona, producción o descripción…" oninput="impBuscar=this.value;buildImputarLista()">
+      <select class="cc-sel" id="imp-orden" onchange="impOrden=this.value;buildImputarLista()" title="Cómo ordenar la lista">
+        <option value="carga">Orden de carga</option>
+        <option value="persona">Agrupar por persona</option>
+        <option value="obra">Agrupar por producción</option>
+        <option value="fecha">Por fecha</option>
+      </select>
+      <label><input type="checkbox" id="imp-todos" onchange="impSelTodos(this.checked)"> <span id="imp-todos-lbl"></span></label>
+    </div>
+    <div id="imputar-lista"></div>
+    <div class="imp-bulk" id="imp-bulk" style="display:none"></div>`;
+    document.getElementById('imp-buscar').value=impBuscar;
+    document.getElementById('imp-orden').value=impOrden;
+  }
+  buildImputarLista();
+}
+
+function impFilaHTML(i){
+  const r=registros[i];
+  const movido=r.obraOriginal&&r.obraOriginal!==r.obra;
+  return `
+    <div class="imp-row ${movido?'movido':''} ${impSel.has(r._id)?'sel':''}" data-i="${i}">
+      <input type="checkbox" class="chk-sel" ${impSel.has(r._id)?'checked':''} onchange="impToggle(${i},this.checked)" title="Seleccionar para imputar varios a la vez">
       <div class="imp-name">${r.nombre}${r.sinValidar?` <span class="tag warn" style="font-size:9px">?</span>`:''}</div>
-      <div class="imp-info">${fmtF(r.fecha)} · ${r.tipoLabel.slice(0,28)}${r.tipoLabel.length>28?'…':''}<br><span style="font-size:10px;color:var(--dm)">${r.obra||'—'}</span></div>
+      <div class="imp-info">${fmtF(r.fecha)} · ${r.tipoLabel.slice(0,28)}${r.tipoLabel.length>28?'…':''}<br>${movido?`<span class="imp-orig">↩ cargado como: ${r.obraOriginal}</span>`:`<span style="font-size:10px;color:var(--dm)">${r.descripcion?String(r.descripcion).slice(0,48):'—'}</span>`}</div>
       <div class="imp-monto">$${fmt2(r.total)}</div>
-      <select class="cc-sel" id="cc-sel-${i}" onchange="cambiarCC(${i}, this.value)">
-        <optgroup label="CC general">
-          <option value="vitama" ${r.cc==='vitama'?'selected':''}>Vitama (MET)</option>
-          <option value="rosepa" ${r.cc==='rosepa'?'selected':''}>Rosepa (PLP)</option>
-          <option value="kprod" ${r.cc==='kprod'?'selected':''}>K Producciones</option>
-          <option value="krental" ${r.cc==='krental'?'selected':''}>K Rental</option>
-          <option value="sala_asume" ${r.cc==='sala_asume'?'selected':''}>Sala asume</option>
-        </optgroup>
-        <optgroup label="Imputar a obra específica">
-          ${OBRAS_LIST.map(o=>`<option value="${OBRAS_META[o]?.cc||o}" ${r.obra===o?'selected':''}>${o} [${OBRAS_META[o].tipo}]</option>`).join('')}
-        </optgroup>
+      <select class="cc-sel" id="ob-sel-${i}" onchange="imputarObra(${i}, this.value)" title="Producción a la que se imputa este costo">
+        ${OBRAS_LIST.map(o=>`<option value="${o.replace(/"/g,'&quot;')}" ${r.obra===o?'selected':''}>${o} [${TIPO_LBL[OBRAS_META[o]?.tipo]||'—'}]</option>`).join('')}
+      </select>
+      <select class="cc-sel" id="cc-sel-${i}" onchange="cambiarCC(${i}, this.value)" title="Centro de costo contable" ${r.salaAsume?'disabled':''}>
+        ${['vitama','rosepa','kprod','krental','otro_tercero','sala_asume'].map(c=>`<option value="${c}" ${r.cc===c?'selected':''}>${CC_LABEL[c]}</option>`).join('')}
+        ${r.cc&&!['vitama','rosepa','kprod','krental','otro_tercero','sala_asume'].includes(r.cc)?`<option value="${r.cc}" selected>${CC_LABEL[r.cc]||r.cc}</option>`:''}
       </select>
       <label style="font-size:12px;color:var(--mu);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
-        <input type="checkbox" ${r.salaAsume?'checked':''} onchange="registros[${i}].salaAsume=this.checked;if(this.checked)cambiarCC(${i},'sala_asume');else buildAll()">
+        <input type="checkbox" class="chk-asume" ${r.salaAsume?'checked':''} onchange="cambiarCC(${i}, this.checked?'sala_asume':ccPorDefecto(registros[${i}]))">
         Sala asume
       </label>
-    </div>`).join('');
+    </div>`;
 }
-async function cambiarCC(i, valor){
-  const r = registros[i];
-  const anterior = r.cc;
-  r.cc = valor; // optimista en pantalla — se revierte abajo si el servidor rechaza
-  const sel = document.getElementById('cc-sel-'+i);
-  if(!r._id){ return; } // registro sin ID de servidor (no debería pasar) — no hay nada que persistir
-  const resp = await apiPost('actualizarCC', {id:r._id, cc:valor});
-  if(!resp.ok){
-    r.cc = anterior;
-    if(sel) sel.value = anterior;
-    alert(`No se pudo guardar la imputación: ${resp.error||'error desconocido'}`);
+
+function buildImputarLista(){
+  const cont=document.getElementById('imputar-lista');
+  if(!cont)return;
+  // La selección solo vale para registros que siguen en pantalla (si se cambió de mes, se limpia sola)
+  const vivos=new Set(registros.map(r=>r._id));
+  impSel.forEach(id=>{if(!vivos.has(id))impSel.delete(id);});
+  const idx=impVisibles();
+  if(!idx.length){
+    cont.innerHTML=`<div class="empty">Nada coincide con "${impBuscar.replace(/</g,'&lt;')}".</div>`;
+  }else if(impOrden==='persona'||impOrden==='obra'){
+    // Agrupado: encabezado con cantidad, total y un atajo para tildar el grupo entero
+    const clave=i=>impOrden==='persona'?registros[i].nombre:(registros[i].obra||'Sin asignar');
+    let html='',actual=null;
+    idx.forEach(i=>{
+      const k=clave(i);
+      if(k!==actual){
+        actual=k;
+        const g=idx.filter(j=>clave(j)===k);
+        html+=`<div class="imp-grupo"><span><strong>${k}</strong> · ${g.length} registro${g.length===1?'':'s'} · $${fmt2(g.reduce((a,j)=>a+(registros[j].total||0),0))}</span><a onclick="impSelIdx('${g.join(',')}')">tildar estos ${g.length}</a></div>`;
+      }
+      html+=impFilaHTML(i);
+    });
+    cont.innerHTML=html;
+  }else{
+    cont.innerHTML=idx.map(impFilaHTML).join('');
   }
+  pintarImpBulk();
+}
+
+// ── Selección múltiple ──
+function impToggle(i,on){
+  const r=registros[i]; if(!r||!r._id)return;
+  if(on)impSel.add(r._id);else impSel.delete(r._id);
+  const fila=document.querySelector(`#imputar-lista .imp-row[data-i="${i}"]`);
+  if(fila)fila.classList.toggle('sel',on);
+  pintarImpBulk();
+}
+function impSelTodos(on){
+  impVisibles().forEach(i=>{const id=registros[i]._id;if(!id)return;if(on)impSel.add(id);else impSel.delete(id);});
+  buildImputarLista();
+}
+function impSelIdx(lista){
+  const ids=String(lista).split(',').map(Number).map(i=>registros[i]&&registros[i]._id).filter(Boolean);
+  const todosYa=ids.every(id=>impSel.has(id));
+  ids.forEach(id=>{if(todosYa)impSel.delete(id);else impSel.add(id);}); // segundo clic: destilda el grupo
+  buildImputarLista();
+}
+function impLimpiarSel(){impSel.clear();buildImputarLista();}
+
+function pintarImpBulk(){
+  const vis=impVisibles();
+  const lbl=document.getElementById('imp-todos-lbl'), chk=document.getElementById('imp-todos');
+  if(lbl)lbl.textContent=`Tildar los ${vis.length} que se ven`;
+  if(chk)chk.checked=vis.length>0&&vis.every(i=>impSel.has(registros[i]._id));
+  const bar=document.getElementById('imp-bulk');
+  if(!bar)return;
+  if(bar.dataset.ocupado==='1')return; // imputación en curso: no pisar el avance
+  const sel=registros.filter(r=>impSel.has(r._id));
+  if(!sel.length){bar.style.display='none';bar.innerHTML='';return;}
+  const total=sel.reduce((a,r)=>a+(r.total||0),0);
+  const personas=new Set(sel.map(r=>r.nombre)).size;
+  bar.style.display='flex';
+  bar.innerHTML=`<span><strong>${sel.length}</strong> seleccionado${sel.length===1?'':'s'} · $${fmt2(total)}${personas>1?` · ${personas} personas`:''}</span>
+    <select id="imp-bulk-obra" onchange="impBulkObra=this.value">
+      <option value="">Imputar a…</option>
+      ${OBRAS_LIST.map(o=>`<option value="${o.replace(/"/g,'&quot;')}" ${impBulkObra===o?'selected':''}>${o} [${TIPO_LBL[OBRAS_META[o]?.tipo]||'—'}]</option>`).join('')}
+    </select>
+    <button class="ok" id="imp-bulk-ok" onclick="imputarSeleccionados()">Imputar</button>
+    <button class="no" onclick="impLimpiarSel()">Destildar todo</button>`;
+}
+
+// Imputa todos los tildados a una misma producción. Va de a uno contra el
+// servidor (misma acción que la imputación individual), mostrando el avance;
+// si alguno falla, los demás igual quedan hechos y se avisa cuáles no.
+async function imputarSeleccionados(){
+  const obra=impBulkObra;
+  if(!obra){alert('Elegí primero a qué producción imputar los seleccionados.');return;}
+  const ids=registros.filter(r=>impSel.has(r._id)&&r.obra!==obra).map(r=>r._id);
+  const yaEstaban=impSel.size-ids.length;
+  if(!ids.length){alert(`Los seleccionados ya están imputados a "${obra}".`);return;}
+  const total=registros.filter(r=>ids.includes(r._id)).reduce((a,r)=>a+(r.total||0),0);
+  if(!confirm(`¿Imputar ${ids.length} registro(s) — $${fmt2(total)} — a "${obra}"?${yaEstaban?`\n(${yaEstaban} de los seleccionados ya estaban ahí.)`:''}`))return;
+  const bar=document.getElementById('imp-bulk');
+  bar.dataset.ocupado='1';
+  bar.innerHTML=`<span id="imp-bulk-avance">Imputando 0 de ${ids.length}… no cierres esta pantalla</span>`;
+  const por=TEATRO_FIJO?`Coordinación ${TEATRO_FIJO}`:'Admin';
+  const fallos=[];
+  let hechos=0;
+  for(const id of ids){
+    const resp=await apiPost('imputarObra',{id,obra,por});
+    const r=registros.find(x=>x._id===id); // se busca de nuevo: un refresco automático pudo haber reemplazado la lista
+    if(resp.ok){
+      if(r){r.obra=resp.obra||obra;r.tipoObra=normTipoObra(resp.tipoObra)||r.tipoObra;if(resp.cc)r.cc=resp.cc;r.obraOriginal=resp.obraOriginal||'';}
+      impSel.delete(id);
+      hechos++;
+    }else{
+      fallos.push(`${r?`${r.nombre} ${fmtF(r.fecha)}`:id}: ${resp.error||'error desconocido'}`);
+    }
+    const av=document.getElementById('imp-bulk-avance');
+    if(av)av.textContent=`Imputando ${hechos+fallos.length} de ${ids.length}… no cierres esta pantalla`;
+  }
+  bar.dataset.ocupado='';
+  if(!fallos.length)impSel.clear(); // todo salió bien: se destildan también los que ya estaban en esa producción
+  buildAll();
+  if(fallos.length)alert(`Se imputaron ${hechos} de ${ids.length}. No se pudo con ${fallos.length} (siguen tildados):\n\n${fallos.slice(0,8).join('\n')}${fallos.length>8?'\n…':''}`);
+}
+
+// Mueve el registro a otra producción. Se guarda en el servidor PRIMERO; la
+// pantalla cambia solo si el servidor confirma.
+// (Antes, elegir una producción en este desplegable no le cambiaba la
+// producción al registro: solo grababa un código de centro de costo, que
+// para todas las propias del mismo teatro es el mismo — el costo seguía
+// sumando donde estaba, y en el siguiente refresco el desplegable volvía solo.)
+async function imputarObra(i, obra){
+  const r=registros[i];
+  const sel=document.getElementById('ob-sel-'+i);
+  if(!obra||obra===r.obra)return;
+  if(!r._id){alert('Este registro no tiene ID de servidor — no se puede imputar.');if(sel)sel.value=r.obra;return;}
+  if(sel)sel.disabled=true;
+  const resp=await apiPost('imputarObra',{id:r._id,obra,por:TEATRO_FIJO?`Coordinación ${TEATRO_FIJO}`:'Admin'});
+  if(!resp.ok){
+    if(sel){sel.disabled=false;sel.value=r.obra;}
+    alert(`No se pudo imputar: ${resp.error||'error desconocido'}`);
+    return;
+  }
+  r.obra=resp.obra||obra;
+  r.tipoObra=normTipoObra(resp.tipoObra)||r.tipoObra;
+  if(resp.cc)r.cc=resp.cc;
+  r.obraOriginal=resp.obraOriginal||'';
+  buildAll();
+}
+
+// Centro de costo / "Sala asume" — mismo criterio: primero el servidor.
+async function cambiarCC(i, valor){
+  const r=registros[i];
+  if(!r._id){buildImputar();return;} // registro sin ID de servidor (no debería pasar)
+  const resp=await apiPost('actualizarCC',{id:r._id,cc:valor});
+  if(!resp.ok){
+    buildImputar(); // vuelve a mostrar lo que realmente está guardado
+    alert(`No se pudo guardar la imputación: ${resp.error||'error desconocido'}`);
+    return;
+  }
+  r.cc=valor;
+  r.salaAsume=(valor==='sala_asume');
+  buildAll();
 }
 function aplicarDefaults(){registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});buildAll();}
 function guardarImput(){buildAll();alert('Los cambios de imputación ya se guardan al toque, cada vez que cambiás un CC — no hace falta este botón, pero lo dejamos por si preferís revisar todo antes de irte de la pantalla.');}
@@ -1585,8 +1826,9 @@ function buildMails(){
   const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
   const mesNom=mkNombre(mk);
   const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
-  const propias=delMes.filter(r=>tipoObraDe(r)==='PROPIA');
-  const terceros=delMes.filter(r=>esTercero(r));
+  // Lo que asume la sala no cuenta como propia ni se le descuenta al tercero
+  const propias=delMes.filter(r=>!r.salaAsume&&tipoObraDe(r)==='PROPIA');
+  const terceros=delMes.filter(r=>!r.salaAsume&&esTercero(r));
   const sala=delMes.filter(r=>r.salaAsume);
   const tP=propias.reduce((a,r)=>a+(r.total||0),0);
   const tT=terceros.reduce((a,r)=>a+(r.total||0),0);
@@ -1736,6 +1978,7 @@ function buildRegistros(){
     if(r.overrideOverlap)flags.push('<span style="color:var(--red);font-size:11px;font-weight:700">⚠ Solapa</span>');
     if(r.overrideHorario)flags.push('<span style="color:var(--blue);font-size:11px">Hor.func</span>');
     if(r.salaAsume)flags.push('<span style="color:var(--purple);font-size:11px">SalaAsume</span>');
+    if(r.obraOriginal&&r.obraOriginal!==r.obra)flags.push(`<span style="color:var(--blue);font-size:11px" title="Se cargó como: ${r.obraOriginal}">Reimputado</span>`);
     if(r.cargadoPor)flags.push('<span style="color:var(--mu);font-size:11px">Proxy</span>');
     if(r.sinValidar)flags.push('<span style="color:var(--amber);font-size:11px;font-weight:700">SinValidar</span>');
     if((r.edits||[]).length>0)flags.push(`<span style="color:var(--green);font-size:11px">Editado×${r.edits.length}</span>`);

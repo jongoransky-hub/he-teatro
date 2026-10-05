@@ -49,6 +49,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .mp-sel.active{border-color:var(--ac);color:var(--ac)}
 .mes-nota{font-size:12px;color:var(--mu);margin-bottom:14px;line-height:1.4}
 
+/* BUSCADOR + ORDEN */
+.buscar-row{display:flex;gap:8px;margin-bottom:12px}
+.buscar-row input{flex:1;min-width:0;background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;color:var(--tx);font-size:14px;font-family:'DM Sans',sans-serif}
+.buscar-row input:focus{outline:none;border-color:var(--ac)}
+.buscar-row select{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs);padding:8px 8px;color:var(--mu);font-size:12px;font-family:'DM Sans',sans-serif;max-width:46%}
+.grupo-persona{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px;color:var(--mu);font-family:'DM Mono',monospace;margin:14px 2px 6px;padding-bottom:4px;border-bottom:1px solid var(--bd)}
+.grupo-persona strong{color:var(--tx);font-family:'DM Sans',sans-serif;font-size:13px}
+
 /* TICKET CARDS */
 .ticket{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;transition:border-color .15s}
 .ticket.aprobado{border-color:var(--grbd)}
@@ -136,6 +144,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
     <div class="fp" id="f-rechazado" onclick="setFiltro('rechazado',this)">Rechazados</div>
   </div>
 
+  <div class="buscar-row">
+    <input type="search" id="buscar" placeholder="🔍 Buscar persona, producción o descripción…" oninput="buscar=this.value;renderTickets();actualizarResumen()">
+    <select id="orden" onchange="orden=this.value;renderTickets()" title="Cómo ordenar los tickets">
+      <option value="estado">Pendientes primero</option>
+      <option value="persona">Por persona</option>
+      <option value="fecha">Por fecha</option>
+    </select>
+  </div>
+
   <div id="tickets-container">
     <div class="loading"><div class="spinner"></div>Cargando tickets...</div>
   </div>
@@ -183,6 +200,18 @@ async function apiPost(action, data) {
 // ═══════════════════════════════════════
 let tickets = [];
 let filtro = 'todos';
+let buscar = '';        // texto del buscador
+let orden = 'estado';   // 'estado' | 'persona' | 'fecha'
+
+// Texto para comparar: sin acentos ni mayúsculas
+function normTxt(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+// ¿El ticket coincide con lo que se escribió en el buscador? (todas las palabras)
+function coincide(t){
+  const q = normTxt(buscar).trim();
+  if (!q) return true;
+  const donde = normTxt([t.nombre, t.obra, t.descripcion, t.tipoLabel, fmtF(t.fecha)].join(' '));
+  return q.split(/\s+/).every(p => donde.includes(p));
+}
 
 // ═══════════════════════════════════════
 // MESES ABIERTOS
@@ -360,16 +389,36 @@ async function cargarTickets() {
 // ═══════════════════════════════════════
 function renderTickets() {
   const container = document.getElementById('tickets-container');
-  let lista = tickets.filter(t => t.mes === mesSel).sort((a,b) => {
-    // Pendientes primero
-    const orden = {PENDIENTE:0, RECHAZADO:1, APROBADO:2};
-    return (orden[a.aprobJefe]||0) - (orden[b.aprobJefe]||0) || b.fecha.localeCompare(a.fecha);
-  });
+  const prioridad = {PENDIENTE:0, RECHAZADO:1, APROBADO:2};
+  const porEstado  = (a,b) => (prioridad[a.aprobJefe]||0) - (prioridad[b.aprobJefe]||0) || b.fecha.localeCompare(a.fecha);
+  const porPersona = (a,b) => a.nombre.localeCompare(b.nombre) || a.fecha.localeCompare(b.fecha) || String(a.horaDesde).localeCompare(String(b.horaDesde));
+  const porFecha   = (a,b) => b.fecha.localeCompare(a.fecha) || a.nombre.localeCompare(b.nombre);
+  let lista = tickets.filter(t => t.mes === mesSel && coincide(t))
+    .sort(orden === 'persona' ? porPersona : orden === 'fecha' ? porFecha : porEstado);
   if (filtro !== 'todos') {
     lista = lista.filter(t => t.aprobJefe.toLowerCase() === filtro);
   }
+  if (!lista.length && normTxt(buscar).trim()) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>Nada coincide con "${buscar.replace(/</g,'&lt;')}" en ${mesSel?mkNombre(mesSel).toLowerCase():'el mes'}.</div>`;
+    return;
+  }
   if (!lista.length) {
     container.innerHTML = `<div class="empty"><div class="empty-icon">${filtro==='aprobado'?'✅':filtro==='rechazado'?'❌':'📭'}</div>${filtro==='todos'?`Sin tickets en ${mesSel?mkNombre(mesSel).toLowerCase():'el mes'} para tu área.`:'Sin tickets en esta categoría.'}</div>`;
+    return;
+  }
+  if (orden === 'persona') {
+    // Agrupado: un encabezado por persona con su cantidad y su total
+    let html = '', actual = null;
+    lista.forEach((t,i) => {
+      if (t.nombre !== actual) {
+        actual = t.nombre;
+        const suyos = lista.filter(x => x.nombre === actual);
+        const pend = suyos.filter(x => x.aprobJefe === 'PENDIENTE').length;
+        html += `<div class="grupo-persona"><strong>${actual}</strong><span>${suyos.length} ticket${suyos.length===1?'':'s'}${pend?` · ${pend} pend.`:''} · $${fmt(suyos.reduce((a,x)=>a+x.total,0))}</span></div>`;
+      }
+      html += ticketHTML(t, i);
+    });
+    container.innerHTML = html;
     return;
   }
   container.innerHTML = lista.map((t,i) => ticketHTML(t, i)).join('');
@@ -429,7 +478,7 @@ function estadoBadge(s) {
 }
 
 function actualizarResumen() {
-  const delMes     = tickets.filter(t => t.mes === mesSel);
+  const delMes     = tickets.filter(t => t.mes === mesSel && coincide(t)); // con buscador: los números de lo que se está viendo
   const pendientes = delMes.filter(t => t.aprobJefe === 'PENDIENTE').length;
   const aprobados  = delMes.filter(t => t.aprobJefe === 'APROBADO').length;
   const total      = delMes.reduce((a,t) => a + t.total, 0);
