@@ -133,6 +133,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .otag{font-size:10px;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:999px;font-weight:700}
 .otag.propia{background:var(--grbg);color:var(--green)}
 .otag.tercero{background:var(--ambg);color:var(--amber)}
+.otag.cooperativa{background:var(--blbg);color:var(--blue)}
 .otag.asume{background:var(--pubg);color:var(--purple)}
 .obra-tot{font-weight:700;font-variant-numeric:tabular-nums;font-family:'DM Mono',monospace;white-space:nowrap}
 .obra-rows{display:none}.obra-rows.open{display:block}
@@ -734,6 +735,25 @@ const CC_LABEL = {
   eventos_met:'Eventos MET',eventos_plp:'Eventos PLP',
 };
 
+// Tipo de producción, SIEMPRE en mayúscula: 'PROPIA' | 'COOPERATIVA' | 'TERCERO'.
+// La planilla lo guarda en minúscula ("propia", "tercero") y todo el panel
+// compara contra mayúscula — sin normalizar, ninguna producción de la
+// planilla se reconocía como propia: el consolidado mandaba TODO a "a
+// descontar a terceros" y los mails de descuentos salían en $0.
+function normTipoObra(v){
+  const t=String(v||'').trim().toUpperCase();
+  return t.startsWith('PROP')?'PROPIA':t.startsWith('COOP')?'COOPERATIVA':t.startsWith('TERC')?'TERCERO':'';
+}
+// Tipo de la producción de un registro: primero lo que dice la hoja Obras;
+// si la obra ya no figura ahí (terminó o se dio de baja), lo que quedó
+// grabado en el propio registro al momento de cargarlo.
+function tipoObraDe(r){return OBRAS_META[r.obra]?.tipo||r.tipoObra||'PROPIA';}
+// CRITERIO (Jon, oct 2026): una COOPERATIVA es un tercero — sus HE se
+// descuentan igual. Conserva su etiqueta propia para poder distinguirla,
+// pero suma en "a descontar a terceros", entra en el filtro "Terceros" y
+// en los mails de descuentos.
+function esTercero(r){const t=tipoObraDe(r);return t==='TERCERO'||t==='COOPERATIVA';}
+
 function getCCDefault(area,teatro,obraNombre){
   const meta=OBRAS_META[obraNombre];
   if(meta)return meta.cc;
@@ -932,6 +952,7 @@ function mapRegistroRow(r) {
     salaAsume:       r["Sala Asume"] === "SI",
     overrideHorario: r["Override Horario"] === "SI",
     overrideOverlap: r["Override Overlap"] === "SI",
+    tipoObra:        normTipoObra(r["Tipo Obra"]),
     cargadoPor:      r["Cargado Por"] || null,
     sinValidar:      r["Sin Validar"] === "SI",
     casoEspecial:    r["Caso Especial"] === "SI",
@@ -1003,10 +1024,11 @@ window.onload = async () => {
       obrRes.data.forEach(o => {
         const nombre = o["Nombre"];
         if (nombre) {
+          const tipo = normTipoObra(o["Tipo"]) || "PROPIA";
           OBRAS_META[nombre] = {
-            tipo:   o["Tipo"] || "propia",
+            tipo,
             teatro: o["Teatro"] || "",
-            cc:     o["Tipo"] === "tercero" ? "otro_tercero" : o["Teatro"] === "PLP" ? "rosepa" : "vitama",
+            cc:     tipo !== "PROPIA" ? "otro_tercero" : o["Teatro"] === "PLP" ? "rosepa" : "vitama", // cooperativa = tercero
           };
         }
       });
@@ -1459,7 +1481,7 @@ function registrosConsolidadoFiltrados(){
   const fArea=document.getElementById('filtro-area-consolid')?.value||'';
   return registros.filter(r=>{
     if(!r.fecha?.startsWith(mk)||r.sinValidar)return false;
-    const tipo=OBRAS_META[r.obra]?.tipo||'PROPIA';
+    const tipo=esTercero(r)?'TERCERO':'PROPIA'; // el filtro "Terceros" incluye cooperativas
     const f=filtroConsolid;
     if(f!=='todos'&&f!==tipo&&f!==r.teatro&&!(f==='ASUME'&&r.salaAsume))return false;
     if(fObra&&r.obra!==fObra)return false;
@@ -1476,14 +1498,14 @@ function buildConsolidado(){
   document.getElementById('btn-clear-consolid2').style.display=(fObra||fPersona||fArea)?'block':'none';
   const filtrados=registrosConsolidadoFiltrados();
   const byObra={};
-  filtrados.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,teatro:r.teatro,tipo:(OBRAS_META[k]?.tipo||'PROPIA'),salaAsume:false};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].salaAsume=true;});
+  filtrados.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,teatro:r.teatro,tipo:tipoObraDe(r),salaAsume:false};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].salaAsume=true;});
   let tP=0,tT=0,tS=0,html='';
   Object.entries(byObra).sort((a,b)=>b[1].total-a[1].total).forEach(([obra,data])=>{
     const{tipo,teatro,salaAsume}=data;
     if(salaAsume)tS+=data.total;else if(tipo==='PROPIA')tP+=data.total;else tT+=data.total;
     // Desglose por persona dentro de la obra — clickeable a su detalle mensual
     const byPersona={};data.rows.forEach(r=>{if(!byPersona[r.nombre])byPersona[r.nombre]={total:0,n:0,teatro:r.teatro};byPersona[r.nombre].total+=r.total||0;byPersona[r.nombre].n++;});
-    const tCls=salaAsume?'asume':tipo.toLowerCase();const tLbl=salaAsume?'Sala asume':tipo==='PROPIA'?'Propia':'Tercero';
+    const tCls=salaAsume?'asume':tipo.toLowerCase();const tLbl=salaAsume?'Sala asume':tipo==='PROPIA'?'Propia':tipo==='COOPERATIVA'?'Cooperativa':'Tercero';
     const personaRows=Object.entries(byPersona).sort((a,b)=>b[1].total-a[1].total)
       .map(([n,d])=>`<div class="obra-row" style="cursor:pointer" onclick="abrirDetallPersona('${n.replace(/'/g,"\\'")}','${d.teatro}')" title="Ver tickets de ${n} este mes">
         <span class="obra-rl">${n} <span class="mono" style="color:var(--mu);font-size:10px">(${d.n})</span></span>
@@ -1563,8 +1585,8 @@ function buildMails(){
   const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar);
   const mesNom=mkNombre(mk);
   const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
-  const propias=delMes.filter(r=>OBRAS_META[r.obra]?.tipo==='PROPIA');
-  const terceros=delMes.filter(r=>OBRAS_META[r.obra]?.tipo==='TERCERO');
+  const propias=delMes.filter(r=>tipoObraDe(r)==='PROPIA');
+  const terceros=delMes.filter(r=>esTercero(r));
   const sala=delMes.filter(r=>r.salaAsume);
   const tP=propias.reduce((a,r)=>a+(r.total||0),0);
   const tT=terceros.reduce((a,r)=>a+(r.total||0),0);
@@ -1576,7 +1598,7 @@ function buildMails(){
   const mails=[
     // 1. RRHH — consolidado completo
     {label:'RRHH — Consolidado completo',
-     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Consolidado RRHH\n\nHola,\n\nResumen completo de Horas Extras — ${mesNom}.\n\nTOTAL GENERAL: $${fmt2(totGen)}\n  Producciones propias:   $${fmt2(tP)}\n  A descontar terceros:   $${fmt2(tT)}\n  Asumido por sala:       $${fmt2(tS)}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n} (${(d.areas||[]).join('+').replace(/_/g,' ')}): $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);const tp=OBRAS_META[o]?.tipo||'?';return`  [${tp}] ${o}: $${fmt2(t)}`;}).join('\n')}\n\nDETALLE COMPLETO ADJUNTO EN XLSX.\nSaludos`},
+     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Consolidado RRHH\n\nHola,\n\nResumen completo de Horas Extras — ${mesNom}.\n\nTOTAL GENERAL: $${fmt2(totGen)}\n  Producciones propias:   $${fmt2(tP)}\n  A descontar terceros:   $${fmt2(tT)}\n  Asumido por sala:       $${fmt2(tS)}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n} (${(d.areas||[]).join('+').replace(/_/g,' ')}): $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);const tp=tipoObraDe(rs[0]);return`  [${tp}] ${o}: $${fmt2(t)}`;}).join('\n')}\n\nDETALLE COMPLETO ADJUNTO EN XLSX.\nSaludos`},
     // 2. Admin — pago técnicos día 15
     {label:'Admin — Pago día 15',
      body:`ASUNTO: HE ${mesNom.toUpperCase()} — Pagos a procesar el día 15\n\nHola,\n\nListado de pagos de HE a procesar el día 15:\n\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nTOTAL A PAGAR: $${fmt2(totGen)}\n\nConfirmar disponibilidad antes del día 14.\nSaludos`},
@@ -2036,7 +2058,7 @@ function exportXLSX(){
   const wsReg=XLSX.utils.aoa_to_sheet(reg);
   aplicarFormatoMoneda(wsReg, [10], 1, reg.length-1);
   XLSX.utils.book_append_sheet(wb,wsReg,'Registros');
-  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—',teatro:r.teatro};byObra[k].total+=r.total||0;});
+  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:tipoObraDe(r),teatro:r.teatro};byObra[k].total+=r.total||0;});
   const cons=[['Obra','Tipo','Teatro','Total']];Object.entries(byObra).forEach(([o,d])=>cons.push([o,d.tipo,d.teatro,d.total]));cons.push(['','','TOTAL',delMes.reduce((a,r)=>a+(r.total||0),0)]);
   const wsCons=XLSX.utils.aoa_to_sheet(cons);
   aplicarFormatoMoneda(wsCons, [3], 1, cons.length-1);
@@ -2081,7 +2103,7 @@ function exportPDF(){
   const etiqueta=etiquetaFiltroConsolidado();
   const mesNom=mkNombre(mk);
   const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
-  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:OBRAS_META[k]?.tipo||'—'};byObra[k].total+=r.total||0;});
+  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:tipoObraDe(r)};byObra[k].total+=r.total||0;});
   const tituloCorte=etiqueta?` — ${etiqueta}`:'';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HE ${mesNom}${tituloCorte}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:32px}h1{font-size:18px}h2{font-size:13px;margin:18px 0 5px;border-bottom:1px solid #ccc;padding-bottom:3px}.tot{font-size:15px;font-weight:700;margin:6px 0}.sub{font-size:12px;color:#666;margin-bottom:10px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{text-align:left;font-size:10px;text-transform:uppercase;color:#666;padding:4px 7px;border-bottom:2px solid #ccc}td{padding:4px 7px;border-bottom:1px solid #eee;font-size:11px}.right{text-align:right}@media print{body{margin:16px}}</style></head><body><h1>Horas Extras — ${mesNom}</h1>${etiqueta?`<div class="sub">Recorte: ${etiqueta}</div>`:''}<div class="tot">Total: $${fmt2(totGen)}</div><h2>Consolidado por obra</h2><table><tr><th>Obra</th><th>Tipo</th><th class="right">Total</th></tr>${Object.entries(byObra).map(([o,d])=>`<tr><td>${o}</td><td>${d.tipo}</td><td class="right">$${fmt2(d.total)}</td></tr>`).join('')}</table><h2>Registros</h2><table><tr><th>Fecha</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Tipo HE</th><th>Descripción</th><th>Obra</th><th class="right">Total</th></tr>${delMes.map(r=>`<tr><td>${fmtF(r.fecha)}</td><td>${r.nombre}</td><td>${(r.areas||[]).join('+')}</td><td>${(r.horaDesde||r.horaHasta)?(r.horaDesde||'?')+'–'+(r.horaHasta||'?'):'—'}</td><td>${r.tipoLabel}</td><td>${r.descripcion||'—'}</td><td>${r.obra||'—'}</td><td class="right">$${fmt2(r.total)}</td></tr>`).join('')}</table><script>window.onload=()=>window.print()<\/script></body></html>`;
   const w=window.open('','_blank');w.document.write(html);w.document.close();

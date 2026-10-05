@@ -772,7 +772,7 @@ window.onload = async () => {
   try {
     const [valRes, obrRes, perRes, histRes] = await Promise.all([
       apiGet("getValores"),
-      apiGet("getObras"),
+      apiGet("getObras", {todas: 1}), // todas: también las terminadas o dadas de baja, para poder reactivarlas
       apiGet("getPersonal"),
       apiGet("getHistorial"),
     ]);
@@ -1073,7 +1073,7 @@ async function toggleObra(i){
   const anteriorHasta=OBRAS[i].hasta, anteriorActiva=OBRAS[i].activa;
   let r;
   if(activa){
-    if(!confirm(`¿Dar de baja "${OBRAS[i].n}"? Dejará de aparecer en el formulario de carga.`))return;
+    if(!confirm(`¿Dar de baja "${OBRAS[i].n}"? Va a seguir disponible para cargas con fecha de este mes, y deja de aparecer en el formulario para fechas posteriores.`))return;
     const hasta=new Date().toISOString().slice(0,7);
     OBRAS[i].hasta=hasta;
     buildObras();
@@ -1325,7 +1325,7 @@ async function recargarTodo(){
   try {
     const [valRes, obrRes, perRes] = await Promise.all([
       apiGet("getValores"),
-      apiGet("getObras"),
+      apiGet("getObras", {todas: 1}), // todas: también las terminadas o dadas de baja, para poder reactivarlas
       apiGet("getPersonal"),
     ]);
     if (valRes.ok && valRes.data && valRes.data.length > 0) {

@@ -384,7 +384,7 @@ async function apiPost(action, data) {
     const url = `${SCRIPT_URL}?payload=${payload}`;
     const res = await fetch(url);
     return await res.json();
-  } catch(e) { return {ok:false, error:e.toString()}; }
+  } catch(e) { return {ok:false, error:e.toString(), sinRespuesta:true}; } // sinRespuesta: no se sabe si llegó o no
 }
 
 // ═══════════════════════════════════════════════════
@@ -741,11 +741,14 @@ function poblarObras() {
   const mkTicket = (document.getElementById('fecha').value || '').slice(0,7) || mesK(new Date());
   const activas = OBRAS.filter(o => obraVigenteEn(o, mkTicket));
   sel.innerHTML = '<option value="">— Para qué producción —</option>';
-  ['PROPIA','TERCERO'].forEach(tipo => {
+  // Tres grupos. Las cooperativas antes no se ofrecían (solo se armaban
+  // "propias" y "terceros"), así que nadie podía cargar una HE a su nombre.
+  // A efectos del cierre, una cooperativa se trata como un tercero.
+  ['PROPIA','COOPERATIVA','TERCERO'].forEach(tipo => {
     const lst = activas.filter(o => o.tipo === tipo);
     if (!lst.length) return;
     const og = document.createElement('optgroup');
-    og.label = tipo === 'PROPIA' ? 'Producciones propias' : 'Producciones externas / Terceros';
+    og.label = tipo === 'PROPIA' ? 'Producciones propias' : tipo === 'COOPERATIVA' ? 'Cooperativas' : 'Producciones externas / Terceros';
     lst.forEach(o => {
       const op = document.createElement('option');
       op.value = o.n; op.textContent = o.n; og.appendChild(op);
@@ -1361,7 +1364,7 @@ async function enviar() {
   // Obtener tipo de obra para el CC
   const obraObj = OBRAS.find(o => o.n === S.obra);
   const tipoObra = obraObj?.tipo?.toLowerCase() || "propia";
-  const cc = tipoObra === "tercero" ? "otro_tercero" :
+  const cc = (tipoObra === "tercero" || tipoObra === "cooperativa") ? "otro_tercero" : // cooperativa = tercero
              S.teatro === "PLP" ? "rosepa" : "vitama";
 
   const pc = perfilCarga(); // datos de la persona a cuyo nombre queda el ticket
@@ -1394,16 +1397,35 @@ async function enviar() {
     obs:         S.obs,
   };
 
-  // Guardar en localStorage primero (por si falla la red)
-  saveTicket(ticket);
-
-  // Enviar al backend
-  try {
-    const result = await apiPost("addRegistro", ticket);
-    if (!result.ok) console.warn("Backend respondió con error:", result.error);
-  } catch(e) {
-    console.warn("No se pudo enviar al backend, guardado solo localmente:", e);
+  // Enviar al backend PRIMERO: "¡Registrado!" se muestra solo si el servidor
+  // confirma que lo guardó. (Antes se mostraba siempre — con el servidor
+  // rechazando la carga, o sin conexión, la persona se iba creyendo que su
+  // HE estaba cargada y no lo estaba.)
+  const result = await apiPost("addRegistro", ticket);
+  if (!result || !result.ok) {
+    const volverAHabilitar = msg => {
+      S._enviando = false;
+      if (btnNext) { btnNext.disabled = false; btnNext.textContent = textoOriginalBtn; }
+      showA('alert4', msg);
+      const al = document.getElementById('alert4'); if (al && al.scrollIntoView) al.scrollIntoView({block:'center'});
+    };
+    if (result && !result.sinRespuesta) {
+      // El servidor contestó, y contestó que NO (por ejemplo: mes cerrado)
+      volverAHabilitar(`No se guardó. ${result.error || 'El servidor rechazó la carga.'}`);
+      return;
+    }
+    // No hubo respuesta: puede haberse guardado o no. Antes de decir nada,
+    // se le pregunta al servidor si el ticket está.
+    const chk = await apiGet('getRegistros', {nombre: nombreReal});
+    const yaEsta = chk.ok && Array.isArray(chk.data) && chk.data.some(r =>
+      String(r['Fecha']||'').startsWith(S.fecha) && r['Hora Desde'] === S.horaDesde &&
+      r['Hora Hasta'] === S.horaHasta && Number(r['Total']) === Number(S.total));
+    if (!yaEsta) {
+      volverAHabilitar('No pudimos confirmar que tu HE se haya guardado — parece un problema de conexión. Tocá "Enviar" de nuevo; si sigue pasando, avisale a coordinación.');
+      return;
+    }
   }
+  saveTicket(ticket); // caché local de la sesión, recién cuando ya está en el servidor
 
   HIST_MES = (S.fecha || '').slice(0,7) || null;
   document.getElementById('nav').style.display = 'none';
