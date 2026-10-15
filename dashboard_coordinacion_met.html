@@ -139,6 +139,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .obra-rows{display:none}.obra-rows.open{display:block}
 .obra-row{display:flex;justify-content:space-between;align-items:center;padding:7px 13px;border-top:1px solid var(--bd);font-size:12px}
 .obra-rl{color:var(--mu)}.obra-rr{font-weight:500;font-family:'DM Mono',monospace}
+.mail-adj{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border:1px dashed var(--bd);border-radius:var(--rs);font-size:12px;color:var(--mu)}
+/* Detalle de cada HE dentro de la producción: lo que justifica el monto */
+.obra-tk{display:grid;grid-template-columns:190px 1fr 92px;gap:4px 12px;padding:6px 13px 6px 28px;border-top:1px dashed var(--bd);font-size:11.5px;align-items:start}
+.obra-tk .tk-cuando{font-family:'DM Mono',monospace;color:var(--tx);white-space:nowrap}
+.obra-tk .tk-cuando small{display:block;color:var(--mu);font-size:10.5px}
+.obra-tk .tk-tipo{font-weight:600}
+.obra-tk .tk-desc{display:block;color:var(--mu);font-weight:400;margin-top:1px;line-height:1.4}
+.obra-tk .tk-monto{font-family:'DM Mono',monospace;text-align:right;white-space:nowrap}
+.obra-row.persona{background:var(--sf)}
+.obra-row.persona .obra-rl{color:var(--tx);font-weight:600}
+@media (max-width:760px){.obra-tk{grid-template-columns:1fr auto;padding-left:18px}.obra-tk .tk-cuando{grid-column:1/-1}}
 
 /* CC */
 .cc-sel{font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:4px 8px;color:var(--tx);font-family:'DM Sans',sans-serif;cursor:pointer;width:100%}
@@ -431,6 +442,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
       <div class="btn-row">
         <button class="btn primary" onclick="copiarMail()">Copiar texto</button>
         <button class="btn ghost" onclick="descargarMail()">Descargar .txt</button>
+      </div>
+      <div class="mail-adj">
+        <span id="mail-adj-lbl"></span>
+        <div class="btn-row" style="margin:0">
+          <button class="btn primary" id="btn-adj-pdf" onclick="adjuntoMail('pdf')">PDF para adjuntar</button>
+          <button class="btn green" id="btn-adj-xlsx" onclick="adjuntoMail('xlsx')">Excel para adjuntar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -772,6 +790,135 @@ function tipoObraDe(r){return OBRAS_META[r.obra]?.tipo||r.tipoObra||'PROPIA';}
 // pero suma en "a descontar a terceros", entra en el filtro "Terceros" y
 // en los mails de descuentos.
 function esTercero(r){const t=tipoObraDe(r);return t==='TERCERO'||t==='COOPERATIVA';}
+
+// ── Detalle de una HE, para todo lo que se comparte afuera (producciones,
+// Gustavo, RRHH): no alcanza con persona y monto — el descuento tiene que
+// mostrar qué día, en qué horario, cuántas horas y para qué tarea. ──
+const DIAS_SEM=['dom','lun','mar','mié','jue','vie','sáb'];
+function diaSemana(f){const d=new Date(String(f)+'T12:00:00');return isNaN(d)?'':DIAS_SEM[d.getDay()];}
+function cuandoTicket(r){return `${diaSemana(r.fecha)} ${fmtF(r.fecha)}`.trim();}
+function horarioTicket(r){return (r.horaDesde||r.horaHasta)?`${r.horaDesde||'?'}–${r.horaHasta||'?'}`:'sin horario';}
+function dondeTicket(r){return [r.teatro,r.sala].filter(Boolean).join(' · ')||'—';}
+function cantTicket(r){
+  if(r.horas!=null&&r.horas!=='')return `${String(Math.round(r.horas*100)/100).replace('.',',')} hs`;
+  if(r.cantidad!=null&&r.cantidad!=='')return `${r.cantidad} u.`;
+  return '';
+}
+function ordenTicket(a,b){return String(a.fecha).localeCompare(String(b.fecha))||String(a.horaDesde).localeCompare(String(b.horaDesde));}
+function horasDe(r){return (r.horas!=null&&r.horas!=='')?(Number(r.horas)||0):0;}
+function fmtHs(h){return `${String(Math.round(h*100)/100).replace('.',',')} hs`;}
+function sinAnulados(rs){return rs.filter(r=>(r.total||0)!==0);} // los anulados ($0) no se listan afuera
+// Cuerpo de mail: corto y legible. Por persona (horas y monto del total) y,
+// debajo, cada HE con fecha, horario, horas y monto. El "por qué" (lugar,
+// tipo, tarea realizada) va en la ficha adjunta, no en el cuerpo.
+//   SALVIONI, PAULINA — 6,5 hs · $51.000
+//     dom 27/09/2026 · 18:30–22:00 · 3,5 hs · $21.000
+function gruposPersona(rs){
+  const porPersona={};
+  sinAnulados(rs).forEach(r=>{(porPersona[r.nombre]=porPersona[r.nombre]||[]).push(r);});
+  return Object.keys(porPersona).sort((a,b)=>a.localeCompare(b)).map(n=>{
+    const lista=porPersona[n].slice().sort(ordenTicket);
+    return{nombre:n,lista,total:lista.reduce((a,r)=>a+(r.total||0),0),horas:lista.reduce((a,r)=>a+horasDe(r),0)};
+  });
+}
+// Texto: cada HE en UNA línea, en columnas de ancho fijo (quedan alineadas)
+//   SALVIONI, PAULINA — 6,5 hs · $51.000
+//     dom 27/09/2026  18:30–22:00   3,5 hs     $21.000
+function detalleCortoTxt(rs,{sangria='  ',conObra=false}={}){
+  return gruposPersona(rs).map(p=>{
+    const lineas=p.lista.map(r=>`${sangria}  ${cuandoTicket(r).padEnd(14)}  ${horarioTicket(r).padEnd(11)}  ${(cantTicket(r)||'—').padStart(7)}  ${('$'+fmt2(r.total)).padStart(10)}${conObra?`   ${r.obra||'—'}`:''}`).join('\n');
+    return `${sangria}${p.nombre} — ${p.horas?`${fmtHs(p.horas)} · `:''}$${fmt2(p.total)}\n${lineas}`;
+  }).join('\n\n');
+}
+// HTML (lo que se pega en el mail): una sola tabla para todas las personas,
+// así las columnas quedan alineadas de punta a punta.
+function detalleCortoHTML(rs,{conObra=false}={}){
+  const td='padding:2px 16px 2px 0;white-space:nowrap;vertical-align:top';
+  const tdR=td+';text-align:right';
+  const filas=gruposPersona(rs).map(p=>`<tr><td colspan="${conObra?5:4}" style="padding:10px 0 3px;font-weight:bold">${escH(p.nombre)} — ${p.horas?`${fmtHs(p.horas)} · `:''}$${fmt2(p.total)}</td></tr>`+
+    p.lista.map(r=>`<tr><td style="${td};padding-left:14px">${cuandoTicket(r)}</td><td style="${td}">${horarioTicket(r)}</td><td style="${tdR}">${cantTicket(r)||'—'}</td><td style="${tdR}">$${fmt2(r.total)}</td>${conObra?`<td style="${td};color:#555">${escH(r.obra||'—')}</td>`:''}</tr>`).join('')).join('');
+  return `<table style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111">${filas}</table>`;
+}
+
+// ════════════════════════════════════════════
+// FICHA PARA ADJUNTAR (PDF / Excel)
+// Todo lo que justifica el monto: persona, día, horario, horas, lugar, tipo
+// y tarea realizada de cada HE, agrupado por producción y por persona.
+// ════════════════════════════════════════════
+function escH(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function agruparFicha(regs){
+  const porObra={};
+  sinAnulados(regs).forEach(r=>{const o=r.obra||'Sin producción';(porObra[o]=porObra[o]||[]).push(r);});
+  return Object.keys(porObra).sort((a,b)=>a.localeCompare(b)).map(obra=>{
+    const rs=porObra[obra];
+    const porPersona={};rs.forEach(r=>{(porPersona[r.nombre]=porPersona[r.nombre]||[]).push(r);});
+    const personas=Object.keys(porPersona).sort((a,b)=>a.localeCompare(b)).map(n=>{
+      const lista=porPersona[n].slice().sort(ordenTicket);
+      return{nombre:n,lista,total:lista.reduce((a,r)=>a+(r.total||0),0),horas:lista.reduce((a,r)=>a+horasDe(r),0)};
+    });
+    return{obra,tipo:TIPO_LBL[tipoObraDe(rs[0])]||'',personas,total:rs.reduce((a,r)=>a+(r.total||0),0),horas:rs.reduce((a,r)=>a+horasDe(r),0),n:rs.length};
+  });
+}
+function pdfFicha({titulo,subtitulo,regs,totalLbl='Total',conformidad=false}){
+  const grupos=agruparFicha(regs);
+  const total=grupos.reduce((a,g)=>a+g.total,0), horas=grupos.reduce((a,g)=>a+g.horas,0);
+  const nHE=grupos.reduce((a,g)=>a+g.n,0), nPers=new Set(sinAnulados(regs).map(r=>r.nombre)).size;
+  const resumen=grupos.length>1?`<h2>Resumen por producción</h2><table class="res"><tr><th>Producción</th><th>Tipo</th><th class="r">HE</th><th class="r">Horas</th><th class="r">Monto</th></tr>${grupos.map(g=>`<tr><td>${escH(g.obra)}</td><td>${escH(g.tipo)}</td><td class="r">${g.n}</td><td class="r">${g.horas?fmtHs(g.horas):'—'}</td><td class="r">$${fmt2(g.total)}</td></tr>`).join('')}<tr class="tot"><td colspan="2">${escH(totalLbl)}</td><td class="r">${nHE}</td><td class="r">${horas?fmtHs(horas):'—'}</td><td class="r">$${fmt2(total)}</td></tr></table>`:'';
+  const cuerpo=grupos.map(g=>`
+    <h2>${escH(g.obra)}${g.tipo?` <span class="tipo">${escH(g.tipo)}</span>`:''}<span class="gtot">$${fmt2(g.total)}</span></h2>
+    <table><tr><th>Día</th><th>Horario</th><th class="r">Hs</th><th>Lugar</th><th>Tipo de HE</th><th>Tarea realizada</th><th class="r">Monto</th></tr>
+    ${g.personas.map(p=>`<tr class="per"><td colspan="6">${escH(p.nombre)} <span>· ${p.lista.length} HE${p.horas?` · ${fmtHs(p.horas)}`:''}</span></td><td class="r">$${fmt2(p.total)}</td></tr>
+      ${p.lista.map(r=>`<tr><td class="nw">${cuandoTicket(r)}</td><td class="nw">${horarioTicket(r)}</td><td class="r nw">${cantTicket(r)||'—'}</td><td class="nw">${escH(dondeTicket(r))}</td><td>${escH(r.tipoLabel||'—')}</td><td>${r.descripcion?escH(r.descripcion):'<em>sin descripción cargada</em>'}</td><td class="r nw">$${fmt2(r.total)}</td></tr>`).join('')}`).join('')}
+    </table>`).join('');
+  const firma=conformidad?`<div class="firma"><div>Revisado y aprobado por la producción</div><div class="lineas"><span>Firma</span><span>Aclaración</span><span>Fecha</span></div></div>`:'';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escH(titulo)}</title><style>
+    body{font-family:Arial,sans-serif;font-size:11px;color:#111;margin:28px}
+    h1{font-size:18px;margin:0 0 2px}.sub{color:#555;font-size:12px;margin-bottom:12px}
+    .kpis{display:flex;gap:24px;border:1px solid #ccc;border-radius:6px;padding:10px 14px;margin:10px 0 16px}
+    .kpis div{font-size:10px;text-transform:uppercase;color:#666}.kpis b{display:block;font-size:16px;color:#111;text-transform:none}
+    h2{font-size:13px;margin:18px 0 6px;border-bottom:2px solid #222;padding-bottom:3px;display:flex;gap:8px;align-items:baseline}
+    h2 .tipo{font-size:10px;font-weight:normal;color:#666;text-transform:uppercase}h2 .gtot{margin-left:auto}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px}
+    th{text-align:left;font-size:9px;text-transform:uppercase;color:#666;padding:4px 6px;border-bottom:1px solid #999}
+    td{padding:4px 6px;border-bottom:1px solid #e4e4e4;vertical-align:top}
+    tr.per td{background:#f1f1ec;font-weight:bold;border-top:1px solid #bbb}tr.per span{font-weight:normal;color:#555}
+    .r{text-align:right}.nw{white-space:nowrap}tr.tot td{font-weight:bold;border-top:2px solid #222}
+    .firma{margin-top:36px;font-size:11px}.firma .lineas{display:flex;gap:40px;margin-top:38px}
+    .firma .lineas span{flex:1;border-top:1px solid #333;padding-top:4px;color:#555}
+    .pie{margin-top:24px;font-size:9px;color:#888}
+    @media print{body{margin:14px}tr{page-break-inside:avoid}}
+    </style></head><body>
+    <h1>${escH(titulo)}</h1><div class="sub">${escH(subtitulo||'')}</div>
+    <div class="kpis"><div>${escH(totalLbl)}<b>$${fmt2(total)}</b></div><div>Horas extras<b>${nHE}</b></div><div>Horas<b>${horas?fmtHs(horas):'—'}</b></div><div>Personas<b>${nPers}</b></div></div>
+    ${resumen}${cuerpo||'<p>Sin registros.</p>'}${firma}
+    <div class="pie">Generado el ${fmtF(new Date().toISOString().split('T')[0])} · Sistema HE — ${TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza'}</div>
+    <script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank');
+  if(!w){alert('El navegador bloqueó la ventana del PDF. Permití las ventanas emergentes para este sitio y probá de nuevo.');return;}
+  w.document.write(html);w.document.close();
+}
+function xlsxFicha({archivo,regs,totalLbl='Total'}){
+  if(typeof XLSX==='undefined'){alert('No se pudo cargar el generador de Excel (sin conexión). Probá de nuevo en un momento.');return;}
+  const grupos=agruparFicha(regs);
+  const wb=XLSX.utils.book_new();
+  const det=[['Producción','Persona','Fecha','Día','Desde','Hasta','Horas','Lugar','Tipo de HE','Tarea realizada','Monto']];
+  grupos.forEach(g=>g.personas.forEach(p=>p.lista.forEach(r=>det.push([g.obra,p.nombre,fmtF(r.fecha),diaSemana(r.fecha),r.horaDesde||'',r.horaHasta||'',horasDe(r)||(r.cantidad!=null?`${r.cantidad} u.`:''),dondeTicket(r),r.tipoLabel||'',r.descripcion||'',r.total||0]))));
+  const total=grupos.reduce((a,g)=>a+g.total,0);
+  det.push(['','','','','','','','','','',''],['',totalLbl.toUpperCase(),'','','','','','','','',total]);
+  const wsD=XLSX.utils.aoa_to_sheet(det);
+  wsD['!cols']=[{wch:24},{wch:24},{wch:11},{wch:5},{wch:7},{wch:7},{wch:7},{wch:20},{wch:26},{wch:60},{wch:12}];
+  aplicarFormatoMoneda(wsD,[10],1,det.length-1);
+  XLSX.utils.book_append_sheet(wb,wsD,'Detalle');
+  const per=[['Persona','Producción','HE','Horas','Monto']];
+  grupos.forEach(g=>g.personas.forEach(p=>per.push([p.nombre,g.obra,p.lista.length,p.horas||'',p.total])));
+  per.push(['','','','',''],[totalLbl.toUpperCase(),'',grupos.reduce((a,g)=>a+g.n,0),grupos.reduce((a,g)=>a+g.horas,0)||'',total]);
+  const wsP=XLSX.utils.aoa_to_sheet(per);
+  wsP['!cols']=[{wch:26},{wch:26},{wch:6},{wch:8},{wch:12}];
+  aplicarFormatoMoneda(wsP,[4],1,per.length-1);
+  XLSX.utils.book_append_sheet(wb,wsP,'Por persona');
+  XLSX.writeFile(wb,archivo);
+}
+function slugArchivo(t){return String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,'');}
 
 function getCCDefault(area,teatro,obraNombre){
   const meta=OBRAS_META[obraNombre];
@@ -1561,10 +1708,18 @@ function buildConsolidado(){
     const byPersona={};data.rows.forEach(r=>{if(!byPersona[r.nombre])byPersona[r.nombre]={total:0,n:0,teatro:r.teatro};byPersona[r.nombre].total+=r.total||0;byPersona[r.nombre].n++;});
     const tCls=salaAsume?'asume':tipo.toLowerCase();const tLbl=salaAsume?'Sala asume':tipo==='PROPIA'?'Propia':tipo==='COOPERATIVA'?'Cooperativa':'Tercero';
     const personaRows=Object.entries(byPersona).sort((a,b)=>b[1].total-a[1].total)
-      .map(([n,d])=>`<div class="obra-row" style="cursor:pointer" onclick="abrirDetallPersona('${n.replace(/'/g,"\\'")}','${d.teatro}')" title="Ver tickets de ${n} este mes">
+      .map(([n,d])=>{
+        // Debajo de cada persona, sus HE en ESTA producción: día, horario, horas, tipo y tarea
+        const suyas=data.rows.filter(r=>r.nombre===n).sort(ordenTicket);
+        const detalle=suyas.map(r=>{const cant=cantTicket(r);return `<div class="obra-tk">
+          <span class="tk-cuando">${cuandoTicket(r)}<small>${horarioTicket(r)}${cant?` · ${cant}`:''}</small><small>${dondeTicket(r)}</small></span>
+          <span><span class="tk-tipo">${r.tipoLabel||'—'}</span><span class="tk-desc">${r.descripcion?String(r.descripcion).replace(/</g,'&lt;'):'<em>sin descripción cargada</em>'}</span></span>
+          <span class="tk-monto">$${fmt2(r.total)}</span>
+        </div>`;}).join('');
+        return `<div class="obra-row persona" style="cursor:pointer" onclick="abrirDetallPersona('${n.replace(/'/g,"\\'")}','${d.teatro}')" title="Ver todos los tickets de ${n} del mes">
         <span class="obra-rl">${n} <span class="mono" style="color:var(--mu);font-size:10px">(${d.n})</span></span>
         <span class="obra-rr">$${fmt2(d.total)}</span>
-      </div>`).join('');
+      </div>${detalle}`;}).join('');
     html+=`<div class="obra-block">
       <div class="obra-head" onclick="this.nextElementSibling.classList.toggle('open')">
         <div class="obra-meta"><span class="obra-nom">${obra}</span><span class="otag ${tCls}">${tLbl}</span>${(!salaAsume&&data.asumido>0)?`<span class="otag asume">Sala asume $${fmt2(data.asumido)}</span>`:''}<span class="mono" style="color:var(--mu);font-size:10px">${teatro}</span></div>
@@ -1837,34 +1992,85 @@ function buildMails(){
   const byP={};delMes.forEach(r=>{if(!byP[r.nombre])byP[r.nombre]={total:0,areas:r.areas};byP[r.nombre].total+=r.total||0;});
   const obrasTerc=[...new Set(terceros.map(r=>r.obra))];
 
+  const teatroLbl=TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza';
+  // Cada bloque de detalle se arma dos veces: en texto (vista previa, .txt) y
+  // como tabla HTML (lo que viaja al copiar y pegar en el mail).
+  const bloques=[];
+  const det=(rs,opts)=>{bloques.push({txt:detalleCortoTxt(rs,opts),html:detalleCortoHTML(rs,opts)});return `⟦B${bloques.length-1}⟧`;};
+  const adj=(nombre,regs,extra={})=>Object.assign({nombre,regs,subtitulo:`${mesNom.charAt(0).toUpperCase()+mesNom.slice(1)} · ${teatroLbl}`,archivo:`HE_${mk}_${slugArchivo(nombre)}.xlsx`},extra);
+
   const mails=[
-    // 1. RRHH — consolidado completo
+    // 1. RRHH — montos (el detalle va en la ficha adjunta)
     {label:'RRHH — Consolidado completo',
-     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Consolidado RRHH\n\nHola,\n\nResumen completo de Horas Extras — ${mesNom}.\n\nTOTAL GENERAL: $${fmt2(totGen)}\n  Producciones propias:   $${fmt2(tP)}\n  A descontar terceros:   $${fmt2(tT)}\n  Asumido por sala:       $${fmt2(tS)}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n} (${(d.areas||[]).join('+').replace(/_/g,' ')}): $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);const tp=tipoObraDe(rs[0]);return`  [${tp}] ${o}: $${fmt2(t)}`;}).join('\n')}\n\nDETALLE COMPLETO ADJUNTO EN XLSX.\nSaludos`},
+     adjunto:adj('Horas Extras — consolidado',delMes),
+     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Consolidado RRHH\n\nHola,\n\nResumen completo de Horas Extras — ${mesNom}.\n\nTOTAL GENERAL: $${fmt2(totGen)}\n  Producciones propias:   $${fmt2(tP)}\n  A descontar terceros:   $${fmt2(tT)}\n  Asumido por sala:       $${fmt2(tS)}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n} (${(d.areas||[]).join('+').replace(/_/g,' ')}): $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);const tp=tipoObraDe(rs[0]);return`  [${tp}] ${o}: $${fmt2(t)}`;}).join('\n')}\n\nEn el PDF adjunto va la ficha de cada HE (día, horario, lugar, horas y tarea realizada).\nSaludos`},
     // 2. Admin — pago técnicos día 15
     {label:'Admin — Pago día 15',
+     adjunto:adj('Horas Extras — pagos',delMes),
      body:`ASUNTO: HE ${mesNom.toUpperCase()} — Pagos a procesar el día 15\n\nHola,\n\nListado de pagos de HE a procesar el día 15:\n\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nTOTAL A PAGAR: $${fmt2(totGen)}\n\nConfirmar disponibilidad antes del día 14.\nSaludos`},
     // 3. Gustavo — descuentos a producciones
     {label:'Gustavo — Descuentos producciones',
-     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Resumen descuentos a producciones externas\n\nHola Gustavo,\n\nAdjunto el detalle de descuentos a aplicar sobre liquidaciones de producciones externas — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tT)}\n\n${obrasTerc.map(obra=>{const rs=terceros.filter(r=>r.obra===obra);const tot=rs.reduce((a,r)=>a+(r.total||0),0);return`${obra}: $${fmt2(tot)}\n${rs.map(r=>`  ${fmtF(r.fecha)} · ${r.nombre} · ${r.tipoLabel}: $${fmt2(r.total)}`).join('\n')}`;}).join('\n\n')}\n\nSaludos`},
-    // 4. Por producción externa (uno por cada tercero)
+     adjunto:adj('Descuentos a producciones externas',terceros,{totalLbl:'Total a descontar'}),
+     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Resumen descuentos a producciones externas\n\nHola Gustavo,\n\nTe paso los descuentos de HE a aplicar sobre las liquidaciones de producciones externas — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tT)}\n\n${obrasTerc.map(obra=>{const rs=terceros.filter(r=>r.obra===obra);const tot=rs.reduce((a,r)=>a+(r.total||0),0);return`━━ ${obra.toUpperCase()} — A DESCONTAR: $${fmt2(tot)}\n\n${det(rs)}`;}).join('\n\n\n')}\n\nEn el PDF adjunto va la ficha de cada producción, con lugar, tipo y tarea realizada de cada HE.\nSaludos`},
+    // 4. Por producción externa (uno por cada tercero / cooperativa)
     ...obrasTerc.map(obra=>{
       const rs=terceros.filter(r=>r.obra===obra);
       const tot=rs.reduce((a,r)=>a+(r.total||0),0);
       return{label:`Descuento — ${obra}`,
-        body:`ASUNTO: Descuento HE ${mesNom.toUpperCase()} — ${obra}\n\nHola,\n\nInformamos las Horas Extras que corresponde descontar de la liquidación de ${obra} — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tot)}\n\nDETALLE:\n${rs.map(r=>`  ${fmtF(r.fecha)} · ${r.nombre} · ${r.tipoLabel}: $${fmt2(r.total)}`).join('\n')}\n\nPor favor confirmar conformidad respondiendo este mail.\nEste descuento se procesará en la liquidación del período.\nSaludos`};
+        adjunto:adj(`${obra} — HE a descontar`,rs,{totalLbl:'Total a descontar',conformidad:true}),
+        body:`ASUNTO: Descuento HE ${mesNom.toUpperCase()} — ${obra}\n\nHola,\n\nInformamos las Horas Extras que corresponde descontar de la liquidación de ${obra} — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tot)}\n\nDETALLE:\n\n${det(rs)}\n\nEn el PDF adjunto va la ficha completa de cada HE —lugar, tipo y tarea realizada— para su revisión.\nPor favor confirmar conformidad respondiendo este mail.\nEste descuento se procesará en la liquidación del período.\nSaludos`};
     }),
     // 5. Interno — archivo/constancia
     {label:'Interno — Archivo y constancia',
-     body:`ASUNTO: [ARCHIVO INTERNO] HE ${mesNom.toUpperCase()} — Constancia de procesamiento\n\nRegistro interno de HE procesadas — ${mesNom}.\nFecha de procesamiento: ${fmtF(new Date().toISOString().split('T')[0])}\n\nTOTAL PROCESADO: $${fmt2(totGen)}\nRegistros: ${delMes.length}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA/CC:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);return`  ${o}: $${fmt2(t)}`;}).join('\n')}\n\n[Archivado por: Administración Teatro]\n[Ver detalle completo en XLSX adjunto]`},
+     adjunto:adj('Constancia de HE procesadas',delMes,{totalLbl:'Total procesado'}),
+     body:`ASUNTO: [ARCHIVO INTERNO] HE ${mesNom.toUpperCase()} — Constancia de procesamiento\n\nRegistro interno de HE procesadas — ${mesNom}.\nFecha de procesamiento: ${fmtF(new Date().toISOString().split('T')[0])}\n\nTOTAL PROCESADO: $${fmt2(totGen)}\nRegistros: ${delMes.length}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA/CC:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);return`  ${o}: $${fmt2(t)}`;}).join('\n')}\n\nDETALLE:\n\n${det(delMes,{conObra:true})}\n\nFicha completa de cada HE (lugar, tipo y tarea realizada) en el PDF adjunto.\n[Archivado por: Administración Teatro]`},
   ];
 
+  // Versión texto y versión HTML de cada mail
+  mails.forEach(m=>{
+    const crudo=m.body;
+    m.body=crudo.replace(/⟦B(\d+)⟧/g,(_,k)=>bloques[+k].txt);
+    m.html=`<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111;line-height:1.5">`+
+      crudo.split(/(⟦B\d+⟧)/).map(parte=>{
+        const b=parte.match(/^⟦B(\d+)⟧$/);
+        return b?bloques[+b[1]].html:escH(parte).replace(/\n/g,'<br>');
+      }).join('')+`</div>`;
+  });
   window._mails=mails;
   document.getElementById('mail-tabs').innerHTML=mails.map((m,i)=>`<div class="mtab ${i===mailActivo?'active':''}" onclick="selMail(${i},this)">${m.label}</div>`).join('');
   document.getElementById('mail-pre').textContent=mails[mailActivo]?.body||'';
+  pintarAdjunto();
 }
-function selMail(i,el){document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mailActivo=i;document.getElementById('mail-pre').textContent=window._mails[i]?.body||'';}
-function copiarMail(){navigator.clipboard.writeText(window._mails[mailActivo]?.body||'').then(()=>alert('Copiado al portapapeles'));}
+// Botones del adjunto: cada mail tiene SU ficha (la de esa producción, la de
+// todos los terceros, o la del mes completo)
+function pintarAdjunto(){
+  const m=window._mails&&window._mails[mailActivo];
+  const lbl=document.getElementById('mail-adj-lbl');
+  if(lbl)lbl.textContent=m&&m.adjunto?`Ficha para adjuntar a este mail: ${m.adjunto.nombre}`:'';
+}
+function adjuntoMail(tipo){
+  const m=window._mails&&window._mails[mailActivo];
+  if(!m||!m.adjunto)return;
+  const a=m.adjunto;
+  if(tipo==='pdf')pdfFicha({titulo:a.nombre,subtitulo:a.subtitulo,regs:a.regs,totalLbl:a.totalLbl||'Total',conformidad:!!a.conformidad});
+  else xlsxFicha({archivo:a.archivo,regs:a.regs,totalLbl:a.totalLbl||'Total'});
+}
+function selMail(i,el){document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mailActivo=i;document.getElementById('mail-pre').textContent=window._mails[i]?.body||'';pintarAdjunto();}
+async function copiarMail(){
+  const m=window._mails&&window._mails[mailActivo]; if(!m)return;
+  try{
+    if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html':new Blob([m.html],{type:'text/html'}),
+        'text/plain':new Blob([m.body],{type:'text/plain'}),
+      })]);
+      alert('Copiado. Al pegarlo en el mail, el detalle queda como tabla: cada HE en una línea y las columnas alineadas.');
+      return;
+    }
+  }catch(e){ console.warn('Copia con formato no disponible, va como texto:',e); }
+  await navigator.clipboard.writeText(m.body);
+  alert('Copiado al portapapeles (como texto).');
+}
 function descargarMail(){const m=window._mails[mailActivo];const a=document.createElement('a');a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(m.body);a.download=`HE_${m.label.replace(/[^a-z0-9]/gi,'_')}.txt`;a.click();}
 
 // ════════════════════════════════════════════
@@ -2341,15 +2547,9 @@ function exportXLSX(){
   XLSX.writeFile(wb,`HE_${mk}${sufijo}.xlsx`);
 }
 function exportPDF(){
-  const hoy=new Date();const mk=PERIODO;
-  const delMes=registrosConsolidadoFiltrados();
   const etiqueta=etiquetaFiltroConsolidado();
-  const mesNom=mkNombre(mk);
-  const totGen=delMes.reduce((a,r)=>a+(r.total||0),0);
-  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]={total:0,tipo:tipoObraDe(r)};byObra[k].total+=r.total||0;});
-  const tituloCorte=etiqueta?` — ${etiqueta}`:'';
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HE ${mesNom}${tituloCorte}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:32px}h1{font-size:18px}h2{font-size:13px;margin:18px 0 5px;border-bottom:1px solid #ccc;padding-bottom:3px}.tot{font-size:15px;font-weight:700;margin:6px 0}.sub{font-size:12px;color:#666;margin-bottom:10px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{text-align:left;font-size:10px;text-transform:uppercase;color:#666;padding:4px 7px;border-bottom:2px solid #ccc}td{padding:4px 7px;border-bottom:1px solid #eee;font-size:11px}.right{text-align:right}@media print{body{margin:16px}}</style></head><body><h1>Horas Extras — ${mesNom}</h1>${etiqueta?`<div class="sub">Recorte: ${etiqueta}</div>`:''}<div class="tot">Total: $${fmt2(totGen)}</div><h2>Consolidado por obra</h2><table><tr><th>Obra</th><th>Tipo</th><th class="right">Total</th></tr>${Object.entries(byObra).map(([o,d])=>`<tr><td>${o}</td><td>${d.tipo}</td><td class="right">$${fmt2(d.total)}</td></tr>`).join('')}</table><h2>Registros</h2><table><tr><th>Fecha</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Tipo HE</th><th>Descripción</th><th>Obra</th><th class="right">Total</th></tr>${delMes.map(r=>`<tr><td>${fmtF(r.fecha)}</td><td>${r.nombre}</td><td>${(r.areas||[]).join('+')}</td><td>${(r.horaDesde||r.horaHasta)?(r.horaDesde||'?')+'–'+(r.horaHasta||'?'):'—'}</td><td>${r.tipoLabel}</td><td>${r.descripcion||'—'}</td><td>${r.obra||'—'}</td><td class="right">$${fmt2(r.total)}</td></tr>`).join('')}</table><script>window.onload=()=>window.print()<\/script></body></html>`;
-  const w=window.open('','_blank');w.document.write(html);w.document.close();
+  const mesNom=mkNombre(PERIODO);
+  pdfFicha({titulo:`Horas Extras — ${mesNom}${etiqueta?` — ${etiqueta}`:''}`,subtitulo:TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza',regs:registrosConsolidadoFiltrados()});
 }
 
 // ════════════════════════════════════════════
