@@ -185,6 +185,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .mail-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
 .mtab{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--mu);white-space:nowrap;transition:all .1s}
 .mtab.active{background:var(--ac);border-color:var(--ac);color:#fff}
+.mtabs-sep{flex-basis:100%;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);margin:8px 0 2px}
+.mail-vacio{flex-basis:100%;font-size:12px;color:var(--mu);background:var(--s2);border:1px dashed var(--bd);border-radius:var(--rs);padding:9px 12px;line-height:1.5}
 .mail-pre{background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:14px;font-size:12px;line-height:1.7;font-family:'DM Mono',monospace;white-space:pre-wrap;max-height:300px;overflow-y:auto;margin-bottom:12px}
 
 /* EDIT RECORD */
@@ -835,7 +837,7 @@ function detalleCortoTxt(rs,{sangria='  ',conObra=false}={}){
 function detalleCortoHTML(rs,{conObra=false}={}){
   const td='padding:2px 16px 2px 0;white-space:nowrap;vertical-align:top';
   const tdR=td+';text-align:right';
-  const filas=gruposPersona(rs).map(p=>`<tr><td colspan="${conObra?5:4}" style="padding:10px 0 3px;font-weight:bold">${escH(p.nombre)} — ${p.horas?`${fmtHs(p.horas)} · `:''}$${fmt2(p.total)}</td></tr>`+
+  const filas=gruposPersona(rs).map(p=>`<tr><td colspan="${conObra?5:4}" style="padding:12px 0 3px;font-weight:bold;font-size:14px">${escH(p.nombre)} — ${p.horas?`${fmtHs(p.horas)} · `:''}$${fmt2(p.total)}</td></tr>`+
     p.lista.map(r=>`<tr><td style="${td};padding-left:14px">${cuandoTicket(r)}</td><td style="${td}">${horarioTicket(r)}</td><td style="${tdR}">${cantTicket(r)||'—'}</td><td style="${tdR}">$${fmt2(r.total)}</td>${conObra?`<td style="${td};color:#555">${escH(r.obra||'—')}</td>`:''}</tr>`).join('')).join('');
   return `<table style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111">${filas}</table>`;
 }
@@ -867,8 +869,8 @@ function pdfFicha({titulo,subtitulo,regs,totalLbl='Total',conformidad=false}){
   const cuerpo=grupos.map(g=>`
     <h2>${escH(g.obra)}${g.tipo?` <span class="tipo">${escH(g.tipo)}</span>`:''}<span class="gtot">$${fmt2(g.total)}</span></h2>
     <table><tr><th>Día</th><th>Horario</th><th class="r">Hs</th><th>Lugar</th><th>Tipo de HE</th><th>Tarea realizada</th><th class="r">Monto</th></tr>
-    ${g.personas.map(p=>`<tr class="per"><td colspan="6">${escH(p.nombre)} <span>· ${p.lista.length} HE${p.horas?` · ${fmtHs(p.horas)}`:''}</span></td><td class="r">$${fmt2(p.total)}</td></tr>
-      ${p.lista.map(r=>`<tr><td class="nw">${cuandoTicket(r)}</td><td class="nw">${horarioTicket(r)}</td><td class="r nw">${cantTicket(r)||'—'}</td><td class="nw">${escH(dondeTicket(r))}</td><td>${escH(r.tipoLabel||'—')}</td><td>${r.descripcion?escH(r.descripcion):'<em>sin descripción cargada</em>'}</td><td class="r nw">$${fmt2(r.total)}</td></tr>`).join('')}`).join('')}
+    ${g.personas.map((p,ip)=>`${ip?'<tr class="sep"><td colspan="7"></td></tr>':''}<tr class="per"><td colspan="6">${escH(p.nombre)} <span>· ${p.lista.length} HE${p.horas?` · ${fmtHs(p.horas)}`:''}</span></td><td class="r">$${fmt2(p.total)}</td></tr>
+      ${p.lista.map(r=>`<tr class="det"><td class="nw">${cuandoTicket(r)}</td><td class="nw">${horarioTicket(r)}</td><td class="r nw">${cantTicket(r)||'—'}</td><td class="nw">${escH(dondeTicket(r))}</td><td>${escH(r.tipoLabel||'—')}</td><td>${r.descripcion?escH(r.descripcion):'<em>sin descripción cargada</em>'}</td><td class="r nw">$${fmt2(r.total)}</td></tr>`).join('')}`).join('')}
     </table>`).join('');
   const firma=conformidad?`<div class="firma"><div>Revisado y aprobado por la producción</div><div class="lineas"><span>Firma</span><span>Aclaración</span><span>Fecha</span></div></div>`:'';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escH(titulo)}</title><style>
@@ -881,7 +883,14 @@ function pdfFicha({titulo,subtitulo,regs,totalLbl='Total',conformidad=false}){
     table{width:100%;border-collapse:collapse;margin-bottom:8px}
     th{text-align:left;font-size:9px;text-transform:uppercase;color:#666;padding:4px 6px;border-bottom:1px solid #999}
     td{padding:4px 6px;border-bottom:1px solid #e4e4e4;vertical-align:top}
-    tr.per td{background:#f1f1ec;font-weight:bold;border-top:1px solid #bbb}tr.per span{font-weight:normal;color:#555}
+    tr.per td{background:#e4e4dc;font-weight:bold;font-size:13px;padding:7px 8px;border-bottom:1px solid #9a9a90}
+    tr.sep td{height:12px;padding:0;border:none;background:#fff}
+    tr.per td:first-child{border-left:4px solid #222}
+    tr.per td.r{font-size:14px}
+    tr.per span{font-weight:normal;font-size:11px;color:#555}
+    tr.det td{font-size:10.5px;color:#333;padding:3px 8px}
+    tr.det td:first-child{padding-left:16px}
+    tr.det td.r{color:#666}
     .r{text-align:right}.nw{white-space:nowrap}tr.tot td{font-weight:bold;border-top:2px solid #222}
     .firma{margin-top:36px;font-size:11px}.firma .lineas{display:flex;gap:40px;margin-top:38px}
     .firma .lineas span{flex:1;border-top:1px solid #333;padding-top:4px;color:#555}
@@ -2016,7 +2025,7 @@ function buildMails(){
     ...obrasTerc.map(obra=>{
       const rs=terceros.filter(r=>r.obra===obra);
       const tot=rs.reduce((a,r)=>a+(r.total||0),0);
-      return{label:`Descuento — ${obra}`,
+      return{label:`Descuento — ${obra}`,produccion:obra,
         adjunto:adj(`${obra} — HE a descontar`,rs,{totalLbl:'Total a descontar',conformidad:true}),
         body:`ASUNTO: Descuento HE ${mesNom.toUpperCase()} — ${obra}\n\nHola,\n\nInformamos las Horas Extras que corresponde descontar de la liquidación de ${obra} — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tot)}\n\nDETALLE:\n\n${det(rs)}\n\nEn el PDF adjunto va la ficha completa de cada HE —lugar, tipo y tarea realizada— para su revisión.\nPor favor confirmar conformidad respondiendo este mail.\nEste descuento se procesará en la liquidación del período.\nSaludos`};
     }),
@@ -2037,7 +2046,15 @@ function buildMails(){
       }).join('')+`</div>`;
   });
   window._mails=mails;
-  document.getElementById('mail-tabs').innerHTML=mails.map((m,i)=>`<div class="mtab ${i===mailActivo?'active':''}" onclick="selMail(${i},this)">${m.label}</div>`).join('');
+  // Renglón 1: mails generales. Renglón 2: uno por cada producción externa
+  // (tercero o cooperativa) que tenga HE en el mes — para que la producción
+  // revise, confirme y autorice el descuento.
+  const tab=(m,i)=>`<div class="mtab ${i===mailActivo?'active':''}" onclick="selMail(${i},this)">${escH(m.label)}</div>`;
+  const generales=mails.map((m,i)=>m.produccion?'':tab(m,i)).join('');
+  const prods=mails.map((m,i)=>m.produccion?tab(m,i):'').join('');
+  document.getElementById('mail-tabs').innerHTML=generales+
+    `<div class="mtabs-sep">A cada producción externa${obrasTerc.length?` · ${obrasTerc.length}`:''}</div>`+
+    (prods||`<div class="mail-vacio">En ${mesNom} no hay HE imputadas a producciones externas (terceros o cooperativas), así que no hay mails de descuento para mandar. Si alguna HE de este mes corresponde a una producción externa, imputala en <a href="#" onclick="showView('imputar');return false">Imputar / CC</a> y su mail aparece acá.</div>`);
   document.getElementById('mail-pre').textContent=mails[mailActivo]?.body||'';
   pintarAdjunto();
 }
