@@ -206,7 +206,8 @@ textarea{resize:none;height:90px;line-height:1.5}
 
   <div class="field">
     <label>Fecha</label>
-    <input type="date" id="fecha" onchange="checkSolapamiento()">
+    <div class="alert-warn" id="aviso-mes-abierto"></div>
+    <input type="date" id="fecha" onchange="S._fechaTocada=true;checkSolapamiento()">
   </div>
   <div class="field">
     <label>Horario trabajado</label>
@@ -543,6 +544,28 @@ let HIST_MES = null;          // mes elegido en "Mi historial"
 
 function mesK(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
 function mkSumar(mk,n){const[y,m]=mk.split('-').map(Number);return mesK(new Date(y,m-1+n,1));}
+// Mientras coordinación no cierre el mes anterior, casi todo lo que se carga
+// son HE rezagadas de ese mes: la fecha arranca en ese mes (último día) y se
+// avisa. Si la HE es del mes nuevo, se cambia la fecha y listo (va al mes
+// nuevo, con sus valores, y no se mezcla con el mes que está por cerrar).
+function mesAnteriorAbierto(){
+  if (!MESES_F_OK) return null;
+  const hoy = new Date();
+  const prev = mesK(new Date(hoy.getFullYear(), hoy.getMonth()-1, 1));
+  const abierto = S.teatro ? !mesCerradoF(prev, S.teatro) : !(mesCerradoF(prev,'MET') && mesCerradoF(prev,'PLP'));
+  return abierto ? prev : null;
+}
+function aplicarFechaDefault(){
+  const aviso = document.getElementById('aviso-mes-abierto');
+  const prev = mesAnteriorAbierto();
+  if (!prev) { aviso.classList.remove('vis'); S._fechaDefault = null; return; }
+  const [y,m] = prev.split('-').map(Number);
+  const ult = `${prev}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`;
+  if (!S._fechaTocada) { document.getElementById('fecha').value = ult; S._fechaDefault = ult; }
+  const nomPrev = mkNombre(prev).split(' ')[0], nomHoy = mkNombre(mesK(new Date())).split(' ')[0].toLowerCase();
+  aviso.innerHTML = `<b>${nomPrev} todavía no se cerró.</b> La fecha arranca en ${nomPrev.toLowerCase()}: poné el día exacto de tu HE. Si la HE es de ${nomHoy}, cambiá la fecha a ${nomHoy}.`;
+  aviso.classList.add('vis');
+}
 function mkNombre(mk){const[y,m]=mk.split('-').map(Number);const n=new Date(y,m-1,1,12).toLocaleString('es-AR',{month:'long',year:'numeric'});return n.charAt(0).toUpperCase()+n.slice(1);}
 function mkLista(desde,hasta){const out=[];for(let mk=desde;mk<=hasta&&out.length<240;mk=mkSumar(mk,1))out.push(mk);return out;}
 function mesCerradoF(mk,teatro){return MESES_CERRADOS_F.some(m=>m.mes===mk&&(m.teatro===teatro||m.teatro==='AMBOS'));}
@@ -1047,6 +1070,7 @@ function render() {
     step === 0 ? 'Guardar perfil →' : step < STEPS ? 'Continuar →' : 'Enviar ✓';
 
   if (step === 1) {
+    aplicarFechaDefault();
     document.getElementById('prof-chip').innerHTML = `
       <div class="prof-name">${S.nombre}</div>
       <div class="prof-sub">${S.area.replace('_',' ')} · ${S.teatro||'—'}${S.esJefe?' · Jefe de área':''}${S.esPatino?' · Mant. & Limp.':''}</div>
@@ -1308,6 +1332,11 @@ function validate() {
     const d = document.getElementById('hora-desde').value;
     const h = document.getElementById('hora-hasta').value;
     if (!f || !d || !h) { showA('alert1','Ingresá la fecha y el horario completo.'); return false; }
+    if (S._fechaDefault && f === S._fechaDefault && !S._fechaTocada) {
+      const [yy,mm,dd] = f.split('-');
+      if (!confirm(`¿Tu HE fue el ${dd}/${mm}/${yy}?\n\nSi fue otro día, tocá "Cancelar" y cambiá la fecha.`)) return false;
+      S._fechaTocada = true;
+    }
     if (S._overlapBlocked) { showA('alert1','Resolvé el conflicto de horario antes de continuar.'); return false; }
     if (S.proxyActivo && !perfilDe(document.getElementById('proxy-nombre').value)) {
       showA('alert1','Seleccioná de la lista a la persona por la que cargás.'); return false;
