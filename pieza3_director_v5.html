@@ -397,7 +397,13 @@ textarea{resize:none;height:60px;line-height:1.5}
           <option value="mant">Mantenimiento y Limpieza</option>
           <option value="todos">Todos los conceptos</option>
         </select></label>
-        <label><input type="checkbox" id="plan-ant" checked onchange="buildPlanilla()"> Mostrar el mes anterior</label>
+        <input type="checkbox" id="plan-ant" checked hidden>
+        <label>Columnas
+          <span class="fbar" style="margin:0;display:inline-flex;gap:6px" id="plan-ant-pills">
+            <span class="fp active" onclick="setPlanAnt(true,this)">Con el mes anterior</span>
+            <span class="fp" onclick="setPlanAnt(false,this)">Solo este mes</span>
+          </span>
+        </label>
       </div>
       <div class="plan-hoja" id="plan-hoja"></div>
       <div class="btn-row" style="margin-top:12px">
@@ -1501,13 +1507,18 @@ function datosPlanilla(){
   const sub=pctMes?`(${pctTxt(pctMes).replace(',0%','%')} incremento sobre ${mesNom(ant).slice(0,3).toUpperCase()})`:`(sin incremento: mismos valores que ${mesNom(ant)})`;
   return {mes,ant,g,conAnt,filas,uniforme,pctMes,sub,
     titulo:'VALORES HE PLP + MET', mesTxt:mesCorto(mes),
-    colMes:`${mesCap(mes)}`, colPct:uniforme?(pctMes?pctTxt(pctMes):'sin cambios'):'', colAnt:mesCap(ant),
+    colMes:`${mesCap(mes)}`, colPct:uniforme&&pctMes?pctTxt(pctMes):'', colAnt:mesCap(ant),
     archivo:`Valores_HE_${g.t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')}_${mes}`};
 }
 function tablaPlanHTML(d,impresion){
   const th=`<tr><th style="text-align:left;vertical-align:bottom">${d.g.t==='Todos'?'Concepto':d.g.t}</th>${d.conAnt?`<th>${d.colAnt}</th>`:''}<th>${d.colMes}${d.colPct?`<br><i>${d.colPct}</i>`:''}</th>${d.uniforme?'':'<th>Var.</th>'}</tr>`;
   const tr=d.filas.map(f=>`<tr class="${f.b?'b':''}"><td>${f.c}</td>${d.conAnt?`<td class="m ant">${montoPlan(f.ant)}</td>`:''}<td class="m">${montoPlan(f.val)}</td>${d.uniforme?'':`<td class="m">${f.var?(f.var>0?'+':'')+pctTxt(f.var):'—'}</td>`}</tr>`).join('');
   return `<div class="pt">${d.titulo}</div><div class="pm">${d.mesTxt}</div><div class="ps">${d.sub}</div><table><thead>${th}</thead><tbody>${tr}</tbody></table><div class="pn">Valores para las HE con fecha de ${mesNom(d.mes)} de ${d.mes.slice(0,4)}.</div>`;
+}
+function setPlanAnt(v,el){
+  document.getElementById('plan-ant').checked=v;
+  document.querySelectorAll('#plan-ant-pills .fp').forEach(x=>x.classList.toggle('active',x===el));
+  buildPlanilla();
 }
 function buildPlanilla(){
   const el=document.getElementById('plan-hoja'); if(!el) return;
