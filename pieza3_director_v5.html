@@ -100,6 +100,31 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .p-table tr:hover td{background:var(--s2)}
 
 /* EXPORT */
+.plan-ctrl{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:14px}
+.plan-ctrl label{font-size:12px;color:var(--mu);display:flex;align-items:center;gap:8px}
+.plan-ctrl select,.plan-ctrl input[type=month]{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs);padding:6px 10px;color:var(--tx);font-size:13px}
+.plan-hoja{background:#fff;color:#111;border-radius:6px;padding:28px 20px;overflow-x:auto;font-family:Calibri,Carlito,Arial,sans-serif}
+.plan-hoja .pt{border:2px solid #111;text-align:center;font-weight:700;font-size:18px;padding:8px;max-width:640px;margin:0 auto}
+.plan-hoja .pm{text-align:center;font-weight:700;font-size:14px;margin-top:14px}
+.plan-hoja .ps{text-align:center;font-style:italic;font-size:13px;margin:4px 0 10px}
+.plan-hoja table{border-collapse:collapse;margin:0 auto;max-width:640px;width:100%;font-size:13px}
+.plan-hoja th,.plan-hoja td{border:1px solid #111;padding:2px 6px}
+.plan-hoja th{font-size:13px;text-align:center;line-height:1.2}
+.plan-hoja td.m{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.plan-hoja td.ant{color:#777}
+.plan-hoja tr.b td:first-child{font-weight:700}
+.plan-hoja .pn{max-width:640px;margin:10px auto 0;font-size:11px;color:#555}
+.ext-hoja{background:#fff;color:#111;border-radius:6px;padding:28px 20px;overflow-x:auto;font-family:Calibri,Carlito,Arial,sans-serif}
+.ext-hoja .et{font-weight:700;font-size:20px;margin:0 0 16px;max-width:700px;margin-left:auto;margin-right:auto}
+.ext-hoja table{border-collapse:collapse;margin:0 auto;max-width:640px;width:100%;font-size:15px}
+.ext-hoja th,.ext-hoja td{border:2px solid #111;padding:12px 8px}
+.ext-hoja th{font-size:17px;text-align:center;line-height:1.2}
+.ext-hoja th small{font-weight:400;font-size:12px}
+.ext-hoja td small{font-size:11px}
+.ext-hoja td.m{text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ext-hoja .en{max-width:640px;margin:26px auto 0;color:#e8261c;font-size:14px;line-height:1.45}
+.ext-hoja .en p{margin:0 0 18px;white-space:pre-line}
+.ext-hoja .en[contenteditable]:focus{outline:1px dashed #e8261c;outline-offset:6px}
 .export-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px;margin-bottom:16px}
 .export-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;transition:all .15s;cursor:default}
 .export-card:hover{border-color:var(--ac)}
@@ -187,9 +212,10 @@ textarea{resize:none;height:60px;line-height:1.5}
 <!-- ═══ VALORES ═══ -->
 <div class="view-p3 active" id="view-p3-valores">
   <div class="vigencia-bar">
-    <div class="vig-item"><div class="vig-lbl">Período vigente</div><div class="vig-val" id="vig-periodo">Feb–Mar 2026</div></div>
-    <div class="vig-item"><div class="vig-lbl">Último incremento</div><div class="vig-val" id="vig-pct">3.5%</div></div>
+    <div class="vig-item"><div class="vig-lbl">Valores base desde</div><div class="vig-val" id="vig-periodo">—</div></div>
+    <div class="vig-item"><div class="vig-lbl">Próximo incremento</div><div class="vig-val" id="vig-pct">—</div></div>
     <div class="vig-item"><div class="vig-lbl">Total conceptos</div><div class="vig-val" id="vig-total"></div></div>
+    <button class="btn ghost" onclick="showP3('exportar')">Planilla del mes →</button>
     <button class="btn ac" onclick="showP3('actualizar')">Actualizar →</button>
   </div>
   <div class="fbar" id="fbar-valores">
@@ -204,7 +230,7 @@ textarea{resize:none;height:60px;line-height:1.5}
   </div>
   <div class="card">
     <div class="card-head">
-      <span class="card-title">Valores vigentes — Septiembre 2026</span>
+      <span class="card-title">Valores por mes</span>
       <div class="btn-row">
         <button class="btn ghost" onclick="exportarReporte('todos','xlsx')">XLSX</button>
         <button class="btn ghost" onclick="exportarReporte('todos','pdf')">PDF</button>
@@ -212,9 +238,10 @@ textarea{resize:none;height:60px;line-height:1.5}
     </div>
     <div style="overflow-x:auto">
       <table class="val-table"><thead><tr>
-        <th>Concepto</th><th>Tipo</th><th>Áreas</th><th>Teatro</th><th>Valor actual</th><th>Solo jefe</th>
+        <th>Concepto</th><th>Tipo</th><th>Áreas</th><th>Teatro</th><th class="th-tramo">Valor actual</th><th>Solo jefe</th>
       </tr></thead><tbody id="tbody-valores"></tbody></table>
     </div>
+    <div style="padding:10px 16px;font-size:11px;color:var(--mu);border-top:1px solid var(--bd);line-height:1.5">El monto de cada HE lo decide el <b>mes de la HE</b> (fecha de la citación), no el día en que se carga: una HE de octubre cargada en noviembre va con valor de octubre. Los incrementos se acumulan: cada uno se aplica sobre el valor del mes anterior. La columna marcada «hoy» es la que rige este mes.</div>
   </div>
 </div>
 
@@ -223,22 +250,29 @@ textarea{resize:none;height:60px;line-height:1.5}
   <div class="card"><div class="card-body">
 
     <div class="update-panel">
-      <h3>A — Incremento % general (todos los conceptos)</h3>
+      <h3>A — Incremento % general programado (todos los conceptos)</h3>
+      <p style="font-size:12px;color:var(--mu);margin-bottom:12px">Rige para las HE con fecha desde el mes elegido, y se acumula sobre los anteriores. Se puede programar con anticipación: no cambia los valores de los meses previos. Si ya hay uno para ese mes, lo reemplaza.</p>
+      <div class="update-row">
+        <span style="font-size:12px;color:var(--mu);min-width:140px">Desde el mes</span>
+        <input type="month" id="mes-general" class="input-month" oninput="previewGeneral()">
+      </div>
       <div class="update-row">
         <span style="font-size:12px;color:var(--mu);min-width:140px">Porcentaje de incremento</span>
-        <input type="number" class="pct-input" id="pct-general" placeholder="3.5" step="0.1" min="0" oninput="previewGeneral()">
+        <input type="number" class="pct-input" id="pct-general" placeholder="5" step="0.1" min="0" oninput="previewGeneral()">
         <span style="font-size:13px;color:var(--mu)">%</span>
       </div>
       <div id="preview-general" class="preview-box" style="display:none"></div>
       <div class="btn-row" style="margin-top:12px">
-        <button class="btn ac" onclick="aplicarGeneral()">Aplicar a todos</button>
+        <button class="btn ac" onclick="aplicarGeneral()">Programar incremento</button>
         <button class="btn ghost" onclick="document.getElementById('pct-general').value='';document.getElementById('preview-general').style.display='none'">Limpiar</button>
       </div>
+      <div style="margin-top:16px;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace">Incrementos programados</div>
+      <div id="lista-ajustes" style="margin-top:8px"></div>
     </div>
 
     <div class="update-panel">
       <h3>B — Ajuste individual por concepto</h3>
-      <p style="font-size:12px;color:var(--mu);margin-bottom:12px">Editá el valor de cada concepto. Los cambios se guardan al presionar "Confirmar".</p>
+      <p style="font-size:12px;color:var(--mu);margin-bottom:12px">Corrige el <b>valor base</b> de cada concepto (el que rige desde el mes de "Período de vigencia"); los incrementos programados se aplican encima. Los cambios se guardan al presionar "Confirmar".</p>
       <div style="overflow-x:auto">
         <table class="val-table"><thead><tr>
           <th>Concepto</th><th>Teatro</th><th>Valor actual</th><th>Nuevo valor</th><th>Δ%</th>
@@ -251,7 +285,7 @@ textarea{resize:none;height:60px;line-height:1.5}
     </div>
 
     <div class="update-panel">
-      <h3>Período de vigencia</h3>
+      <h3>Período de vigencia del valor base (para B)</h3>
       <div class="update-row">
         <span style="font-size:12px;color:var(--mu);min-width:80px">Desde</span>
         <input type="month" id="vig-desde" class="input-month">
@@ -351,6 +385,49 @@ textarea{resize:none;height:60px;line-height:1.5}
 
 <!-- ═══ EXPORTAR ═══ -->
 <div class="view-p3" id="view-p3-exportar">
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head"><span class="card-title">Planilla de valores del mes — para enviar al equipo</span></div>
+    <div class="card-body">
+      <div class="plan-ctrl">
+        <label>Mes <input type="month" id="plan-mes" onchange="buildPlanilla()"></label>
+        <label>Para <select id="plan-grupo" onchange="buildPlanilla()">
+          <option value="tecnicos">Técnicos (Sonido · Iluminación · Maquinaria)</option>
+          <option value="sala">Asistentes de Sala</option>
+          <option value="boleteria">Boletería</option>
+          <option value="mant">Mantenimiento y Limpieza</option>
+          <option value="todos">Todos los conceptos</option>
+        </select></label>
+        <label><input type="checkbox" id="plan-ant" checked onchange="buildPlanilla()"> Mostrar el mes anterior</label>
+      </div>
+      <div class="plan-hoja" id="plan-hoja"></div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn ac" onclick="planillaPDF()">PDF</button>
+        <button class="btn ac" onclick="planillaXLSX()">Excel</button>
+        <button class="btn ghost" onclick="planillaCopiar()">Copiar texto (WhatsApp / mail)</button>
+      </div>
+      <div id="plan-ok" style="font-size:12px;color:var(--green);margin-top:8px;min-height:16px"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head"><span class="card-title">Valores para producciones externas</span></div>
+    <div class="card-body">
+      <p style="font-size:12px;color:var(--mu);margin-bottom:12px">El resumen de costos que se entrega a las producciones externas: conceptos y valores del mes, sin porcentajes ni comparación con meses anteriores. Las notas en rojo se pueden retocar en la vista previa antes de exportar (el retoque no se guarda: dura hasta que recargues la página).</p>
+      <div class="plan-ctrl">
+        <label>Mes <input type="month" id="ext-mes" onchange="buildExterna()"></label>
+        <label>Teatro <select id="ext-teatro" onchange="buildExterna()">
+          <option value="MET">Metropolitan</option>
+          <option value="PLP">Paseo La Plaza</option>
+        </select></label>
+      </div>
+      <div class="ext-hoja" id="ext-hoja"></div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn ac" onclick="externaPDF()">PDF</button>
+        <button class="btn ac" onclick="externaXLSX()">Excel</button>
+        <button class="btn ghost" onclick="externaCopiar()">Copiar texto (WhatsApp / mail)</button>
+      </div>
+      <div id="ext-ok" style="font-size:12px;color:var(--green);margin-top:8px;min-height:16px"></div>
+    </div>
+  </div>
   <div class="card"><div class="card-body">
     <p style="font-size:12px;color:var(--mu);margin-bottom:16px">Reportes de valores vigentes para distribución interna. Período: <span id="export-periodo" style="color:var(--ac);font-family:'DM Mono',monospace"></span></p>
     <div class="export-grid">
@@ -752,7 +829,25 @@ let HISTORIAL = [
   {fecha:'2025-12-01',tipo:'general',pct:2.5,desde:'2025-12',hasta:'2026-01',nota:'Actualización bimestral Dic 2025–Ene 2026'},
 ];
 
-let VIG_DESDE='2026-02', VIG_HASTA='2026-03';
+let VIG_DESDE='2026-09', VIG_HASTA='';
+// Incrementos programados (pestaña "Ajustes"): [{desde:'2026-11', pct:5, nota}]
+let AJUSTES = [];
+const mesHoyP3 = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+function sumarMesP3(mk, n){ const [y,m]=mk.split('-').map(Number); const d=new Date(y,m-1+n,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function normAjustes(a){ return (Array.isArray(a)?a:[]).map(x=>({desde:String(x.desde||'').slice(0,7),pct:Number(x.pct)||0,nota:x.nota||''})).filter(x=>/^\d{4}-\d{2}$/.test(x.desde)&&x.pct).sort((x,y)=>x.desde<y.desde?-1:x.desde>y.desde?1:0); }
+// Valor de un concepto en un mes: base × cada incremento con desde > vigencia base y ≤ mes (acumulados, igual que el formulario)
+function valorMes(v, mes){
+  let x = v.v;
+  AJUSTES.forEach(a => { if ((!v.desde || a.desde > v.desde) && a.desde <= mes) x = Math.round(x*(1+a.pct/100)+1e-9); }); // pesos enteros: al más cercano, ,50 hacia arriba (a favor del personal)
+  return x;
+}
+// Tramos a mostrar: el mes de hoy y cada mes futuro con incremento programado
+function tramos(){
+  const hoy = mesHoyP3();
+  const t = [{mes:hoy, lbl:`Hoy · ${fmtM(hoy)}`, hoy:true}];
+  AJUSTES.filter(a=>a.desde>hoy).forEach(a=>t.push({mes:a.desde, lbl:`Desde ${fmtM(a.desde)} (+${String(a.pct).replace('.',',')}%)`}));
+  return t;
+}
 let filtroValores='', filtroObras='todas', filtroPersonal='activos';
 let PERSONAL3 = PERSONAL; // alias — ambas variables apuntan al mismo array
 
@@ -788,7 +883,9 @@ window.onload = async () => {
         v:       parseFloat(v["Valor"]) || 0,
         jefe:    v["Solo Jefe"] === "SI",
         montaje: v["Solo Montaje"] === "SI",
+        desde:   String(v["Vigencia Desde"] || "").slice(0, 7),
       }));
+      AJUSTES = normAjustes(valRes.ajustes);
       // Tomar vigencia del primer valor
       VIG_DESDE = valRes.data[0]?.["Vigencia Desde"] || VIG_DESDE;
       VIG_HASTA = valRes.data[0]?.["Vigencia Hasta"] || VIG_HASTA;
@@ -854,6 +951,9 @@ window.onload = async () => {
     setTimeout(() => { subEl.textContent = origSub; }, 3000);
   }
 
+  document.getElementById('mes-general').value = sumarMesP3(mesHoyP3(), 1);
+  document.getElementById('plan-mes').value = mesHoyP3();
+  document.getElementById('ext-mes').value = mesHoyP3();
   document.getElementById('vig-desde').value = VIG_DESDE;
   document.getElementById('vig-hasta').value = VIG_HASTA;
   document.getElementById('vig-total').textContent = VALORES.length;
@@ -862,7 +962,10 @@ window.onload = async () => {
 };
 
 function actualizarVigDisplay(){
-  document.getElementById('vig-periodo').textContent=`${fmtM(VIG_DESDE)}–${fmtM(VIG_HASTA)}`;
+  document.getElementById('vig-periodo').textContent=fmtM(VIG_DESDE);
+  const hoy=mesHoyP3(), prox=AJUSTES.find(a=>a.desde>hoy);
+  document.getElementById('vig-pct').textContent=prox?`+${String(prox.pct).replace('.',',')}% desde ${fmtM(prox.desde)}`:'Ninguno programado';
+  buildAjustes();
   document.getElementById('export-periodo') && (document.getElementById('export-periodo').textContent=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`);
 }
 
@@ -872,13 +975,16 @@ function actualizarVigDisplay(){
 function buildValores(){
   const f=filtroValores;
   const rows=VALORES.filter(v=>!f||v.a.includes(f));
+  const T=tramos();
+  const ths=document.querySelectorAll('#view-p3-valores .th-tramo');
+  if(ths.length){ ths[0].insertAdjacentHTML('beforebegin',T.map(t=>`<th class="th-tramo" style="text-align:right;${t.hoy?'color:var(--ac)':''}">${t.lbl}</th>`).join('')); ths.forEach(x=>x.remove()); }
   document.getElementById('tbody-valores').innerHTML=rows.map(v=>`
     <tr>
       <td style="font-weight:500">${v.l}</td>
       <td><span class="val-tipo ${v.t}">${v.t}</span></td>
       <td>${v.a.map(x=>`<span class="area-tag">${x.replace('_',' ')}</span>`).join('')}</td>
       <td style="text-align:center;font-size:11px;font-family:'DM Mono',monospace;color:${v.teatro==='AMBOS'?'var(--mu)':'var(--ac)'}">${v.teatro||'AMBOS'}</td>
-      <td class="val-monto">$${fmt(v.v)}</td>
+      ${T.map(t=>`<td class="val-monto" style="${t.hoy?'':'color:var(--mu)'}">$${fmt(valorMes(v,t.mes))}</td>`).join('')}
       <td style="text-align:center;font-size:11px;color:var(--mu)">${v.jefe?(v.montaje?'✓ (montaje)':'✓'):''}</td>
     </tr>`).join('');
 }
@@ -894,7 +1000,7 @@ function buildEditable(){
       <td style="font-size:12px;max-width:220px">${v.l}</td>
       <td style="text-align:center;font-size:11px;font-family:'DM Mono',monospace;color:${v.teatro==='AMBOS'?'var(--mu)':'var(--ac)'}">${v.teatro||'AMBOS'}</td>
       <td class="val-monto">$${fmt(v.v)}</td>
-      <td><input class="val-input" type="number" id="ev_${i}" value="${v.v.toFixed(2)}" step="0.01" oninput="updDelta(${i})"></td>
+      <td><input class="val-input" type="number" id="ev_${i}" value="${v.v}" step="1" oninput="updDelta(${i})"></td>
       <td class="val-monto" id="ed_${i}" style="font-size:12px"></td>
     </tr>`).join('');
 }
@@ -909,11 +1015,38 @@ function updDelta(i){
 
 function previewGeneral(){
   const p=parseFloat(document.getElementById('pct-general').value)||0;
+  const mes=document.getElementById('mes-general').value;
   const box=document.getElementById('preview-general');
-  if(!p){box.style.display='none';return;}
-  const ej=VALORES.slice(0,4).map(v=>`  ${v.l.slice(0,38)}: $${fmt(v.v)} → $${fmt(v.v*(1+p/100))}`).join('\n');
-  box.textContent=`Ejemplo +${p}%:\n${ej}\n  ... y ${VALORES.length-4} más`;
+  if(!p||!mes){box.style.display='none';return;}
+  const antes=sumarMesP3(mes,-1);
+  const ej=VALORES.slice(0,4).map(v=>{const a=valorMes(v,antes);return `  ${v.l.slice(0,38)}: $${fmt(a)} → $${fmt(Math.round(a*(1+p/100)+1e-9))}`;}).join('\n');
+  box.textContent=`Ejemplo +${p}% desde ${fmtM(mes)} (sobre el valor de ${fmtM(antes)}):\n${ej}\n  ... y ${VALORES.length-4} más`;
   box.style.display='block';
+}
+
+function buildAjustes(){
+  const el=document.getElementById('lista-ajustes'); if(!el) return;
+  const hoy=mesHoyP3();
+  el.innerHTML=AJUSTES.length?AJUSTES.map(a=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:13px">
+      <span style="font-family:'DM Mono',monospace;min-width:110px">${fmtM(a.desde)}</span>
+      <span class="hist-pct" style="min-width:60px">+${String(a.pct).replace('.',',')}%</span>
+      <span style="color:var(--mu);flex:1">${a.nota||''}${a.desde<=hoy?' · ya rige':''}</span>
+      <button class="btn ghost" onclick="quitarAjusteP3('${a.desde}')">Quitar</button>
+    </div>`).join(''):'<div class="empty" style="padding:8px 0">No hay incrementos programados.</div>';
+}
+
+async function quitarAjusteP3(desde){
+  const a=AJUSTES.find(x=>x.desde===desde); if(!a) return;
+  const pin=pedirPin(); if(!pin) return;
+  if(!confirm(`¿Quitar el incremento de +${a.pct}% desde ${fmtM(desde)}?`)) return;
+  try{
+    const r=await apiPost("quitarAjuste",{desde,pin,usuario:"Director"});
+    if(!r.ok){ if(/PIN/.test(r.error||'')) _pinValores=null; alert(`⚠ No se quitó: ${r.error||'error desconocido'}`); return; }
+    AJUSTES=normAjustes(r.ajustes);
+    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'programado',pct:null,desde,hasta:'',nota:`Se quitó el incremento de ${desde} (${a.pct}%)`});
+    actualizarVigDisplay();buildValores();buildHistorial();
+  }catch(e){ alert('⚠ Sin conexión al Sheet — no se quitó nada.'); }
 }
 
 // PIN de escritura — se pide una vez por sesión y se reutiliza.
@@ -926,6 +1059,30 @@ function pedirPin(){
 }
 
 async function aplicarGeneral(){
+  const p=parseFloat(document.getElementById('pct-general').value);
+  const mes=document.getElementById('mes-general').value;
+  if(!p||isNaN(p)){alert('Ingresá un porcentaje válido.');return;}
+  if(!/^\d{4}-\d{2}$/.test(mes)){alert('Elegí desde qué mes rige.');return;}
+  const pin = pedirPin();
+  if(!pin) return;
+  const ya=AJUSTES.find(a=>a.desde===mes);
+  if(!confirm(`¿Programar +${p}% a TODOS los ${VALORES.length} conceptos para las HE desde ${fmtM(mes)}?${ya?`\n(Reemplaza el +${ya.pct}% que ya había para ese mes.)`:''}`))return;
+  try {
+    const nota=`Incremento general ${p}% desde ${fmtM(mes)}`;
+    const r = await apiPost("programarAjuste",{pct:p,desde:mes,nota,usuario:"Director",pin});
+    if(!r.ok){ if(/PIN/.test(r.error||'')) _pinValores=null; alert(`⚠ No se guardó: ${r.error||'error desconocido'}`); return; }
+    AJUSTES=normAjustes(r.ajustes);
+    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'programado',pct:p,desde:mes,hasta:'',nota});
+    actualizarVigDisplay();buildValores();buildHistorial();
+    document.getElementById('pct-general').value='';
+    document.getElementById('preview-general').style.display='none';
+    alert(`✓ +${p}% programado desde ${fmtM(mes)}. Guardado en Google Sheets.`);
+  } catch(e) { alert(`⚠ Sin conexión al Sheet — no se programó nada.`); }
+}
+
+// (Versión anterior: aplicaba el % pisando la hoja "Valores" en el momento.
+// Ya no se usa desde la pantalla — queda por si hace falta.)
+async function aplicarGeneralInmediato(){
   const p=parseFloat(document.getElementById('pct-general').value);
   if(!p||isNaN(p)){alert('Ingresá un porcentaje válido.');return;}
   const pin = pedirPin();
@@ -949,7 +1106,7 @@ async function confirmarIndividual(){
   VALORES.forEach((v,i)=>{
     const inp=document.getElementById(`ev_${i}`);
     if(!inp)return;
-    const n=parseFloat(inp.value);
+    const n=Math.round(parseFloat(inp.value)); // pesos enteros
     if(!isNaN(n)&&Math.abs(n-v.v)>0.01){cambios.push({id:v.id,l:v.l,antes:v.v,despues:n});}
   });
   if(!cambios.length){alert('No hay cambios.');return;}
@@ -977,9 +1134,11 @@ function guardarVigencia(){
 function buildHistorial(){
   document.getElementById('historial-body').innerHTML=HISTORIAL.map(h=>`
     <div class="hist-item">
-      <div class="hist-fecha">${fmtD2(h.fecha)} · ${fmtM(h.desde)} → ${fmtM(h.hasta)}</div>
+      <div class="hist-fecha">${fmtD2(h.fecha)} · ${fmtM(h.desde)}${h.hasta?` → ${fmtM(h.hasta)}`:(h.tipo==='programado'?' en adelante':'')}</div>
       <div class="hist-desc">
-        ${h.tipo==='general'
+        ${h.tipo==='programado'
+          ?(h.pct?`<span class="hist-pct">+${h.pct}%</span> programado para las HE desde ${fmtM(h.desde)}`:`Incremento programado quitado`)
+          :h.tipo==='general'
           ?`<span class="hist-pct">+${h.pct}%</span> general sobre todos los conceptos`
           :`${h.cambios?.length||0} concepto(s) ajustado(s) individualmente`}
         — <span style="color:var(--mu)">${h.nota||''}</span>
@@ -1251,23 +1410,24 @@ function getVals(tipo){
 
 function exportarReporte(tipo,fmt_){
   const vals=getVals(tipo);
-  const periodo=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;
+  const T=tramos();
+  const periodo=`por mes — ${T.map(t=>t.lbl).join(' · ')}`;
   if(fmt_==='xlsx'){
     const wb=XLSX.utils.book_new();
-    const rows=[['TEATRO METROPOLITAN — PASEO LA PLAZA'],[`Valores HE — ${periodo}`],[''],[`Concepto`,'Tipo','Áreas','Teatro','Valor ($)','Solo Jefe']];
-    vals.forEach(v=>rows.push([v.l,v.t,v.a.join('+'),v.teatro||'AMBOS',v.v,v.jefe?'Sí':'']));
+    const rows=[['TEATRO METROPOLITAN — PASEO LA PLAZA'],[`Valores HE ${periodo}`],[''],[`Concepto`,'Tipo','Áreas','Teatro',...T.map(t=>t.lbl+' ($)'),'Solo Jefe']];
+    vals.forEach(v=>rows.push([v.l,v.t,v.a.join('+'),v.teatro||'AMBOS',...T.map(t=>valorMes(v,t.mes)),v.jefe?'Sí':'']));
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:45},{wch:6},{wch:30},{wch:8},{wch:15},{wch:10}];
-    // Formato moneda en la columna Valor ($) — fila 4 (índice 4) en adelante
-    for(let r=4;r<rows.length;r++){
-      const addr=XLSX.utils.encode_cell({r,c:4});
-      if(ws[addr] && typeof ws[addr].v==='number') ws[addr].z='"$"#,##0';
+    ws['!cols']=[{wch:45},{wch:6},{wch:30},{wch:8},...T.map(()=>({wch:22})),{wch:10}];
+    // Formato moneda en las columnas de valores — fila 4 (índice 4) en adelante
+    for(let r=4;r<rows.length;r++) for(let c=4;c<4+T.length;c++){
+      const addr=XLSX.utils.encode_cell({r,c});
+      if(ws[addr] && typeof ws[addr].v==='number') ws[addr].z='"$"#,##0.00';
     }
     XLSX.utils.book_append_sheet(wb,ws,'Valores');
     XLSX.writeFile(wb,`HE_Valores_${tipo}_${VIG_DESDE}.xlsx`);
   } else {
-    const tRows=vals.map(v=>`<tr><td>${v.l}</td><td>${v.t}</td><td style="font-size:10px">${v.a.join(', ')}</td><td style="text-align:center">${v.teatro||'AMBOS'}</td><td style="text-align:right">${fmtN(v.v)}</td><td style="text-align:center">${v.jefe?'✓':''}</td></tr>`).join('');
-    printPDF(`Valores HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Concepto</th><th>Tipo</th><th>Áreas</th><th>Teatro</th><th style="text-align:right">Valor ($)</th><th>Jefe</th></tr></thead><tbody>${tRows}</tbody></table>`);
+    const tRows=vals.map(v=>`<tr><td>${v.l}</td><td>${v.t}</td><td style="font-size:10px">${v.a.join(', ')}</td><td style="text-align:center">${v.teatro||'AMBOS'}</td>${T.map(t=>`<td style="text-align:right">${fmtN(valorMes(v,t.mes))}</td>`).join('')}<td style="text-align:center">${v.jefe?'✓':''}</td></tr>`).join('');
+    printPDF(`Valores HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Concepto</th><th>Tipo</th><th>Áreas</th><th>Teatro</th>${T.map(t=>`<th style="text-align:right">${t.lbl}</th>`).join('')}<th>Jefe</th></tr></thead><tbody>${tRows}</tbody></table>`);
   }
 }
 
@@ -1300,6 +1460,183 @@ function exportarObras(fmt_){
   }
 }
 
+// ════════════════════════════════════
+// PLANILLA DEL MES PARA EL EQUIPO
+// Mismo formato que la que se mandaba a mano: título, mes, % sobre el mes
+// anterior y un renglón por concepto. Los valores salen de la tabla base +
+// los incrementos programados (valorMes), igual que el formulario.
+// ════════════════════════════════════
+const MESES_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const mesNom=mk=>MESES_ES[Number(mk.slice(5,7))-1];
+const mesCap=mk=>{const n=mesNom(mk);return n[0].toUpperCase()+n.slice(1);};
+const mesCorto=mk=>`${mesNom(mk).slice(0,3)}-${mk.slice(2,4)}`;
+const pctTxt=p=>(Math.round(p*10)/10).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const montoPlan=n=>'$ '+Number(n).toLocaleString('es-AR',Number.isInteger(n)?{maximumFractionDigits:0}:{minimumFractionDigits:2,maximumFractionDigits:2});
+const GRUPOS_PLAN={
+  tecnicos:{t:'Técnicos',f:v=>v.a.some(x=>['SONIDO','ILUMINACION','MAQUINARIA'].includes(x))},
+  sala:{t:'Asistentes de Sala',f:v=>v.a.includes('SALA')},
+  boleteria:{t:'Boletería',f:v=>v.a.includes('BOLETERIA')},
+  mant:{t:'Mantenimiento y Limpieza',f:v=>v.a.some(x=>['MANTENIMIENTO','LIMPIEZA'].includes(x))},
+  todos:{t:'Todos',f:()=>true},
+};
+function nombrePlan(v){
+  let n=v.l.replace(/\s+—\s+/g,' - ').toUpperCase();
+  if(v.teatro&&v.teatro!=='AMBOS') n+=` (solo ${v.teatro==='MET'?'Metropolitan':'La Plaza'})`;
+  return n;
+}
+function datosPlanilla(){
+  const mes=document.getElementById('plan-mes').value||mesHoyP3();
+  const ant=sumarMesP3(mes,-1);
+  const g=GRUPOS_PLAN[document.getElementById('plan-grupo').value]||GRUPOS_PLAN.tecnicos;
+  const conAnt=document.getElementById('plan-ant').checked;
+  const filas=VALORES.filter(g.f).map(v=>{
+    const a=valorMes(v,ant), n=valorMes(v,mes);
+    return {c:nombrePlan(v), ant:a, val:n, var:a?(n/a-1)*100:0, b:/^(H Extra|H Extra Terceros|Técnicos — Evento (corto|largo))$/.test(v.l)};
+  });
+  // % del mes: el incremento programado para ese mes; si algún concepto se movió distinto, se muestra por renglón
+  const aj=AJUSTES.find(x=>x.desde===mes);
+  const vars=filas.map(f=>Math.round(f.var*10)/10);
+  const uniforme=vars.every(x=>x===vars[0]);
+  const pctMes=filas.length&&uniforme?vars[0]:(aj?aj.pct:0);
+  const sub=pctMes?`(${pctTxt(pctMes).replace(',0%','%')} incremento sobre ${mesNom(ant).slice(0,3).toUpperCase()})`:`(sin incremento: mismos valores que ${mesNom(ant)})`;
+  return {mes,ant,g,conAnt,filas,uniforme,pctMes,sub,
+    titulo:'VALORES HE PLP + MET', mesTxt:mesCorto(mes),
+    colMes:`${mesCap(mes)}`, colPct:uniforme?(pctMes?pctTxt(pctMes):'sin cambios'):'', colAnt:mesCap(ant),
+    archivo:`Valores_HE_${g.t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')}_${mes}`};
+}
+function tablaPlanHTML(d,impresion){
+  const th=`<tr><th style="text-align:left;vertical-align:bottom">${d.g.t==='Todos'?'Concepto':d.g.t}</th>${d.conAnt?`<th>${d.colAnt}</th>`:''}<th>${d.colMes}${d.colPct?`<br><i>${d.colPct}</i>`:''}</th>${d.uniforme?'':'<th>Var.</th>'}</tr>`;
+  const tr=d.filas.map(f=>`<tr class="${f.b?'b':''}"><td>${f.c}</td>${d.conAnt?`<td class="m ant">${montoPlan(f.ant)}</td>`:''}<td class="m">${montoPlan(f.val)}</td>${d.uniforme?'':`<td class="m">${f.var?(f.var>0?'+':'')+pctTxt(f.var):'—'}</td>`}</tr>`).join('');
+  return `<div class="pt">${d.titulo}</div><div class="pm">${d.mesTxt}</div><div class="ps">${d.sub}</div><table><thead>${th}</thead><tbody>${tr}</tbody></table><div class="pn">Valores para las HE con fecha de ${mesNom(d.mes)} de ${d.mes.slice(0,4)}.</div>`;
+}
+function buildPlanilla(){
+  const el=document.getElementById('plan-hoja'); if(!el) return;
+  const d=datosPlanilla();
+  el.innerHTML=d.filas.length?tablaPlanHTML(d):'<div style="text-align:center;color:#777">No hay conceptos para este grupo.</div>';
+  document.getElementById('plan-ok').textContent='';
+}
+function planillaPDF(){
+  const d=datosPlanilla();
+  const css=document.querySelector('style').textContent.match(/\.plan-hoja[^{]*\{[^}]*\}/g).join('\n').replace(/\.plan-hoja\{[^}]*\}/,'');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${d.archivo}</title><style>body{font-family:Calibri,Carlito,Arial,sans-serif;color:#111;margin:40px}${css.replace(/\.plan-hoja /g,'')}@page{size:A4;margin:16mm}@media print{body{margin:0}}</style></head><body>${tablaPlanHTML(d,true)}<script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank');
+  if(!w){alert('El navegador bloqueó la ventana del PDF. Permití ventanas emergentes para esta página.');return;}
+  w.document.write(html);w.document.close();
+}
+function planillaXLSX(){
+  const d=datosPlanilla();
+  const nCol=1+(d.conAnt?1:0)+1+(d.uniforme?0:1);
+  const head=[d.g.t==='Todos'?'Concepto':d.g.t];
+  if(d.conAnt) head.push(d.colAnt);
+  head.push(d.colMes+(d.colPct?` ${d.colPct}`:''));
+  if(!d.uniforme) head.push('Var. %');
+  const rows=[[d.titulo],[d.mesTxt],[d.sub],[],head];
+  d.filas.forEach(f=>{const r=[f.c];if(d.conAnt)r.push(f.ant);r.push(f.val);if(!d.uniforme)r.push(Math.round(f.var*10)/1000);rows.push(r);});
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!merges']=[0,1,2].map(r=>({s:{r,c:0},e:{r,c:nCol-1}}));
+  ws['!cols']=[{wch:62},...Array(nCol-1).fill({wch:14})];
+  const dec=d.filas.some(f=>!Number.isInteger(f.val)||(d.conAnt&&!Number.isInteger(f.ant)));
+  for(let r=5;r<rows.length;r++) for(let c=1;c<nCol;c++){
+    const a=XLSX.utils.encode_cell({r,c}); if(!ws[a]||typeof ws[a].v!=='number') continue;
+    ws[a].z=(!d.uniforme&&c===nCol-1)?'0.0%':(dec?'"$ "#,##0.00':'"$ "#,##0');
+  }
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,mesCorto(d.mes));
+  XLSX.writeFile(wb,d.archivo+'.xlsx');
+}
+async function planillaCopiar(){
+  const d=datosPlanilla();
+  const txt=[`*${d.titulo} — ${mesCap(d.mes)} ${d.mes.slice(0,4)}*`,d.sub,'',...d.filas.map(f=>`${f.c}: ${montoPlan(f.val)}${d.uniforme||!f.var?'':` (${f.var>0?'+':''}${pctTxt(f.var)})`}`)].join('\n');
+  try{await navigator.clipboard.writeText(txt);document.getElementById('plan-ok').textContent='✓ Copiado — pegalo en WhatsApp o en el mail.';}
+  catch(e){prompt('Copiá el texto:',txt);}
+}
+
+// ════════════════════════════════════
+// VALORES PARA PRODUCCIONES EXTERNAS
+// Qué se le muestra a una producción externa y de qué fila de "Valores"
+// sale cada monto (por ID). Para agregar, sacar o renombrar un renglón,
+// se edita esta lista; los montos siempre salen de la hoja + incrementos.
+// ════════════════════════════════════
+const EXTERNA_ITEMS = [
+  {c:'Hora Extra Técnicos',               d:'',                          id:'he3'},
+  {c:'Hora Extra Técnicos Madrugada',     d:'post 00:30 AM',             id:'hem3'},
+  {c:'HS Extra Jefe de área',             d:'sólo durante montajes',     id:'he3j'},
+  {c:'Hora Programación Luces / Sonido',  d:'',                          id:'prog3'},
+  {c:'Microfonista',                      d:'costo x función',           id:'evco'},
+  {c:'Eléctrico de piso',                 d:'costo x función',           id:'evco'},
+  {c:'Adicional guardia proyección',      d:'',                          id:'sproy'},
+  {c:'Asistencia Armados y Desarmes',     d:'',                          id:'armado'},
+  {c:'Luces Montaje M',                   d:'hasta 40 faroles',          id:'lm'},
+  {c:'Luces Montaje L',                   d:'de 41 a 60 faroles',        id:'ll'},
+];
+const EXTERNA_NOTAS = [
+  ['Nota 1:', 'Siempre que haya trabajo en escenario deberá haber, al menos, 1 maquinista de guardia.'],
+  ['Nota 2:', 'En el caso de montaje de maquinaria la cantidad de maquinistas necesarios será a determinar y consensuar entre la producción, el jefe de maquinaria de la sala y las necesidades pertinentes del montaje.'],
+  ['Nota 3:', 'El horario de ingreso técnico es el de las <b>18:00 h.</b>\nSi la citación es pegada al horario, será mínima de 3 horas.\nSi la citación es día lunes o alejada del horario de ingreso, será un mínimo de 6 horas.\nLas horas no se fraccionan.'],
+];
+let _extNotasHTML = null; // si se retocaron en la vista previa
+function datosExterna(){
+  const mes=document.getElementById('ext-mes').value||mesHoyP3();
+  const teatro=document.getElementById('ext-teatro').value||'MET';
+  const [y,m]=mes.split('-').map(Number);
+  const ult=new Date(y,m,0).getDate(), mm=String(m).padStart(2,'0'), yy=String(y).slice(2);
+  const faltan=[];
+  const filas=EXTERNA_ITEMS.map(it=>{
+    const v=VALORES.find(x=>x.id===it.id);
+    if(!v){faltan.push(it.id);return null;}
+    if(v.teatro&&v.teatro!=='AMBOS'&&v.teatro!==teatro) return null;
+    return {...it, val:valorMes(v,mes)};
+  }).filter(Boolean);
+  return {mes,teatro,filas,faltan,
+    titulo:`VALORES HE ${mesNom(mes).toUpperCase()} ${y}`,
+    rango:`Del 01/${mm}/${yy} al ${ult}/${mm}/${yy}`,
+    archivo:`Valores HE ${teatro} - ${mesCap(mes).slice(0,3)} ${yy}`};
+}
+const montoExt=n=>'$'+Math.round(Number(n)).toLocaleString('es-AR');
+function notasExtHTML(){ return _extNotasHTML ?? EXTERNA_NOTAS.map(([t,x])=>`<p><b>${t}</b> ${x}</p>`).join(''); }
+function tablaExtHTML(d,editable){
+  const tr=d.filas.map(f=>`<tr><td>${f.c}${f.d?` <small>(${f.d})</small>`:''}</td><td class="m">${montoExt(f.val)}</td></tr>`).join('');
+  return `<div class="et">${d.titulo}</div><table><thead><tr><th style="width:62%">CONCEPTO</th><th>VALORES<br><small>(${d.rango})</small></th></tr></thead><tbody>${tr}</tbody></table>
+    <div class="en"${editable?' contenteditable="true" oninput="_extNotasHTML=this.innerHTML"':''}>${notasExtHTML()}</div>`;
+}
+function buildExterna(){
+  const el=document.getElementById('ext-hoja'); if(!el) return;
+  const d=datosExterna();
+  el.innerHTML=tablaExtHTML(d,true)+(d.faltan.length?`<div style="color:#b00;font-size:12px;text-align:center;margin-top:8px">Falta en la hoja Valores: ${d.faltan.join(', ')}</div>`:'');
+  document.getElementById('ext-ok').textContent='';
+}
+function notasExtTexto(){
+  const tmp=document.createElement('div'); tmp.innerHTML=notasExtHTML();
+  return Array.from(tmp.querySelectorAll('p')).map(p=>p.innerText.trim()).filter(Boolean);
+}
+function externaPDF(){
+  const d=datosExterna();
+  const css=document.querySelector('style').textContent.match(/\.ext-hoja[^{]*\{[^}]*\}/g).join('\n').replace(/\.ext-hoja\{[^}]*\}/,'').replace(/\.ext-hoja /g,'');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${d.archivo}</title><style>body{font-family:Calibri,Carlito,Arial,sans-serif;color:#111;margin:40px}${css}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4;margin:16mm}@media print{body{margin:0}}</style></head><body>${tablaExtHTML(d,false)}<script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank');
+  if(!w){alert('El navegador bloqueó la ventana del PDF. Permití ventanas emergentes para esta página.');return;}
+  w.document.write(html);w.document.close();
+}
+function externaXLSX(){
+  const d=datosExterna();
+  const rows=[[d.titulo],[],['CONCEPTO',`VALORES (${d.rango})`]];
+  d.filas.forEach(f=>rows.push([f.c+(f.d?` (${f.d})`:''),Math.round(f.val)]));
+  rows.push([]);
+  const nIni=rows.length;
+  notasExtTexto().forEach(n=>{rows.push([n]);});
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:55},{wch:26}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:1}},...rows.slice(nIni).map((_,i)=>({s:{r:nIni+i,c:0},e:{r:nIni+i,c:1}}))];
+  for(let r=3;r<3+d.filas.length;r++){const a=XLSX.utils.encode_cell({r,c:1});if(ws[a])ws[a].z='"$"#,##0';}
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Valores');
+  XLSX.writeFile(wb,d.archivo.normalize('NFD').replace(/[\u0300-\u036f]/g,'')+'.xlsx');
+}
+async function externaCopiar(){
+  const d=datosExterna();
+  const txt=[`*${d.titulo}*`,`(${d.rango})`,'',...d.filas.map(f=>`${f.c}${f.d?` (${f.d})`:''}: ${montoExt(f.val)}`),'',...notasExtTexto()].join('\n');
+  try{await navigator.clipboard.writeText(txt);document.getElementById('ext-ok').textContent='✓ Copiado — pegalo en WhatsApp o en el mail.';}
+  catch(e){prompt('Copiá el texto:',txt);}
+}
+
 function printPDF(titulo,contenido){
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titulo}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:32px}h1{font-size:17px;margin-bottom:4px}h2{font-size:12px;color:#666;margin-bottom:16px}table{border-top:2px solid #ccc;border-bottom:2px solid #ccc}th{font-size:10px;text-transform:uppercase;color:#666;border-bottom:1px solid #ccc}td{border-bottom:1px solid #eee}@media print{body{margin:16px}}</style></head><body><h1>${titulo}</h1><h2>Teatro Metropolitan — Paseo La Plaza</h2>${contenido}<script>window.onload=()=>window.print()<\/script></body></html>`;
   const w=window.open('','_blank');w.document.write(html);w.document.close();
@@ -1313,10 +1650,12 @@ function showP3(id){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById(`view-p3-${id}`).classList.add('active');
   const ni=document.getElementById(`nav-${id}`);if(ni)ni.classList.add('active');
+  if(id==='exportar'){ buildPlanilla(); buildExterna(); }
   if(id==='exportar'){const ep=document.getElementById('export-periodo');if(ep)ep.textContent=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;}
 }
 function cerrarModal(id){document.getElementById(id).style.display='none';}
-function fmt(n){return Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+// Valores en pesos enteros: sin decimales (solo si algún valor viejo los tuviera)
+function fmt(n){n=Number(n||0);return n.toLocaleString('es-AR',Number.isInteger(n)?{maximumFractionDigits:0}:{minimumFractionDigits:2,maximumFractionDigits:2});}
 
 async function recargarTodo(){
   const btn = document.getElementById('btn-refresh-p3');

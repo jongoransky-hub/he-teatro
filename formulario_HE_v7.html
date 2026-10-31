@@ -414,6 +414,21 @@ const ESPECIALES = {
 // de lo que cargó Pieza 3 (Director).
 // ═══════════════════════════════════════════════════
 let VALORES_SHEET = [];
+// Incrementos programados (pestaña "Ajustes"): [{desde:'2026-11', pct:5}, ...]
+// El valor de un concepto en un mes = valor base de "Valores" × cada
+// incremento con desde posterior a la vigencia base y hasta ese mes,
+// acumulados. Lo decide el MES DE LA HE, no el día en que se carga.
+// Valores en pesos enteros: cada incremento redondea al peso más cercano y,
+// ante un ,50 justo, hacia arriba (a favor del personal).
+let AJUSTES_SHEET = [];
+function valorEnMes(fila, mes) {
+  let v = parseValor(fila['Valor']);
+  const base = String(fila['Vigencia Desde'] || '').slice(0, 7);
+  AJUSTES_SHEET.forEach(a => {
+    if ((!base || a.desde > base) && a.desde <= mes) v = Math.round(v * (1 + a.pct / 100) + 1e-9); // pesos enteros: al más cercano, ,50 hacia arriba
+  });
+  return v;
+}
 
 // Parsea el campo "Valor" de la hoja de forma segura:
 // - Si ya es number (caso normal: Apps Script devuelve números como number), se usa tal cual.
@@ -427,7 +442,7 @@ function parseValor(raw) {
   return parseFloat(s) || 0;
 }
 
-function getValores(area, esJefe, esMontaje, esPatino, teatro) {
+function getValores(area, esJefe, esMontaje, esPatino, teatro, mes) {
   const filas = esPatino
     ? VALORES_SHEET.filter(v => ['MANTENIMIENTO','LIMPIEZA'].includes((v['Áreas']||'').trim()))
     : VALORES_SHEET.filter(v => {
@@ -442,8 +457,9 @@ function getValores(area, esJefe, esMontaje, esPatino, teatro) {
 
   // Jefa de sala (área SALA + Es Jefe = SI, hoy Luciana Calarota en MET):
   // además de sus valores normales de Asistente de Sala, puede cargar los
-  // mismos tres montos técnicos que usan Sonido/Iluminación/Maquinaria
-  // para citación de Infantiles, Evento corto y Evento largo. No se logra
+  // mismos montos técnicos que usan Sonido/Iluminación/Maquinaria
+  // para citación de Infantiles, Evento corto, Evento largo y Función
+  // Adulto Matinee (esta última agregada oct 2026, paquete por función). No se logra
   // marcando esas filas técnicas como "Solo Jefe" (eso le rompería el
   // acceso a los técnicos no-jefes que las usan todo el tiempo) — se
   // buscan por ID puntual y se agregan solo para este caso. Al buscarlas
@@ -451,7 +467,7 @@ function getValores(area, esJefe, esMontaje, esPatino, teatro) {
   // un ajuste general de tarifas, esto se actualiza solo.
   const esJefaDeSala = esJefe && area === 'SALA';
   if (esJefaDeSala) {
-    ['infantil', 'evco', 'evla'].forEach(id => {
+    ['infantil', 'evco', 'evla', 'matinee'].forEach(id => {
       const filaTecnica = VALORES_SHEET.find(v => v['ID'] === id);
       if (filaTecnica && !filas.includes(filaTecnica)) filas.push(filaTecnica);
     });
@@ -460,7 +476,7 @@ function getValores(area, esJefe, esMontaje, esPatino, teatro) {
   return filas.map(v => ({
     l: v['Concepto'] || '',
     t: (v['Tipo'] || 'HE').toUpperCase(),
-    v: parseValor(v['Valor']),
+    v: mes ? valorEnMes(v, mes) : parseValor(v['Valor']),
   }));
 }
 
@@ -578,6 +594,10 @@ window.onload = async () => {
     // calcular ningún monto de forma confiable.
     if (valRes.ok && Array.isArray(valRes.data) && valRes.data.length > 0) {
       VALORES_SHEET = valRes.data;
+      AJUSTES_SHEET = (Array.isArray(valRes.ajustes) ? valRes.ajustes : [])
+        .map(a => ({desde: String(a.desde || '').slice(0, 7), pct: Number(a.pct) || 0}))
+        .filter(a => /^\d{4}-\d{2}$/.test(a.desde) && a.pct)
+        .sort((a, b) => a.desde < b.desde ? -1 : a.desde > b.desde ? 1 : 0);
     } else {
       mostrarErrorPersonal();
       return;
@@ -927,8 +947,10 @@ function confirmDuplicate() {
 function poblarTipos() {
   const esMontaje = S.esMontaje === 'SI';
   const pc = perfilCarga(); // si el jefe carga por otro, las tarifas son las de esa persona
-  const lista = getValores(pc.area, pc.esJefe, esMontaje, pc.esPatino, S.teatro);
+  const mesHE = (S.fecha || document.getElementById('fecha').value || mesK(new Date())).slice(0, 7);
+  const lista = getValores(pc.area, pc.esJefe, esMontaje, pc.esPatino, S.teatro, mesHE);
   const sel = document.getElementById('tipo-he');
+  const prevLabel = S.tipoLabel; // si se vuelve a armar la lista (p. ej. cambió la fecha), mantener lo elegido con el valor de ese mes
   sel.innerHTML = '<option value="">— Seleccioná el tipo —</option>';
   const hs  = lista.filter(x => x.t === 'HE');
   const pkg = lista.filter(x => x.t === 'PKG');
@@ -942,6 +964,9 @@ function poblarTipos() {
     sel.appendChild(og);
   });
   document.getElementById('val-card').classList.remove('vis');
+  const misma = prevLabel && Array.from(sel.options).find(o => o.value && o.value.split('|')[2] === prevLabel);
+  if (misma) { sel.value = misma.value; onTipo(); }
+  else { S.tipoTipo = ''; S.valUnit = 0; S.tipoLabel = ''; S.total = 0; }
 }
 
 function onTipo() {
@@ -1042,7 +1067,8 @@ function render() {
   if (step === 3) {
     const pc = perfilCarga();
     document.getElementById('montaje-f').style.display = pc.esJefe ? 'block' : 'none';
-    if (!pc.esJefe) { S.esMontaje = ''; poblarTipos(); }
+    if (!pc.esJefe) S.esMontaje = '';
+    poblarTipos(); // siempre: el valor depende del mes de la fecha elegida en el paso 1
   }
   if (step === 4) buildResumen();
 }
