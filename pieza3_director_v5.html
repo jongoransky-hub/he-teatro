@@ -126,6 +126,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .ext-hoja .en{max-width:640px;margin:26px auto 0;color:#e8261c;font-size:14px;line-height:1.45}
 .ext-hoja .en p{margin:0 0 18px;white-space:pre-line}
 .ext-hoja .en[contenteditable]:focus{outline:1px dashed #e8261c;outline-offset:6px}
+.leg-box{border:1px solid var(--bd);border-radius:var(--rs);padding:12px 12px 4px;margin-top:6px;background:var(--s2)}
+.leg-tit{font-size:12px;font-weight:700;margin-bottom:8px}.leg-tit span{font-weight:400;color:var(--mu)}
+.leg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.leg-nota{font-size:11px;color:var(--mu);margin-bottom:8px}
+.leg-col{display:none}.leg-on .leg-col{display:table-cell}
+@media (max-width:520px){.leg-row{grid-template-columns:1fr}}
 .export-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px;margin-bottom:16px}
 .export-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;transition:all .15s;cursor:default}
 .export-card:hover{border-color:var(--ac)}
@@ -349,7 +355,10 @@ textarea{resize:none;height:60px;line-height:1.5}
   <div class="card">
     <div class="card-head">
       <span class="card-title">Gestión de personal</span>
-      <button class="btn ac" onclick="abrirModalPersona()">+ Agregar</button>
+      <div class="btn-row">
+        <button class="btn ghost" id="btn-legajos" onclick="cargarLegajos(true)">🔒 Ver legajos</button>
+        <button class="btn ac" onclick="abrirModalPersona()">+ Agregar</button>
+      </div>
     </div>
     <div style="padding:10px 16px;border-bottom:1px solid var(--bd);display:flex;gap:8px;flex-wrap:wrap">
       <select id="fp-p-area" onchange="buildPersonal3()" style="width:auto;min-width:130px;font-size:12px;padding:6px 10px">
@@ -376,6 +385,7 @@ textarea{resize:none;height:60px;line-height:1.5}
           <th style="cursor:pointer;user-select:none" onclick="sortPersonal('a')">Área(s) <span id="sp-a">↕</span></th>
           <th style="cursor:pointer;user-select:none" onclick="sortPersonal('t')">Teatro <span id="sp-t">↕</span></th>
           <th style="cursor:pointer;user-select:none" onclick="sortPersonal('j')">Rol <span id="sp-j">↕</span></th>
+          <th class="leg-col">Mail</th><th class="leg-col">Nacimiento</th><th class="leg-col">DNI</th>
           <th>Estado</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tbody-personal3"></tbody>
@@ -495,7 +505,7 @@ textarea{resize:none;height:60px;line-height:1.5}
       <div class="export-card">
         <div class="export-card-icon">👥</div>
         <div class="export-card-title">Lista de personal</div>
-        <div class="export-card-desc">Nómina completa con áreas y roles</div>
+        <div class="export-card-desc">Nómina con áreas, roles y legajo (mail, nacimiento, DNI — con PIN)</div>
         <div class="export-card-btns">
           <button class="btn ac" style="font-size:12px;padding:5px 12px" onclick="exportarPersonal('xlsx')">XLSX</button>
           <button class="btn ghost" style="font-size:12px;padding:5px 12px" onclick="exportarPersonal('pdf')">PDF</button>
@@ -535,6 +545,15 @@ textarea{resize:none;height:60px;line-height:1.5}
     <div class="field"><label>Área principal</label><select id="mp-area"><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
     <div class="field"><label>Área secundaria (opcional)</label><select id="mp-area2"><option value="">— Ninguna —</option><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
     <div class="field"><label>Rol</label><select id="mp-rol"><option value="TECNICO">Técnico</option><option value="JEFE">Jefe de área</option></select></div>
+    <div class="leg-box">
+      <div class="leg-tit">Legajo <span>· solo lo ve quien tiene el PIN</span></div>
+      <div class="field"><label>Mail</label><input type="email" id="mp-email" placeholder="nombre@teatrometropolitan.ar" autocomplete="off"></div>
+      <div class="leg-row">
+        <div class="field"><label>Fecha de nacimiento</label><input type="date" id="mp-nac" min="1930-01-01" max="2015-12-31"></div>
+        <div class="field"><label>DNI</label><input type="text" id="mp-dni" inputmode="numeric" placeholder="30123456" autocomplete="off"></div>
+      </div>
+      <div class="leg-nota" id="mp-legnota"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="cerrarModal('modal-persona')">Cancelar</button>
       <button class="btn ac" onclick="guardarPersona()">Guardar</button>
@@ -551,6 +570,15 @@ textarea{resize:none;height:60px;line-height:1.5}
     <div class="field"><label>Área principal</label><select id="ep-area"><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
     <div class="field"><label>Área secundaria (opcional)</label><select id="ep-area2"><option value="">— Ninguna —</option><option value="SALA">Asist. de Sala</option><option value="BOLETERIA">Boletería</option><option value="SONIDO">Sonido</option><option value="ILUMINACION">Iluminación</option><option value="MAQUINARIA">Maquinaria</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="LIMPIEZA">Limpieza</option></select></div>
     <div class="field"><label>Rol</label><select id="ep-rol"><option value="TECNICO">Técnico</option><option value="JEFE">Jefe de área</option></select></div>
+    <div class="leg-box">
+      <div class="leg-tit">Legajo <span>· solo lo ve quien tiene el PIN</span></div>
+      <div class="field"><label>Mail</label><input type="email" id="ep-email" placeholder="nombre@teatrometropolitan.ar" autocomplete="off"></div>
+      <div class="leg-row">
+        <div class="field"><label>Fecha de nacimiento</label><input type="date" id="ep-nac" min="1930-01-01" max="2015-12-31"></div>
+        <div class="field"><label>DNI</label><input type="text" id="ep-dni" inputmode="numeric" placeholder="30123456" autocomplete="off"></div>
+      </div>
+      <div class="leg-nota" id="ep-legnota"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="cerrarModal('modal-editar-persona')">Cancelar</button>
       <button class="btn ac" onclick="guardarEdicionPersona()">Guardar cambios</button>
@@ -1325,6 +1353,7 @@ function buildPersonal3(){
       <td>${(p.a||[]).map(x=>`<span class="area-tag">${x.replace('_',' ')}</span>`).join('')}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${p.t}</td>
       <td style="font-size:12px;color:var(--mu)">${p.j?'Jefe':'Técnico'}</td>
+      ${legCeldas(p.n)}
       <td>${p.ok?`<span class="badge green">Activo</span>`:`<span class="badge red">Inactivo</span>`}</td>
       <td style="white-space:nowrap">
         <button class="btn ghost" style="padding:3px 10px;font-size:11px;margin-right:4px" onclick="abrirEditarPersona('${p.n.replace(/'/g,"\\'")}')">Editar</button>
@@ -1333,6 +1362,61 @@ function buildPersonal3(){
           :`<button class="btn green" style="padding:3px 10px;font-size:11px" onclick="toggleP3('${p.n.replace(/'/g,"\\'")}')">Reactivar</button>`}
       </td>
     </tr>`).join('');
+}
+
+// ════════════════════════════════════
+// LEGAJO — mail, fecha de nacimiento y DNI (columnas de la pestaña
+// Personal). No viajan en la lista pública de personal: se piden con PIN.
+// ════════════════════════════════════
+let LEGAJOS = null; // {NOMBRE: {email, nacimiento:'1985-04-12', dni:'30123456'}}
+const fmtDNI = d => String(d||'').replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const fmtNac = v => { if(!v) return ''; const [y,m,d]=v.split('-'); return `${d}/${m}/${y}`; };
+function legCeldas(n){
+  const l = (LEGAJOS && LEGAJOS[n]) || {};
+  return `<td class="leg-col" style="font-size:12px">${l.email?`<a href="mailto:${l.email}" style="color:var(--tx)">${l.email}</a>`:'<span style="color:var(--dm)">—</span>'}</td>
+      <td class="leg-col" style="font-family:'DM Mono',monospace;font-size:11px">${fmtNac(l.nacimiento)||'<span style="color:var(--dm)">—</span>'}</td>
+      <td class="leg-col" style="font-family:'DM Mono',monospace;font-size:11px">${fmtDNI(l.dni)||'<span style="color:var(--dm)">—</span>'}</td>`;
+}
+async function cargarLegajos(mostrar){
+  const pin = pedirPin(); if (!pin) return false;
+  const r = await apiPost('getLegajos', {pin});
+  if (!r.ok) { if(/PIN/.test(r.error||'')) _pinValores=null; alert(/acci[oó]n|desconocid/i.test(r.error||'') ? 'Falta actualizar el Apps Script a la versión 3.4.' : `No se pudieron leer los legajos: ${r.error||'error desconocido'}`); return false; }
+  LEGAJOS = {}; (r.data||[]).forEach(x => { LEGAJOS[x.nombre] = {email:x.email||'', nacimiento:x.nacimiento||'', dni:x.dni||''}; });
+  if (mostrar) {
+    document.getElementById('view-p3-personal').classList.add('leg-on');
+    const b = document.getElementById('btn-legajos'); b.textContent = '🔓 Legajos visibles'; b.onclick = ocultarLegajos;
+  }
+  buildPersonal3();
+  return true;
+}
+function ocultarLegajos(){
+  document.getElementById('view-p3-personal').classList.remove('leg-on');
+  const b = document.getElementById('btn-legajos'); b.textContent = '🔒 Ver legajos'; b.onclick = () => cargarLegajos(true);
+}
+function leerLegajo(pre){
+  return {email:document.getElementById(pre+'-email').value.trim(), nacimiento:document.getElementById(pre+'-nac').value, dni:document.getElementById(pre+'-dni').value.replace(/\D/g,'')};
+}
+function validarLegajo(l){
+  if (l.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(l.email)) return 'Revisá el mail.';
+  if (l.dni && (l.dni.length<7||l.dni.length>8)) return 'El DNI tiene que tener 7 u 8 números.';
+  return '';
+}
+function llenarLegajo(pre, n){
+  const l = (LEGAJOS && LEGAJOS[n]) || {email:'',nacimiento:'',dni:''};
+  document.getElementById(pre+'-email').value = l.email; document.getElementById(pre+'-nac').value = l.nacimiento; document.getElementById(pre+'-dni').value = l.dni;
+  document.getElementById(pre+'-legnota').textContent = LEGAJOS ? '' : 'Para ver lo que ya está cargado, tocá «Ver legajos» (pide el PIN). Si completás un campo acá, se guarda; los vacíos no se tocan.';
+}
+// Solo manda lo que cambió (si no se leyeron los legajos: solo lo que se completó)
+async function guardarLegajoSiCambio(n, l){
+  const prev = LEGAJOS && LEGAJOS[n];
+  const cambios = {};
+  ['email','nacimiento','dni'].forEach(k => { if (prev ? (l[k] !== (prev[k]||'')) : !!l[k]) cambios[k] = l[k]; });
+  if (!Object.keys(cambios).length) return true;
+  const pin = pedirPin(); if (!pin) return false;
+  const r = await apiPost('setLegajo', Object.assign({pin, nombre:n}, cambios));
+  if (!r.ok) { if(/PIN/.test(r.error||'')) _pinValores=null; alert(`No se guardó el legajo: ${r.error||'error desconocido'}`); return false; }
+  if (LEGAJOS) LEGAJOS[n] = Object.assign({email:'',nacimiento:'',dni:''}, prev||{}, cambios);
+  return true;
 }
 
 // ════════════════════════════════════
@@ -1347,6 +1431,7 @@ function abrirEditarPersona(n){
   document.getElementById('ep-area').value=(p.a||[])[0]||'SALA';
   document.getElementById('ep-area2').value=(p.a||[])[1]||'';
   document.getElementById('ep-rol').value=p.j?'JEFE':'TECNICO';
+  llenarLegajo('ep', p.n);
   document.getElementById('modal-editar-persona').style.display='flex';
 }
 async function guardarEdicionPersona(){
@@ -1357,6 +1442,7 @@ async function guardarEdicionPersona(){
   const j=document.getElementById('ep-rol').value==='JEFE';
   const p=PERSONAL3.find(x=>x.n===n);
   if(!p)return;
+  const leg=leerLegajo('ep'); const errLeg=validarLegajo(leg); if(errLeg){alert(errLeg);return;}
   const anterior={a:p.a,t:p.t,j:p.j};
   const nuevasAreas=a2?[a,a2]:[a];
   // Optimista: actualizar en pantalla, confirmar contra el servidor, revertir si falla
@@ -1369,6 +1455,8 @@ async function guardarEdicionPersona(){
     alert(`No se pudo guardar el cambio: ${r.error||'error desconocido'}. Si el error persiste, es probable que el backend (Apps Script) todavía no acepte "areas"/"teatro"/"jefe" en editPersona — avisale a Jon para actualizarlo.`);
     return;
   }
+  if(!(await guardarLegajoSiCambio(n, leg))) return;
+  buildPersonal3();
   cerrarModal('modal-editar-persona');
 }
 async function toggleP3(n){
@@ -1384,7 +1472,7 @@ async function toggleP3(n){
     alert(`No se pudo guardar: ${r.error||'error desconocido'}`);
   }
 }
-function abrirModalPersona(){document.getElementById('mp-nombre').value='';document.getElementById('modal-persona').style.display='flex';}
+function abrirModalPersona(){document.getElementById('mp-nombre').value='';['email','nac','dni'].forEach(k=>document.getElementById('mp-'+k).value='');document.getElementById('mp-legnota').textContent='';document.getElementById('modal-persona').style.display='flex';}
 async function guardarPersona(){
   const n=document.getElementById('mp-nombre').value.trim().toUpperCase();
   const t=document.getElementById('mp-teatro').value;
@@ -1394,11 +1482,13 @@ async function guardarPersona(){
   if(!n||!a){alert('Completá nombre y área.');return;}
   // Verificar en PERSONAL3 (variable correcta)
   if(PERSONAL3.find(p=>p.n===n)){alert(`${n} ya existe en la nómina.`);return;}
+  const leg=leerLegajo('mp'); const errLeg=validarLegajo(leg); if(errLeg){alert(errLeg);return;}
   const nueva={n,a:a2?[a,a2]:[a],t,j,ok:true};
   // Guardar en el servidor PRIMERO — solo se agrega a la nómina local si se confirma
   const r=await apiPost("addPersona",{nombre:n,areas:a2?[a,a2]:[a],teatro:t,jefe:j,validado:true});
   if(!r.ok){ alert(`No se pudo guardar en la nómina: ${r.error||'error desconocido'}`); return; }
   PERSONAL3.push(nueva);
+  if(leg.email||leg.nacimiento||leg.dni){ if(LEGAJOS && !LEGAJOS[n]) LEGAJOS[n]={email:'',nacimiento:'',dni:''}; await guardarLegajoSiCambio(n, leg); }
   cerrarModal('modal-persona');
   buildPersonal3();
 }
@@ -1438,17 +1528,20 @@ function exportarReporte(tipo,fmt_){
   }
 }
 
-function exportarPersonal(fmt_){
+// Con legajo (mail, nacimiento, DNI) si se ingresó el PIN; si no, sin esas columnas.
+async function exportarPersonal(fmt_){
   const periodo=`${fmtM(VIG_DESDE)} – ${fmtM(VIG_HASTA)}`;
+  if(!LEGAJOS) await cargarLegajos(false);
+  const conLeg=!!LEGAJOS, L=n=>(LEGAJOS&&LEGAJOS[n])||{};
   if(fmt_==='xlsx'){
     const wb=XLSX.utils.book_new();
-    const rows=[['Nombre','Área(s)','Teatro','Rol','Estado']];
-    PERSONAL.forEach(p=>rows.push([p.n,(p.a||[]).join('+'),p.t,p.j?'Jefe':'Técnico',p.ok?'Activo':'Inactivo']));
-    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:30},{wch:25},{wch:10},{wch:10},{wch:10}];
-    XLSX.utils.book_append_sheet(wb,ws,'Personal');XLSX.writeFile(wb,`HE_Personal_${VIG_DESDE}.xlsx`);
+    const rows=[['Nombre','Área(s)','Teatro','Rol','Estado'].concat(conLeg?['Mail','Fecha de nacimiento','DNI']:[])];
+    PERSONAL.forEach(p=>rows.push([p.n,(p.a||[]).join('+'),p.t,p.j?'Jefe':'Técnico',p.ok?'Activo':'Inactivo'].concat(conLeg?[L(p.n).email||'',fmtNac(L(p.n).nacimiento),fmtDNI(L(p.n).dni)]:[])));
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:30},{wch:25},{wch:10},{wch:10},{wch:10}].concat(conLeg?[{wch:34},{wch:18},{wch:14}]:[]);
+    XLSX.utils.book_append_sheet(wb,ws,'Personal');XLSX.writeFile(wb,`HE_Personal${conLeg?'_legajos':''}_${VIG_DESDE}.xlsx`);
   } else {
-    const tRows=PERSONAL.map(p=>`<tr><td>${p.n}</td><td style="font-size:10px">${(p.a||[]).join(', ')}</td><td>${p.t}</td><td>${p.j?'Jefe':'Técnico'}</td><td>${p.ok?'Activo':'Inactivo'}</td></tr>`).join('');
-    printPDF(`Personal HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Nombre</th><th>Área(s)</th><th>Teatro</th><th>Rol</th><th>Estado</th></tr></thead><tbody>${tRows}</tbody></table>`);
+    const tRows=PERSONAL.map(p=>`<tr><td>${p.n}</td><td style="font-size:10px">${(p.a||[]).join(', ')}</td><td>${p.t}</td><td>${p.j?'Jefe':'Técnico'}</td><td>${p.ok?'Activo':'Inactivo'}</td>${conLeg?`<td style="font-size:10px">${L(p.n).email||''}</td><td>${fmtNac(L(p.n).nacimiento)}</td><td>${fmtDNI(L(p.n).dni)}</td>`:''}</tr>`).join('');
+    printPDF(`Personal HE — ${periodo}`,`<table border="0" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse"><thead style="background:#f0f0f0"><tr><th style="text-align:left">Nombre</th><th>Área(s)</th><th>Teatro</th><th>Rol</th><th>Estado</th>${conLeg?'<th>Mail</th><th>Nacimiento</th><th>DNI</th>':''}</tr></thead><tbody>${tRows}</tbody></table>`);
   }
 }
 

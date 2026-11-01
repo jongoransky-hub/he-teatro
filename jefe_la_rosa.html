@@ -9,7 +9,7 @@
 :root{
   /* Colores del Portal Metropolitan: azul #0c132e + blanco */
   --bg:#0c132e;--sf:#121b3c;--s2:#18224a;--bd:#2a3563;
-  --ac:#ffffff;--ad:#0c132e;--tx:#f3f4f8;--mu:#bcc3da;--dm:#6a759c;
+  --ac:#ffffff;--ad:#0c132e;--ac-tx:#0c132e;--tx:#f3f4f8;--mu:#bcc3da;--dm:#6a759c;
   --red:#ff5a5a;--redbg:rgba(255,90,90,.09);--redbd:rgba(255,90,90,.3);
   --amber:#f5a623;--ambg:rgba(245,166,35,.09);--ambd:rgba(245,166,35,.3);
   --green:#4caf50;--grbg:rgba(76,175,80,.09);--grbd:rgba(76,175,80,.3);
@@ -112,6 +112,68 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+/* ── Vista «Por persona» (mismo bloque en jefes y coordinación) ── */
+.pp-vistas{display:inline-flex;background:var(--s2);border:1px solid var(--bd);border-radius:999px;padding:3px;gap:2px;margin-bottom:12px}
+.pp-vistas button{border:0;background:transparent;color:var(--mu);font:inherit;font-size:13px;font-weight:600;padding:7px 16px;border-radius:999px;cursor:pointer}
+.pp-vistas button.active{background:var(--ac);color:var(--ac-tx,#fff)}
+.pp-persona{background:var(--sf);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.pp-persona.abierta{border-color:var(--mu)}
+.pp-phead{width:100%;display:flex;align-items:center;gap:10px;padding:14px 14px;background:transparent;border:0;color:var(--tx);font:inherit;text-align:left;cursor:pointer;flex-wrap:wrap}
+.pp-chev{width:14px;color:var(--mu);flex-shrink:0}
+.pp-pnombre{font-weight:700;font-size:14px;flex:1;min-width:140px}
+.pp-pend{font-size:12px;font-weight:700;color:var(--amber);background:var(--ambg);border:1px solid var(--ambd);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.pp-pend.cero{color:var(--mu);background:transparent;border-color:var(--bd)}
+.pp-ptotal{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pp-tag.amber{font-size:11px;font-weight:700;color:var(--amber)}
+.pp-pbody{border-top:1px solid var(--bd);padding:10px 12px 12px}
+.pp-lote{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 2px 10px;border-bottom:1px dashed var(--bd);margin-bottom:8px}
+.pp-todas{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mu);cursor:pointer}
+.pp-lbtns{display:flex;gap:8px;flex-wrap:wrap}
+.pp-cerrado{font-size:12px;color:var(--mu);padding:4px 2px 10px}
+.pp-carga{display:flex;gap:10px;padding:10px 6px;border-radius:8px;border-left:3px solid transparent}
+.pp-carga+.pp-carga{border-top:1px solid var(--bd)}
+.pp-carga.solapa{background:var(--ambg);border-left-color:var(--amber)}
+.pp-check{padding-top:2px;flex-shrink:0}
+.pp-check input,.pp-todas input{width:20px;height:20px;accent-color:var(--ac);cursor:pointer}
+.pp-lock{font-size:13px}
+.pp-cinfo{flex:1;min-width:0}
+.pp-cl1{font-size:13px;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.pp-cmonto{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.pp-cl2{font-size:12px;color:var(--mu);margin-top:2px}
+.pp-cl3{font-size:12px;color:var(--mu);margin-top:2px;overflow-wrap:anywhere}
+.pp-csol{font-size:12px;color:var(--amber);font-weight:700;margin-top:4px}
+.pp-cnota{font-size:12px;color:var(--amber);margin-top:3px}
+.pp-cl4{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;flex-wrap:wrap}
+.pp-est{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;border:1px solid}
+.pp-est.ok{color:var(--green);background:var(--grbg);border-color:var(--grbd)}
+.pp-est.no{color:var(--red);background:var(--redbg);border-color:var(--redbd)}
+.pp-est.pend{color:var(--amber);background:var(--ambg);border-color:var(--ambd)}
+.pp-cbtns{display:flex;gap:6px;flex-wrap:wrap}
+.pp-btn,.pp-mini{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--tx);cursor:pointer}
+.pp-btn{font-size:13px;padding:9px 14px}
+.pp-mini{font-size:12px;padding:5px 10px}
+.pp-btn.ok,.pp-mini.ok{background:var(--green);border-color:var(--green);color:#fff}
+.pp-btn.no,.pp-mini.no{background:transparent;border-color:var(--red);color:var(--red)}
+.pp-btn.ghost{background:transparent}
+.pp-btn:disabled{opacity:.4;cursor:default}
+.pp-vacio{text-align:center;color:var(--mu);padding:40px 16px;font-size:14px}
+.pp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.pp-dialog{background:var(--sf);color:var(--tx);border:1px solid var(--bd);border-radius:14px;padding:20px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.pp-dtitulo{font-size:16px;font-weight:700;line-height:1.35;margin-bottom:10px}
+.pp-dtexto{font-size:13px;color:var(--mu);line-height:1.5;margin-bottom:10px}
+.pp-dlista{font-family:'DM Mono',monospace;font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;margin-bottom:8px;max-height:180px;overflow-y:auto}
+.pp-motivo{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font:inherit;font-size:14px;padding:10px;resize:vertical}
+.pp-derr{color:var(--red);font-size:12px;min-height:16px;margin-top:4px}
+.pp-dbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.pp-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);background:var(--tx);color:var(--sf);font-size:13px;font-weight:600;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:all .2s;z-index:1001;max-width:calc(100% - 32px);text-align:center}
+.pp-toast.vis{opacity:1;transform:translateX(-50%)}
+.pp-toast.err{background:var(--red);color:#fff}
+.pp-toast.ok{background:var(--green);color:#fff}
+@media (max-width:520px){
+  .pp-lbtns{width:100%}.pp-lbtns .pp-btn{flex:1}
+  .pp-phead{padding:12px}
+  .pp-pnombre{min-width:calc(100% - 30px)}
+}
 </style>
 </head>
 <body>
@@ -136,6 +198,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
     <div class="rcard"><div class="rcard-lbl">Pendientes</div><div class="rcard-val amber" id="r-pendientes">—</div><div class="rcard-sub">para revisar</div></div>
     <div class="rcard"><div class="rcard-lbl">Aprobados</div><div class="rcard-val green" id="r-aprobados">—</div><div class="rcard-sub">en el mes</div></div>
     <div class="rcard"><div class="rcard-lbl">Total</div><div class="rcard-val" id="r-total" style="font-size:16px">—</div><div class="rcard-sub">acumulado</div></div>
+  </div>
+
+  <div class="pp-vistas" role="tablist">
+    <button id="vista-ticket" class="active" onclick="setVista('ticket')">Por ticket</button>
+    <button id="vista-persona" onclick="setVista('persona')">Por persona</button>
   </div>
 
   <div class="filters">
@@ -203,6 +270,16 @@ let tickets = [];
 let filtro = 'todos';
 let buscar = '';        // texto del buscador
 let orden = 'estado';   // 'estado' | 'persona' | 'fecha'
+let vista = 'ticket';   // 'ticket' (una tarjeta por ticket) | 'persona' (agrupado, con aprobación en grupo)
+let _solapan = new Set(); // ids de cargas que se superponen con otra de la misma persona y día
+
+function setVista(v){
+  vista = v;
+  document.getElementById('vista-ticket').classList.toggle('active', v === 'ticket');
+  document.getElementById('vista-persona').classList.toggle('active', v === 'persona');
+  document.getElementById('orden').style.display = v === 'persona' ? 'none' : '';
+  renderTickets();
+}
 
 // Texto para comparar: sin acentos ni mayúsculas
 function normTxt(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
@@ -390,6 +467,8 @@ async function cargarTickets() {
 // ═══════════════════════════════════════
 function renderTickets() {
   const container = document.getElementById('tickets-container');
+  _solapan = ppSolapes(tickets.filter(t => t.mes === mesSel).map(ppNorm));
+  if (vista === 'persona') { ppRender(); return; }
   const prioridad = {PENDIENTE:0, RECHAZADO:1, APROBADO:2};
   const porEstado  = (a,b) => (prioridad[a.aprobJefe]||0) - (prioridad[b.aprobJefe]||0) || b.fecha.localeCompare(a.fecha);
   const porPersona = (a,b) => a.nombre.localeCompare(b.nombre) || a.fecha.localeCompare(b.fecha) || String(a.horaDesde).localeCompare(String(b.horaDesde));
@@ -430,11 +509,11 @@ function ticketHTML(t, i) {
   const estadoClass = t.aprobJefe === 'APROBADO' ? 'aprobado' : t.aprobJefe === 'RECHAZADO' ? 'rechazado' : 'pendiente';
   const montoClass = t.total > 100000 ? 'amber' : 'green';
   return `
-  <div class="ticket ${estadoClass}" id="ticket-${idx}">
+  <div class="ticket ${estadoClass}" id="ticket-${idx}" ${_solapan.has(t.id)?'style="border-color:var(--amber);background:var(--ambg)"':''}>
     <div class="ticket-head" onclick="toggleTicket(${idx})">
       <div>
         <div class="ticket-nombre">${t.nombre}</div>
-        <div class="ticket-meta">${fmtF(t.fecha)} · ${t.horaDesde||'—'}→${t.horaHasta||'—'} · ${t.tipoLabel||'—'}${t.overrideOverlap?' · <span style="color:var(--red);font-weight:600">⚠ Solapa</span>':''}</div>
+        <div class="ticket-meta">${fmtF(t.fecha)} · ${t.horaDesde||'—'}→${t.horaHasta||'—'} · ${t.tipoLabel||'—'}${t.overrideOverlap?' · <span style="color:var(--red);font-weight:600">⚠ Solapa</span>':''}${_solapan.has(t.id)?' · <span style="color:var(--amber);font-weight:700">⚠ Se superpone con otra carga suya</span>':''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         <div class="ticket-monto ${montoClass}">$${fmt(t.total)}</div>
@@ -453,7 +532,13 @@ function ticketHTML(t, i) {
         <button class="btn editar" onclick="toggleEditar(${idx})">✎ Editar</button>
         ${t.aprobJefe !== 'APROBADO' ? '' : `<button class="btn ghost" onclick="desaprobar(${idx})">Revertir</button>`}
       </div>`}
-      <div class="edit-panel ${t._editOpen?'open':''}" id="edit-${idx}">
+      ${editPanelHTML(t, idx)}
+    </div>
+  </div>`;
+}
+
+function editPanelHTML(t, idx) {
+  return `      <div class="edit-panel ${t._editOpen?'open':''}" id="edit-${idx}">
         <div class="edit-field"><label>Fecha</label><input type="date" id="ef-fecha-${idx}" value="${t.fecha}"></div>
         <div class="edit-field"><label>Hora desde</label>
           <select id="ef-desde-${idx}">${horaOpts(t.horaDesde)}</select>
@@ -469,9 +554,7 @@ function ticketHTML(t, i) {
           <button class="btn aprobar" onclick="guardarEdicion(${idx})">Guardar y aprobar</button>
           <button class="btn ghost" onclick="toggleEditar(${idx})">Cancelar</button>
         </div>
-      </div>
-    </div>
-  </div>`;
+      </div>`;
 }
 
 function estadoBadge(s) {
@@ -494,7 +577,7 @@ function actualizarResumen() {
 // ═══════════════════════════════════════
 async function aprobar(idx) {
   const t = tickets[idx];
-  if (!t.id) { alert('Este ticket no tiene ID — no se puede sincronizar.'); return; }
+  if (!t.id) { ppAviso('Este ticket no tiene ID — no se puede sincronizar.','err'); return; }
   const estadoPrevio = t.aprobJefe;
   t.aprobJefe = 'APROBADO';
   renderTickets(); actualizarResumen();
@@ -507,14 +590,15 @@ async function aprobar(idx) {
   if (!r.ok) {
     t.aprobJefe = estadoPrevio; // revertir — el servidor no lo aceptó
     renderTickets(); actualizarResumen();
-    alert(`No se pudo aprobar: ${r.error||'error desconocido'}`);
+    ppAviso(`No se pudo aprobar: ${r.error||'error desconocido'}`,'err');
   }
 }
 
 async function rechazar(idx) {
-  const nota = prompt('¿Por qué rechazás este ticket? (obligatorio)');
-  if (!nota || !nota.trim()) return;
   const t = tickets[idx];
+  const rr = await ppPedir({titulo:`Rechazar la carga del ${fmtF(t.fecha)} de ${t.nombre}`, texto:`${t.horaDesde||'—'}→${t.horaHasta||'—'} · ${ppEsc(t.tipoLabel)} · <b>$${fmt(t.total)}</b>`, motivo:true, si:'Rechazar', clase:'no'});
+  if (!rr.ok) return;
+  const nota = rr.motivo;
   const estadoPrevio = t.aprobJefe, notaPrevia = t.notaJefe;
   t.aprobJefe = 'RECHAZADO';
   t.notaJefe = nota.trim();
@@ -528,13 +612,14 @@ async function rechazar(idx) {
   if (!r.ok) {
     t.aprobJefe = estadoPrevio; t.notaJefe = notaPrevia;
     renderTickets(); actualizarResumen();
-    alert(`No se pudo rechazar: ${r.error||'error desconocido'}`);
+    ppAviso(`No se pudo rechazar: ${r.error||'error desconocido'}`,'err');
   }
 }
 
 async function desaprobar(idx) {
-  if (!confirm('¿Revertir la aprobación de este ticket?')) return;
   const t = tickets[idx];
+  const rr = await ppPedir({titulo:'¿Revertir la aprobación de este ticket?', texto:`${ppEsc(t.nombre)} · ${fmtF(t.fecha)} · $${fmt(t.total)}`, si:'Revertir', clase:'no'});
+  if (!rr.ok) return;
   const estadoPrevio = t.aprobJefe, notaPrevia = t.notaJefe;
   t.aprobJefe = 'PENDIENTE';
   t.notaJefe = '';
@@ -548,14 +633,14 @@ async function desaprobar(idx) {
   if (!r.ok) {
     t.aprobJefe = estadoPrevio; t.notaJefe = notaPrevia;
     renderTickets(); actualizarResumen();
-    alert(`No se pudo revertir: ${r.error||'error desconocido'}`);
+    ppAviso(`No se pudo revertir: ${r.error||'error desconocido'}`,'err');
   }
 }
 
 async function guardarEdicion(idx) {
   const t = tickets[idx];
   const motivo = document.getElementById(`ef-motivo-${idx}`).value.trim();
-  if (!motivo) { alert('El motivo es obligatorio.'); return; }
+  if (!motivo) { ppAviso('El motivo es obligatorio.','err'); return; }
   const previo = {fecha:t.fecha, horaDesde:t.horaDesde, horaHasta:t.horaHasta, descripcion:t.descripcion, aprobJefe:t.aprobJefe};
   const nuevoFecha = document.getElementById(`ef-fecha-${idx}`).value || t.fecha;
   const nuevoDesde  = document.getElementById(`ef-desde-${idx}`).value || t.horaDesde;
@@ -566,7 +651,7 @@ async function guardarEdicion(idx) {
     id: t.id, fecha: nuevoFecha, horaDesde: nuevoDesde, horaHasta: nuevoHasta,
     descripcion: nuevaDesc, motivo, editadoPor: JEFE_CONFIG.nombre,
   });
-  if (!r1.ok) { alert(`No se pudo guardar la edición: ${r1.error||'error desconocido'}`); return; }
+  if (!r1.ok) { ppAviso(`No se pudo guardar la edición: ${r1.error||'error desconocido'}`,'err'); return; }
   t.fecha=nuevoFecha; t.horaDesde=nuevoDesde; t.horaHasta=nuevoHasta; t.descripcion=nuevaDesc;
   t.aprobJefe = 'APROBADO';
   t._editOpen = false;
@@ -574,7 +659,7 @@ async function guardarEdicion(idx) {
     id: t.id, aprobadoPor: JEFE_CONFIG.nombre, estado: 'APROBADO',
     nota: `Editado y aprobado: ${motivo}`,
   });
-  if (!r2.ok) { t.aprobJefe = previo.aprobJefe; alert(`Se guardó la edición, pero no se pudo aprobar: ${r2.error||'error desconocido'}`); }
+  if (!r2.ok) { t.aprobJefe = previo.aprobJefe; ppAviso(`Se guardó la edición, pero no se pudo aprobar: ${r2.error||'error desconocido'}`,'err'); }
   renderTickets(); actualizarResumen();
 }
 
@@ -596,6 +681,221 @@ function setFiltro(f, el) {
   el.classList.add('active');
   renderTickets();
 }
+
+// ═══════════════════════════════════════
+// VISTA POR PERSONA — adaptador para este panel
+// ═══════════════════════════════════════
+function ppNorm(t){return {id:t.id, nombre:t.nombre, fecha:t.fecha, desde:t.horaDesde, hasta:t.horaHasta, tipo:t.tipoLabel, obra:t.obra, desc:t.descripcion, total:t.total, estado:t.aprobJefe, nota:t.notaJefe, ref:t};}
+const PP_ADAPTER = {
+  contenedor: 'tickets-container',
+  lista: () => tickets.filter(t => t.mes === mesSel && coincide(t) && (filtro === 'todos' || t.aprobJefe.toLowerCase() === filtro)).map(ppNorm),
+  todasDelMes: () => tickets.filter(t => t.mes === mesSel).map(ppNorm),
+  cerrado: t => ticketCerrado(t.ref),
+  aprobadoPor: () => JEFE_CONFIG.nombre,
+  setEstado: (t, e, n) => { t.ref.aprobJefe = e; t.ref.notaJefe = n; },
+  despues: () => { renderTickets(); actualizarResumen(); },
+  editar: t => { t.ref._editOpen = !t.ref._editOpen; ppRender(); },
+  editHTML: t => t.ref._editOpen ? editPanelHTML(t.ref, tickets.indexOf(t.ref)) : '',
+  vacio: () => normTxt(buscar).trim() ? `Nada coincide con "${ppEsc(buscar)}" en ${mesSel?mkNombre(mesSel).toLowerCase():'el mes'}.` : `Sin tickets ${filtro==='todos'?'':filtro==='pendiente'?'pendientes ':filtro==='aprobado'?'aprobados ':'rechazados '}en ${mesSel?mkNombre(mesSel).toLowerCase():'el mes'} para tu área.`,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// VISTA «POR PERSONA» — mismo código en jefe_*.html y en los paneles de
+// coordinación (dashboard_HE_v9 y sus derivados). Cada página le da un
+// adaptador PP_ADAPTER (de dónde salen los tickets, quién aprueba, cómo se
+// edita). Aprobar / rechazar en grupo va en UN pedido al Apps Script
+// (acción aprobarTickets, v3.4). Sin alert/confirm/prompt del navegador:
+// adentro de un iframe (Portal MET) algunos navegadores los bloquean, así
+// que las confirmaciones y avisos son de la propia página.
+// ═══════════════════════════════════════════════════════════════
+let ppAbiertas = new Set();   // personas desplegadas (por nombre)
+let ppSel = new Set();        // ids tildados
+let ppOcupado = false;        // hay un pedido en curso
+
+function ppEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function ppMonto(n){return '$'+Math.round(n||0).toLocaleString('es-AR');}
+function ppFecha(v){if(!v)return'—';const[y,m,d]=String(v).split('-');return`${d}/${m}/${y}`;}
+function ppMin(h){const m=String(h||'').match(/^(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):null;}
+
+// Cargas de una misma persona, el mismo día, con horarios que se pisan
+// (posible duplicado). Los rechazados no cuentan. Cruza medianoche bien.
+function ppSolapes(lista){
+  const out = new Set(), grupos = {};
+  lista.filter(t => t.estado !== 'RECHAZADO').forEach(t => { const k = t.nombre+'|'+t.fecha; (grupos[k] = grupos[k] || []).push(t); });
+  Object.values(grupos).forEach(g => {
+    if (g.length < 2) return;
+    const iv = g.map(t => { const a = ppMin(t.desde), b0 = ppMin(t.hasta); if (a == null || b0 == null) return null; let b = b0; if (b <= a) b += 1440; return [a, b]; });
+    for (let i = 0; i < g.length; i++) for (let j = i+1; j < g.length; j++) {
+      if (iv[i] && iv[j] && iv[i][0] < iv[j][1] && iv[j][0] < iv[i][1]) { out.add(g[i].id); out.add(g[j].id); }
+    }
+  });
+  return out;
+}
+
+// ── Avisos y confirmaciones dentro de la página ──
+function ppUI(){
+  if (document.getElementById('pp-modal')) return;
+  const d = document.createElement('div');
+  d.innerHTML = `
+  <div id="pp-modal" class="pp-overlay" style="display:none">
+    <div class="pp-dialog" role="dialog" aria-modal="true">
+      <div class="pp-dtitulo" id="pp-dtitulo"></div>
+      <div class="pp-dtexto" id="pp-dtexto"></div>
+      <textarea id="pp-dmotivo" class="pp-motivo" rows="3" placeholder="Motivo (obligatorio): lo recibe la persona por mail"></textarea>
+      <div class="pp-derr" id="pp-derr"></div>
+      <div class="pp-dbtns"><button class="pp-btn ghost" id="pp-dno">Cancelar</button><button class="pp-btn" id="pp-dsi">Confirmar</button></div>
+    </div>
+  </div>
+  <div id="pp-toast" class="pp-toast"></div>`;
+  document.body.appendChild(d);
+}
+function ppPedir({titulo, texto='', motivo=false, si='Confirmar', clase='ok'}){
+  ppUI();
+  return new Promise(res => {
+    const m = document.getElementById('pp-modal'), ta = document.getElementById('pp-dmotivo'), err = document.getElementById('pp-derr');
+    document.getElementById('pp-dtitulo').textContent = titulo;
+    document.getElementById('pp-dtexto').innerHTML = texto;
+    ta.style.display = motivo ? 'block' : 'none'; ta.value = ''; err.textContent = '';
+    const bSi = document.getElementById('pp-dsi'), bNo = document.getElementById('pp-dno');
+    bSi.textContent = si; bSi.className = 'pp-btn ' + clase;
+    const fin = v => { m.style.display = 'none'; bSi.onclick = bNo.onclick = m.onclick = null; res(v); };
+    bSi.onclick = () => { if (motivo && !ta.value.trim()) { err.textContent = 'Escribí el motivo.'; ta.focus(); return; } fin({ok:true, motivo: ta.value.trim()}); };
+    bNo.onclick = () => fin({ok:false});
+    m.onclick = e => { if (e.target === m) fin({ok:false}); };
+    m.style.display = 'flex';
+    if (motivo) setTimeout(() => ta.focus(), 50);
+  });
+}
+function ppAviso(msg, tipo){
+  ppUI();
+  const t = document.getElementById('pp-toast');
+  t.textContent = msg; t.className = 'pp-toast vis ' + (tipo || '');
+  clearTimeout(ppAviso._h); ppAviso._h = setTimeout(() => { t.className = 'pp-toast'; }, tipo === 'err' ? 7000 : 3500);
+}
+
+// ── Render ──
+function ppRender(){
+  const cont = document.getElementById(PP_ADAPTER.contenedor);
+  if (!cont) return;
+  const lista = PP_ADAPTER.lista();            // ya filtrada por mes, estado y buscador
+  const solapan = ppSolapes(PP_ADAPTER.todasDelMes());
+  if (!lista.length) { cont.innerHTML = `<div class="pp-vacio">${PP_ADAPTER.vacio()}</div>`; return; }
+  const personas = {};
+  lista.forEach(t => (personas[t.nombre] = personas[t.nombre] || []).push(t));
+  const orden = Object.keys(personas).map(n => {
+    const ts = personas[n].sort((a,b) => a.fecha.localeCompare(b.fecha) || String(a.desde).localeCompare(String(b.desde)));
+    return {n, ts, pend: ts.filter(t => t.estado === 'PENDIENTE').length, total: ts.reduce((a,t) => a + t.total, 0), sol: ts.some(t => solapan.has(t.id))};
+  }).sort((a,b) => b.pend - a.pend || a.n.localeCompare(b.n));
+  cont.innerHTML = orden.map(p => ppPersonaHTML(p, solapan)).join('');
+}
+
+function ppPersonaHTML(p, solapan){
+  const abierta = ppAbiertas.has(p.n);
+  const key = encodeURIComponent(p.n);
+  const editables = p.ts.filter(t => !PP_ADAPTER.cerrado(t));
+  const sel = editables.filter(t => ppSel.has(t.id));
+  const selTot = sel.reduce((a,t) => a + t.total, 0);
+  const todas = editables.length > 0 && sel.length === editables.length;
+  return `<div class="pp-persona ${abierta?'abierta':''}">
+    <button class="pp-phead" onclick="ppToggle('${key}')" aria-expanded="${abierta}">
+      <span class="pp-chev">${abierta?'▾':'▸'}</span>
+      <span class="pp-pnombre">${ppEsc(p.n)}</span>
+      ${p.sol?'<span class="pp-tag amber" title="Hay cargas que se superponen en horario">⚠ superpuestas</span>':''}
+      <span class="pp-pend ${p.pend?'':'cero'}">${p.pend} pend.</span>
+      <span class="pp-ptotal">${ppMonto(p.total)}</span>
+    </button>
+    ${abierta ? `<div class="pp-pbody">
+      ${editables.length ? `<div class="pp-lote">
+        <label class="pp-todas"><input type="checkbox" ${todas?'checked':''} onchange="ppTodas('${key}',this.checked)"> Seleccionar todas</label>
+        <div class="pp-lbtns">
+          <button class="pp-btn ok" ${sel.length&&!ppOcupado?'':'disabled'} onclick="ppLote('${key}','APROBADO')">✓ Aprobar seleccionadas (${sel.length} · ${ppMonto(selTot)})</button>
+          <button class="pp-btn no" ${sel.length&&!ppOcupado?'':'disabled'} onclick="ppLote('${key}','RECHAZADO')">✗ Rechazar seleccionadas</button>
+        </div>
+      </div>` : `<div class="pp-cerrado">🔒 Mes cerrado por coordinación: solo consulta.</div>`}
+      ${p.ts.map(t => ppCargaHTML(t, solapan.has(t.id))).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+function ppCargaHTML(t, solapa){
+  const cerrado = PP_ADAPTER.cerrado(t);
+  const est = t.estado === 'APROBADO' ? ['ok','✓ Aprobada'] : t.estado === 'RECHAZADO' ? ['no','✗ Rechazada'] : ['pend','⏳ Pendiente'];
+  const idq = encodeURIComponent(t.id);
+  return `<div class="pp-carga ${solapa?'solapa':''} ${est[0]}">
+    <label class="pp-check">${cerrado?'<span class="pp-lock">🔒</span>':`<input type="checkbox" ${ppSel.has(t.id)?'checked':''} onchange="ppTildar('${idq}',this.checked)">`}</label>
+    <div class="pp-cinfo">
+      <div class="pp-cl1"><b>${ppFecha(t.fecha)}</b> · ${ppEsc(t.desde||'—')}→${ppEsc(t.hasta||'—')} <span class="pp-cmonto">${ppMonto(t.total)}</span></div>
+      <div class="pp-cl2">${ppEsc(t.tipo||'—')}${t.obra?' · '+ppEsc(t.obra):''}</div>
+      ${t.desc?`<div class="pp-cl3">${ppEsc(t.desc)}</div>`:''}
+      ${solapa?'<div class="pp-csol">⚠ Se superpone en horario con otra carga del mismo día — posible duplicado</div>':''}
+      ${t.nota?`<div class="pp-cnota">Nota: ${ppEsc(t.nota)}</div>`:''}
+      <div class="pp-cl4"><span class="pp-est ${est[0]}">${est[1]}</span>
+        ${cerrado?'':`<span class="pp-cbtns">
+          ${t.estado!=='APROBADO'?`<button class="pp-mini ok" onclick="ppUno('${idq}','APROBADO')">✓ Aprobar</button>`:''}
+          ${t.estado!=='RECHAZADO'?`<button class="pp-mini no" onclick="ppUno('${idq}','RECHAZADO')">✗ Rechazar</button>`:''}
+          <button class="pp-mini" onclick="ppEditar('${idq}')">✎ Editar</button>
+        </span>`}
+      </div>
+      ${PP_ADAPTER.editHTML ? PP_ADAPTER.editHTML(t) : ''}
+    </div>
+  </div>`;
+}
+
+// ── Interacción ──
+function ppToggle(key){ const n = decodeURIComponent(key); ppAbiertas.has(n) ? ppAbiertas.delete(n) : ppAbiertas.add(n); ppRender(); }
+function ppTildar(idq, v){ const id = decodeURIComponent(idq); v ? ppSel.add(id) : ppSel.delete(id); ppRender(); }
+function ppTodas(key, v){
+  const n = decodeURIComponent(key);
+  PP_ADAPTER.lista().filter(t => t.nombre === n && !PP_ADAPTER.cerrado(t)).forEach(t => v ? ppSel.add(t.id) : ppSel.delete(t.id));
+  ppRender();
+}
+function ppEditar(idq){ const t = PP_ADAPTER.lista().find(x => x.id === decodeURIComponent(idq)); if (t) PP_ADAPTER.editar(t); }
+
+async function ppUno(idq, estado){
+  const t = PP_ADAPTER.lista().find(x => x.id === decodeURIComponent(idq));
+  if (!t) return;
+  let nota = '';
+  if (estado === 'RECHAZADO') {
+    const r = await ppPedir({titulo:`Rechazar la carga del ${ppFecha(t.fecha)} de ${t.nombre}`, texto:`${ppEsc(t.desde)}→${ppEsc(t.hasta)} · ${ppEsc(t.tipo)} · <b>${ppMonto(t.total)}</b>`, motivo:true, si:'Rechazar', clase:'no'});
+    if (!r.ok) return; nota = r.motivo;
+  }
+  await ppEnviar([t], estado, nota);
+}
+
+async function ppLote(key, estado){
+  if (ppOcupado) return;
+  const n = decodeURIComponent(key);
+  const sel = PP_ADAPTER.lista().filter(t => t.nombre === n && ppSel.has(t.id) && !PP_ADAPTER.cerrado(t));
+  if (!sel.length) return;
+  const tot = sel.reduce((a,t) => a + t.total, 0);
+  const cargas = sel.length === 1 ? '1 carga' : `${sel.length} cargas`;
+  const detalle = sel.map(t => `${ppFecha(t.fecha)} · ${ppEsc(t.desde)}→${ppEsc(t.hasta)} · ${ppMonto(t.total)}`).join('<br>');
+  const r = await ppPedir(estado === 'APROBADO'
+    ? {titulo:`Aprobar ${cargas} de ${n} por ${ppMonto(tot)}`, texto:`<div class="pp-dlista">${detalle}</div>`, si:'Aprobar', clase:'ok'}
+    : {titulo:`Rechazar ${cargas} de ${n} por ${ppMonto(tot)}`, texto:`<div class="pp-dlista">${detalle}</div>El mismo motivo vale para todas.`, motivo:true, si:'Rechazar', clase:'no'});
+  if (!r.ok) return;
+  await ppEnviar(sel, estado, r.motivo || '');
+}
+
+async function ppEnviar(lista, estado, nota){
+  ppOcupado = true; ppRender();
+  ppAviso('Guardando…');
+  const res = await apiPost('aprobarTickets', {ids: lista.map(t => t.id), estado, nota, aprobadoPor: PP_ADAPTER.aprobadoPor()});
+  ppOcupado = false;
+  if (!res || (!res.ok && !Array.isArray(res.hechos))) {
+    const e = (res && res.error) || 'error desconocido';
+    ppRender();
+    ppAviso(/acci[oó]n|desconocid|unknown/i.test(e) ? 'Falta actualizar el Apps Script a la versión 3.4 para aprobar en grupo.' : `No se guardó: ${e}`, 'err');
+    return;
+  }
+  const hechos = new Set((res.hechos || []).map(String));
+  lista.forEach(t => { if (hechos.has(String(t.id))) { PP_ADAPTER.setEstado(t, estado, estado === 'APROBADO' ? '' : nota); ppSel.delete(t.id); } });
+  PP_ADAPTER.despues();
+  const verbo = estado === 'APROBADO' ? 'aprobada' : estado === 'RECHAZADO' ? 'rechazada' : 'actualizada';
+  const fall = res.fallidos || [];
+  ppAviso(`${hechos.size} carga${hechos.size===1?'':'s'} ${verbo}${hechos.size===1?'':'s'}` + (fall.length ? ` · ${fall.length} sin cambios: ${fall[0].error}` : ''), fall.length ? 'err' : 'ok');
+}
+
 
 // ═══════════════════════════════════════
 // UTILS
