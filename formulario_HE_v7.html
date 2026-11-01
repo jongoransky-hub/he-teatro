@@ -7,9 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0f0f0f;--sf:#1a1a1a;--s2:#222;--bd:#2e2e2e;
-  --ac:#c8f542;--ad:#0f0f0f;--tx:#f0f0f0;--mu:#d6d6d6;
-  --dm:#444;--red:#ff5a5a;--rbg:rgba(255,90,90,.08);
+  /* Colores del Portal Metropolitan: azul #0c132e + blanco (oct 2026) */
+  --bg:#0c132e;--sf:#121b3c;--s2:#18224a;--bd:#2a3563;
+  --ac:#ffffff;--ad:#0c132e;--tx:#f3f4f8;--mu:#bcc3da;
+  --dm:#5d6890;--red:#ff5a5a;--rbg:rgba(255,90,90,.08);
   --amber:#f5a623;--ambg:rgba(245,166,35,.08);
   --r:12px;--rs:8px;
 }
@@ -79,9 +80,9 @@ textarea{resize:none;height:90px;line-height:1.5}
 .prof-sub{font-size:13px;color:var(--mu)}
 .prof-change{font-size:12px;color:var(--dm);margin-top:10px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 
-.banner{background:rgba(200,245,66,.06);border:1px solid rgba(200,245,66,.2);border-radius:var(--r);padding:14px 16px;margin-bottom:20px;font-size:13px;line-height:1.6;color:var(--mu)}
+.banner{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2);border-radius:var(--r);padding:14px 16px;margin-bottom:20px;font-size:13px;line-height:1.6;color:var(--mu)}
 .banner strong{color:var(--tx)}
-.banner-jefe{background:rgba(200,245,66,.1);border-color:rgba(200,245,66,.4)}
+.banner-jefe{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.4)}
 
 .proxy-note{background:var(--s2);border:1px solid var(--bd);border-radius:var(--rs);padding:12px 14px;margin-bottom:18px;font-size:13px;color:var(--mu)}
 
@@ -107,7 +108,7 @@ textarea{resize:none;height:90px;line-height:1.5}
 .ticket-proxy{font-size:11px;color:var(--amber);margin-top:2px}
 .empty-hist{text-align:center;padding:40px 20px;color:var(--dm);font-size:14px}
 
-.cierre-banner{background:rgba(200,245,66,.08);border:2px solid var(--ac);border-radius:var(--r);padding:18px 20px;margin-bottom:20px;text-align:center}
+.cierre-banner{background:rgba(255,255,255,.08);border:2px solid var(--ac);border-radius:var(--r);padding:18px 20px;margin-bottom:20px;text-align:center}
 .cierre-title{font-size:16px;font-weight:600;margin-bottom:6px}
 .cierre-sub{font-size:13px;color:var(--mu);margin-bottom:14px;line-height:1.5}
 .btn-cierre{background:var(--ac);color:var(--ad);border:none;border-radius:var(--rs);padding:13px 24px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
@@ -136,7 +137,7 @@ textarea{resize:none;height:90px;line-height:1.5}
 <div class="hdr" id="hdr">
   <div class="hdr-row">
     <div class="dot"></div>
-    <h1>Horas Extras</h1>
+    <h1>HE</h1>
     <span class="hdr-name" id="hdr-name"></span>
   </div>
   <div class="hdr-tag" id="hdr-tag">REGISTRO</div>
@@ -596,7 +597,8 @@ function obraVigenteEn(o,mkRef){
 }
 
 window.onload = async () => {
-  document.getElementById('fecha').valueAsDate = new Date();
+  // Fecha local (valueAsDate usa hora UTC: después de las 21 h ponía el día siguiente)
+  document.getElementById('fecha').value = (d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
 
   try {
     const [perRes, obrRes, valRes, mesRes] = await Promise.all([
@@ -1505,7 +1507,7 @@ function reiniciar() { location.reload(); }
 // ═══════════════════════════════════════════════════
 // UTILS
 // ═══════════════════════════════════════════════════
-function fmt(n)  { return n.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmt(n)  { n=Number(n)||0; return n.toLocaleString('es-AR', Number.isInteger(n)?{maximumFractionDigits:0}:{minimumFractionDigits:2,maximumFractionDigits:2}); } // pesos enteros, sin decimales
 function fmt2(n) { return n.toLocaleString('es-AR'); }
 function fmtF(v) { if(!v) return '—'; const[y,m,d]=v.split('-'); return `${d}/${m}/${y}`; }
 </script>
