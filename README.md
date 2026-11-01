@@ -106,6 +106,12 @@ Renombrar el archivo nuevo para que coincida exactamente con el nombre que ya es
 
 - **Nov 2026** — Pieza 3 → Exportar y compartir → **"Valores para producciones externas"**: el resumen de costos que se entrega a las producciones externas (formato del que armaba Mano). Título "VALORES HE <MES> <AÑO>", columna "VALORES (Del 01/mm/aa al dd/mm/aa)", sin porcentajes ni comparación con meses anteriores, y las tres notas en rojo (maquinista de guardia, montaje de maquinaria, horario de ingreso 18:00 / mínimos de 3 y 6 horas). PDF, Excel ("Valores HE MET - Nov 26") o texto. Los renglones y de qué fila de Valores sale cada uno están en `EXTERNA_ITEMS` dentro de pieza3 (Hora Extra Técnicos = he3, Madrugada = hem3, Jefe de área = he3j, Programación = prog3, Microfonista y Eléctrico de piso = evco, Guardia proyección = sproy, Armados = armado, Luces M/L = lm/ll); las notas en `EXTERNA_NOTAS`. Las notas se pueden retocar en la vista previa para una exportación puntual (no se guarda).
 
+- **Nov 2026** — Formulario: mientras coordinación no cierre el mes anterior para el teatro de la persona, la fecha arranca en ese mes (último día) con un aviso ("Octubre todavía no se cerró… poné el día exacto de tu HE; si es de noviembre, cambiá la fecha"). Si se avanza sin tocar la fecha, pregunta "¿Tu HE fue el 31/10?". Una HE con fecha del mes nuevo se puede cargar igual: va al mes nuevo, con sus valores, y no aparece en el panel de coordinación hasta que se cierre el anterior. Cerrado el mes, la fecha vuelve a arrancar en hoy.
+
+- **Nov 2026** — Formulario con los colores del Portal Metropolitan (azul #0c132e + blanco, en lugar del negro con verde lima); encabezado "HE" en vez de "Horas Extras"; montos unitarios sin decimales. Corregido: la fecha por defecto usaba hora UTC y después de las 21 h proponía el día siguiente.
+
+- **Nov 2026** — Identidad visual unificada con el Portal Metropolitan en toda la app: formulario, paneles de jefe y Pieza 3 en azul #0c132e con acentos blancos; dashboards de coordinación (de escritorio) en fondo claro con barra y botones en el mismo azul. Se reemplazó el verde lima en todas las piezas. Los colores viven en el bloque `:root` de cada archivo.
+
 ## Pendiente / no resuelto todavía
 
 - Pieza 3 (valores, obras, personal) sigue compartida entre MET y PLP — no está separada por coordinador.

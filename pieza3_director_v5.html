@@ -8,8 +8,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#0f0f0f;--sf:#1a1a1a;--s2:#222;--bd:#2e2e2e;
-  --ac:#c8f542;--ad:#0f0f0f;--tx:#f0f0f0;--mu:#d6d6d6;--dm:#888;
+  /* Colores del Portal Metropolitan: azul #0c132e + blanco */
+  --bg:#0c132e;--sf:#121b3c;--s2:#18224a;--bd:#2a3563;
+  --ac:#ffffff;--ad:#0c132e;--tx:#f3f4f8;--mu:#bcc3da;--dm:#8089ad;
   --red:#ff5a5a;--redbg:rgba(255,90,90,.09);--redbd:rgba(255,90,90,.3);
   --amber:#f5a623;--ambg:rgba(245,166,35,.09);--ambd:rgba(245,166,35,.3);
   --green:#4caf50;--grbg:rgba(76,175,80,.09);--grbd:rgba(76,175,80,.3);
@@ -185,7 +186,7 @@ textarea{resize:none;height:60px;line-height:1.5}
     <span class="tb-sub" id="tb-sub">— Director</span>
   </div>
   <div class="tb-right" style="display:flex;align-items:center;gap:10px">
-    <button onclick="recargarTodo()" id="btn-refresh-p3" style="background:rgba(200,245,66,.15);border:1px solid rgba(200,245,66,.3);color:var(--ac);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">↻ Actualizar</button>
+    <button onclick="recargarTodo()" id="btn-refresh-p3" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:var(--ac);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">↻ Actualizar</button>
     <span id="tb-fecha"></span>
   </div>
 </div>
