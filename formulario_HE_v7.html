@@ -588,12 +588,18 @@ function mesesAbiertosDe(nombre){
 // Una obra se puede elegir si seguía vigente en el mes del ticket que se
 // está cargando — no "hoy": una obra que bajó de cartel el 28/9 tiene que
 // seguir disponible para cargar, el 2/10, una HE del 27/9.
+// Una obra que terminó sigue en la lista dos meses más (HE rezagadas: desarmes,
+// devoluciones, algo que quedó sin cargar). Las que todavía no empezaron ya
+// aparecen, por si hay costos anticipados.
+const MESES_GRACIA_OBRAS = 2;
 function obraVigenteEn(o,mkRef){
   if(!o.fin)return true;
   const f=String(o.fin);
-  if(/^\d{4}-\d{2}/.test(f))return f.slice(0,7)>=mkRef;
-  const[y,m]=mkRef.split('-').map(Number);
-  return new Date(f)>=new Date(y,m-1,1);
+  let fin;
+  if(/^\d{4}-\d{2}/.test(f)) fin=f.slice(0,7);
+  else { const d=new Date(f); if(isNaN(d)) return true; fin=mesK(d); }
+  const[y,m]=fin.split('-').map(Number);
+  return mesK(new Date(y,m-1+MESES_GRACIA_OBRAS,1))>=mkRef;
 }
 
 window.onload = async () => {
