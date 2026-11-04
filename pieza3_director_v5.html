@@ -320,7 +320,10 @@ textarea{resize:none;height:60px;line-height:1.5}
   <div class="card">
     <div class="card-head">
       <span class="card-title">Gestión de obras</span>
-      <button class="btn ac" onclick="abrirModalObra()">+ Agregar obra</button>
+      <div class="btn-row">
+        <button class="btn ghost" id="btn-sync-obras" onclick="traerObrasProgramacion()" title="Lee «MET - PROGRAMACIÓN» en Drive y agrega las obras que falten (también corre sola todas las mañanas)">↻ Traer de la programación MET</button>
+        <button class="btn ac" onclick="abrirModalObra()">+ Agregar obra</button>
+      </div>
     </div>
     <div style="padding:10px 16px;border-bottom:1px solid var(--bd)">
       <div class="fbar" style="margin:0" id="fbar-obras">
@@ -928,27 +931,7 @@ window.onload = async () => {
 
     // Obras desde el Sheet
     if (obrRes.ok && obrRes.data && obrRes.data.length > 0) {
-      OBRAS = obrRes.data.map(o => {
-        // Normalizar fechas — pueden venir como "2026-01-01" (del Sheet) o "2026-01"
-        const normFecha = v => {
-          if (!v) return "";
-          const s = String(v);
-          // Si viene YYYY-MM-DD, recortar a YYYY-MM
-          if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,7);
-          // Si viene YYYY-MM, dejarlo
-          if (/^\d{4}-\d{2}$/.test(s)) return s;
-          return "";
-        };
-        return {
-          n:      o["Nombre"] || "",
-          teatro: o["Teatro"] || "",
-          tipo:   o["Tipo"] || "cooperativa",
-          activa: o["Activa"] !== "NO",
-          desde:  normFecha(o["Desde"]),
-          hasta:  normFecha(o["Hasta"]) || null,
-          nota:   o["Nota"] || "",
-        };
-      });
+      OBRAS = obrRes.data.map(mapObraP3);
     }
 
     // Personal desde el Sheet — mapeo robusto
@@ -1186,6 +1169,28 @@ function buildHistorial(){
 // ════════════════════════════════════
 // OBRAS
 // ════════════════════════════════════
+// Trae de «MET - PROGRAMACIÓN <año>» (Drive) las obras que falten. También
+// corre sola todas las mañanas (Apps Script v3.5). Al cambiarle el tipo a una
+// obra nueva, se le saca la marca de "revisar".
+function mapObraP3(o){
+  // Fechas: pueden venir como "2026-01-01" (del Sheet) o "2026-01"
+  const normFecha = v => { if (!v) return ""; const s = String(v); if (/^\d{4}-\d{2}/.test(s)) return s.slice(0,7); return ""; };
+  return { n:o["Nombre"]||"", teatro:o["Teatro"]||"", tipo:o["Tipo"]||"cooperativa", activa:o["Activa"]!=="NO", desde:normFecha(o["Desde"]), hasta:normFecha(o["Hasta"])||null, nota:o["Nota"]||"" };
+}
+
+async function traerObrasProgramacion(){
+  const pin = pedirPin(); if(!pin) return;
+  const b = document.getElementById('btn-sync-obras'); const t0 = b.textContent; b.textContent = '⏳ Leyendo la programación…'; b.disabled = true;
+  try {
+    const r = await apiPost('sincronizarObras', {pin});
+    if (!r.ok) { if(/PIN/.test(r.error||'')) _pinValores=null; alert(/acci[oó]n|desconocid/i.test(r.error||'') ? 'Falta actualizar el Apps Script a la versión 3.5.' : `No se pudo leer la programación: ${r.error||'error desconocido'}`); return; }
+    const res = await apiGet('getObras', {todas: 1});
+    if (res.ok && Array.isArray(res.data)) OBRAS = res.data.map(mapObraP3);
+    buildObras();
+    alert(r.agregadas.length ? `Se agregaron ${r.agregadas.length} obra(s) desde la programación (${r.ventana}):\n\n• ${r.agregadas.join('\n• ')}\n\nQuedaron como «Tercero»: revisá el tipo de cada una.` : `No faltaba ninguna obra: el listado ya coincide con la programación (${r.ventana}).`);
+  } finally { b.textContent = t0; b.disabled = false; }
+}
+
 function tipoLabel(t){return t==='propia'?'Propia':t==='cooperativa'?'Cooperativa':'Tercero';}
 function tipoBadge(t){return `<span class="obra-badge ${t}">${tipoLabel(t)}</span>`;}
 
@@ -1201,7 +1206,7 @@ function buildObras(){
     if(f==='cooperativa'&&o.tipo!=='cooperativa')return'';
     if(f==='tercero'&&o.tipo!=='tercero')return'';
     return`<div class="obra-item" style="flex-wrap:wrap;gap:6px;padding:10px 14px">
-      <div class="obra-nombre" style="width:100%;margin-bottom:4px">${o.n}${o.nota?` <span style="font-size:10px;color:var(--mu)">(${o.nota})</span>`:''}</div>
+      <div class="obra-nombre" style="width:100%;margin-bottom:4px">${o.n}${o.nota?(/revisar tipo/i.test(o.nota)?` <span style="font-size:10px;color:var(--amber);font-weight:700">● nueva, desde la programación — revisá si es propia, cooperativa o tercero</span>`:` <span style="font-size:10px;color:var(--mu)">(${o.nota})</span>`):''}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%">
         <select class="obra-tipo-sel" onchange="cambiarTipoObra(${i},this.value)" style="width:130px">
           <option value="propia" ${o.tipo==='propia'?'selected':''}>Propia</option>
@@ -1233,7 +1238,8 @@ function buildObras(){
     </div>`;
   }
 
-  const obrasIdx=OBRAS.map((o,i)=>({o,i}));
+  // Las que llegaron de la programación y falta definirles el tipo, arriba de todo
+  const obrasIdx=OBRAS.map((o,i)=>({o,i})).sort((a,b)=>(/revisar tipo/i.test(b.o.nota||'')?1:0)-(/revisar tipo/i.test(a.o.nota||'')?1:0));
   const metFiltered=(f==='PLP')?'':obrasIdx.filter(({o})=>o.teatro==='MET').map(({o,i})=>filaObra(o,i)).join('');
   const plpFiltered=(f==='MET')?'':obrasIdx.filter(({o})=>o.teatro==='PLP').map(({o,i})=>filaObra(o,i)).join('');
 
@@ -1244,8 +1250,10 @@ function buildObras(){
 async function cambiarTipoObra(i,tipo){
   const anterior=OBRAS[i].tipo;
   OBRAS[i].tipo=tipo;
-  const r=await apiPost("editObra",{nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, tipo});
-  if(!r.ok){ OBRAS[i].tipo=anterior; buildObras(); alert(`No se pudo guardar: ${r.error||'error desconocido'}`); }
+  const eraNueva=/revisar tipo/i.test(OBRAS[i].nota||'');
+  const r=await apiPost("editObra",Object.assign({nombre:OBRAS[i].n, teatro:OBRAS[i].teatro, tipo}, eraNueva?{nota:'Desde programación'}:{}));
+  if(!r.ok){ OBRAS[i].tipo=anterior; buildObras(); alert(`No se pudo guardar: ${r.error||'error desconocido'}`); return; }
+  if(eraNueva){ OBRAS[i].nota='Desde programación'; buildObras(); }
 }
 
 async function editarFechaObra(i,campo,valor){
