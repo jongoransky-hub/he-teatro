@@ -402,18 +402,6 @@ const JEFES = {
 const ESPECIALES = {
   'ANDRES PATIÑO': {areas:['MANTENIMIENTO','LIMPIEZA']},
 };
-// Áreas que una persona ejerce SOLO en un teatro, aunque en Personal figure
-// en "AMBOS" por su otra área. Ej.: Natalia González — Boletería solo en PLP,
-// Asistente de Sala en los dos teatros. Si carga una HE en el MET, no ve
-// Boletería. Clave = nombre como figura en Personal (mayúsculas/acentos no importan).
-const TEATRO_POR_AREA = {
-  'GONZALEZ, NATALIA': {BOLETERIA:'PLP'},
-};
-function normNombre(n) { return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim(); }
-function teatroDeArea(nombre, area) {
-  const k = Object.keys(TEATRO_POR_AREA).find(x => normNombre(x) === normNombre(nombre));
-  return k ? (TEATRO_POR_AREA[k][area] || '') : '';
-}
 
 // ═══════════════════════════════════════════════════
 // RUBROS POR SECTOR (valores Feb 2026)
@@ -456,19 +444,12 @@ function parseValor(raw) {
   return parseFloat(s) || 0;
 }
 
-// Área secundaria (columna "Área Secundaria" de Personal): quien tiene dos
-// roles — p. ej. Boletería en PLP + Asistente de Sala en ambos teatros — ve
-// los conceptos de LAS DOS áreas. Cada concepto devuelve con qué área se
-// cobra, y esa es el área que viaja en el ticket (así una HE de Sala cae en
-// Sala: la aprueba la jefa de sala y suma en Sala en los reportes).
-function areasDeFila(v) { return (v['Áreas']||'').split(',').map(x=>x.trim()).filter(Boolean); }
-function getValores(area, esJefe, esMontaje, esPatino, teatro, mes, area2, nombre) {
-  const misAreas = [area, area2].filter(Boolean);
+function getValores(area, esJefe, esMontaje, esPatino, teatro, mes) {
   const filas = esPatino
     ? VALORES_SHEET.filter(v => ['MANTENIMIENTO','LIMPIEZA'].includes((v['Áreas']||'').trim()))
     : VALORES_SHEET.filter(v => {
-        const areas = areasDeFila(v);
-        if (!areas.some(a => misAreas.includes(a))) return false;
+        const areas = (v['Áreas']||'').split(',').map(x=>x.trim());
+        if (!areas.includes(area)) return false;
         const vTeatro = v['Teatro'] || 'AMBOS';
         if (vTeatro !== 'AMBOS' && vTeatro !== teatro) return false;
         if ((v['Solo Jefe']||'NO') === 'SI' && !esJefe) return false;
@@ -486,7 +467,7 @@ function getValores(area, esJefe, esMontaje, esPatino, teatro, mes, area2, nombr
   // buscan por ID puntual y se agregan solo para este caso. Al buscarlas
   // por ID en vez de copiar el monto, si el valor técnico se actualiza en
   // un ajuste general de tarifas, esto se actualiza solo.
-  const esJefaDeSala = esJefe && area === 'SALA'; // "Es Jefe" aplica al área principal
+  const esJefaDeSala = esJefe && area === 'SALA';
   if (esJefaDeSala) {
     ['infantil', 'evco', 'evla', 'matinee'].forEach(id => {
       const filaTecnica = VALORES_SHEET.find(v => v['ID'] === id);
@@ -494,15 +475,7 @@ function getValores(area, esJefe, esMontaje, esPatino, teatro, mes, area2, nombr
     });
   }
 
-  const areaDe = v => {
-    const a = areasDeFila(v);
-    if (esPatino) return a[0] || area;
-    return a.includes(area) ? area : (a.find(x => misAreas.includes(x)) || area); // filas técnicas de la jefa de sala → su área principal
-  };
-  // Restricción de teatro por área (TEATRO_POR_AREA): fuera de ese teatro, esa área no se ofrece
-  const permitida = v => { const t = teatroDeArea(nombre, areaDe(v)); return !t || t === teatro; };
-  return filas.filter(permitida).map(v => ({
-    a: areaDe(v),
+  return filas.map(v => ({
     l: v['Concepto'] || '',
     t: (v['Tipo'] || 'HE').toUpperCase(),
     v: mes ? valorEnMes(v, mes) : parseValor(v['Valor']),
@@ -536,8 +509,7 @@ const OBRAS = [
 // STATE
 // ═══════════════════════════════════════════════════
 const S = {
-  nombre:'', area:'', area2:'', teatro:'', esJefe:false, esPatino:false,
-  tipoArea:'', // área con la que se cobra el concepto elegido (principal o secundaria)
+  nombre:'', area:'', teatro:'', esJefe:false, esPatino:false,
   proxyActivo:false, proxyNombre:'', proxyPerfil:null, // perfil (de la hoja Personal) de la persona por la que se carga
   fecha:'', horaDesde:'', horaHasta:'',
   sala:'', obra:'', autorizo:'',
@@ -692,8 +664,6 @@ window.onload = async () => {
       const p = JSON.parse(saved);
       if (p.nombre && (PERSONAL_SHEET.some(x => x["Nombre"] === p.nombre) || PERSONAL_SHEET.length === 0)) {
         Object.assign(S, p);
-        const viva = perfilDe(p.nombre);
-        if (viva) { S.area = viva.area; S.area2 = viva.area2; S.esJefe = viva.esJefe; S.esPatino = viva.esPatino; }
         step = 1;
       }
     } catch(e) {}
@@ -814,8 +784,12 @@ function calcularHoras() {
 function poblarObras() {
   const sel = document.getElementById('obra');
   const mkTicket = (document.getElementById('fecha').value || '').slice(0,7) || mesK(new Date());
-  const activas = OBRAS.filter(o => obraVigenteEn(o, mkTicket));
-  sel.innerHTML = '<option value="">— Para qué producción —</option>';
+  // Solo las producciones del teatro elegido (MET o La Plaza), no todas juntas.
+  // Las de "AMBOS" (o sin teatro, en la lista de respaldo) salen en los dos.
+  const enTeatro = o => !S.teatro || !o.teatro || o.teatro === 'AMBOS' || o.teatro === S.teatro;
+  const activas = OBRAS.filter(o => obraVigenteEn(o, mkTicket) && enTeatro(o));
+  const previa = sel.value;
+  sel.innerHTML = `<option value="">${S.teatro ? `— Para qué producción ${S.teatro==='MET'?'del Metropolitan':'de La Plaza'} —` : '— Para qué producción —'}</option>`;
   // Tres grupos. Las cooperativas antes no se ofrecían (solo se armaban
   // "propias" y "terceros"), así que nadie podía cargar una HE a su nombre.
   // A efectos del cierre, una cooperativa se trata como un tercero.
@@ -830,6 +804,7 @@ function poblarObras() {
     });
     sel.appendChild(og);
   });
+  if (previa && Array.from(sel.options).some(op => op.value === previa)) sel.value = previa;
 }
 
 // ═══════════════════════════════════════════════════
@@ -851,6 +826,7 @@ function selTeatro(v, el) {
   document.getElementById('sala-met-f').style.display = v==='MET' ? 'block':'none';
   document.getElementById('sala-plp-f').style.display = v==='PLP' ? 'block':'none';
   document.querySelectorAll('#sala-met-f .pill,#sala-plp-f .pill').forEach(p=>p.classList.remove('sel'));
+  poblarObras(); // cambia el teatro → cambia la lista de producciones
 }
 function setProxy(on, el) {
   document.querySelectorAll('#proxy-block .pills .pill').forEach(p => p.classList.remove('sel'));
@@ -861,7 +837,6 @@ function setProxy(on, el) {
 }
 
 // Perfil de cualquier persona, leído de la hoja Personal (misma lógica que el perfil propio)
-function esPatinoArea(a, a2) { return a === "MANTENIMIENTO" && a2 === "LIMPIEZA"; }
 function perfilDe(nombre) {
   const p = PERSONAL_SHEET.find(x => x["Nombre"] === nombre);
   if (!p) return null;
@@ -870,7 +845,7 @@ function perfilDe(nombre) {
   return {
     nombre:   p["Nombre"],
     area:     area,
-    area2:    esPatinoArea(area, area2) ? "" : area2,
+    area2:    area2,
     teatro:   p["Teatro"] || "",
     esJefe:   p["Es Jefe"] === "SI",
     esPatino: area === "MANTENIMIENTO" && area2 === "LIMPIEZA",
@@ -881,7 +856,7 @@ function perfilDe(nombre) {
 // carga por otro, o el propio perfil. Nunca mezclar con los datos de quien carga.
 function perfilCarga() {
   if (S.proxyActivo && S.proxyPerfil) return S.proxyPerfil;
-  return { nombre:S.nombre, area:S.area, area2:S.area2||'', esJefe:S.esJefe, esPatino:S.esPatino };
+  return { nombre:S.nombre, area:S.area, esJefe:S.esJefe, esPatino:S.esPatino };
 }
 
 // El nombre sale de la hoja Personal tal cual ("APELLIDO, NOMBRE"), nunca tipeado a mano
@@ -1004,41 +979,32 @@ function poblarTipos() {
   const esMontaje = S.esMontaje === 'SI';
   const pc = perfilCarga(); // si el jefe carga por otro, las tarifas son las de esa persona
   const mesHE = (S.fecha || document.getElementById('fecha').value || mesK(new Date())).slice(0, 7);
-  const lista = getValores(pc.area, pc.esJefe, esMontaje, pc.esPatino, S.teatro, mesHE, pc.area2, pc.nombre);
-  const dosAreas = !!pc.area2 && lista.some(x => x.a === pc.area2) && lista.some(x => x.a === pc.area);
-  const AREA_LBL = {SALA:'Asist. de Sala', BOLETERIA:'Boletería', SONIDO:'Sonido', ILUMINACION:'Iluminación', MAQUINARIA:'Maquinaria', MANTENIMIENTO:'Mantenimiento', LIMPIEZA:'Limpieza'};
+  const lista = getValores(pc.area, pc.esJefe, esMontaje, pc.esPatino, S.teatro, mesHE);
   const sel = document.getElementById('tipo-he');
   const prevLabel = S.tipoLabel; // si se vuelve a armar la lista (p. ej. cambió la fecha), mantener lo elegido con el valor de ese mes
   sel.innerHTML = '<option value="">— Seleccioná el tipo —</option>';
   const hs  = lista.filter(x => x.t === 'HE');
   const pkg = lista.filter(x => x.t === 'PKG');
-  // Con dos áreas, los grupos se separan por área para que quede claro qué se está cobrando
-  const grupos = dosAreas
-    ? [pc.area, pc.area2].flatMap(ar => [
-        [`${AREA_LBL[ar]||ar} — por hora`, hs.filter(x => x.a === ar)],
-        [`${AREA_LBL[ar]||ar} — valor fijo (paquete)`, pkg.filter(x => x.a === ar)]])
-    : [['Por hora', hs], ['Valor fijo (paquete)', pkg]];
-  grupos.forEach(([lbl, lst]) => {
+  [['Por hora', hs], ['Valor fijo (paquete)', pkg]].forEach(([lbl, lst]) => {
     if (!lst.length) return;
     const og = document.createElement('optgroup'); og.label = lbl;
     lst.forEach(x => {
       const o = document.createElement('option');
-      o.value = `${x.t}|${x.v}|${x.l}|${x.a}`; o.textContent = x.l; og.appendChild(o);
+      o.value = `${x.t}|${x.v}|${x.l}`; o.textContent = x.l; og.appendChild(o);
     });
     sel.appendChild(og);
   });
   document.getElementById('val-card').classList.remove('vis');
-  const prevArea = S.tipoArea;
-  const misma = prevLabel && Array.from(sel.options).find(o => o.value && o.value.split('|')[2] === prevLabel && (!prevArea || o.value.split('|')[3] === prevArea));
+  const misma = prevLabel && Array.from(sel.options).find(o => o.value && o.value.split('|')[2] === prevLabel);
   if (misma) { sel.value = misma.value; onTipo(); }
-  else { S.tipoTipo = ''; S.valUnit = 0; S.tipoLabel = ''; S.tipoArea = ''; S.total = 0; }
+  else { S.tipoTipo = ''; S.valUnit = 0; S.tipoLabel = ''; S.total = 0; }
 }
 
 function onTipo() {
   const val = document.getElementById('tipo-he').value;
   if (!val) { document.getElementById('val-card').classList.remove('vis'); return; }
-  const [tipo, monto, label, areaConcepto] = val.split('|');
-  S.tipoTipo = tipo; S.valUnit = parseFloat(monto); S.tipoLabel = label; S.tipoArea = areaConcepto || '';
+  const [tipo, monto, label] = val.split('|');
+  S.tipoTipo = tipo; S.valUnit = parseFloat(monto); S.tipoLabel = label;
   document.getElementById('cant-f').style.display = tipo === 'PKG' ? 'block' : 'none';
   calcular();
 }
@@ -1115,7 +1081,7 @@ function render() {
     aplicarFechaDefault();
     document.getElementById('prof-chip').innerHTML = `
       <div class="prof-name">${S.nombre}</div>
-      <div class="prof-sub">${S.area.replace('_',' ')}${S.area2?' + '+S.area2.replace('_',' '):''} · ${S.teatro||'—'}${S.esJefe?' · Jefe de área':''}${S.esPatino?' · Mant. & Limp.':''}</div>
+      <div class="prof-sub">${S.area.replace('_',' ')} · ${S.teatro||'—'}${S.esJefe?' · Jefe de área':''}${S.esPatino?' · Mant. & Limp.':''}</div>
       <div class="prof-change" onclick="borrarPerfil()">No soy yo — cambiar perfil</div>`;
     document.getElementById('proxy-block').style.display = S.esJefe ? 'block' : 'none';
   }
@@ -1143,7 +1109,7 @@ function buildResumen() {
   const nombreReal = S.proxyActivo && S.proxyNombre ? S.proxyNombre : S.nombre;
   const rows = [
     ['Nombre', nombreReal + (S.proxyActivo ? ` (cargado por ${S.nombre})` : '')],
-    ['Área', (S.tipoArea || perfilCarga().area).replace('_',' ') + (perfilCarga().esJefe && (S.tipoArea||perfilCarga().area) === perfilCarga().area ? ' · Jefe' : '')],
+    ['Área', perfilCarga().area.replace('_',' ') + (perfilCarga().esJefe ? ' · Jefe' : '')],
     ['Fecha', fmtF(S.fecha)],
     ['Horario', S.horaDesde && S.horaHasta ? `${S.horaDesde} → ${S.horaHasta}` : '—'],
     ['Teatro · Sala', `${S.teatro} · ${S.sala}`],
@@ -1326,12 +1292,11 @@ function next() {
     const esPatino = area === "MANTENIMIENTO" && area2 === "LIMPIEZA";
     S.nombre   = nombre;
     S.area     = area;
-    S.area2    = esPatino ? "" : area2;
     S.teatro   = teatro === "AMBOS" ? "MET" : teatro; // default MET para AMBOS
     S.esJefe   = esJefe;
     S.esPatino = esPatino;
     localStorage.setItem('he_perfil', JSON.stringify({
-      nombre:S.nombre, area:S.area, area2:S.area2, teatro:S.teatro, esJefe:S.esJefe, esPatino:S.esPatino
+      nombre:S.nombre, area:S.area, teatro:S.teatro, esJefe:S.esJefe, esPatino:S.esPatino
     }));
     cargarMisRegistros(S.nombre); // trae del servidor los registros reales de esta persona
     step = 1; render(); return;
@@ -1468,8 +1433,8 @@ async function enviar() {
   const pc = perfilCarga(); // datos de la persona a cuyo nombre queda el ticket
   const ticket = {
     nombre:      nombreReal,
-    areas:       [S.tipoArea || pc.area].filter(Boolean), // área del concepto cobrado (principal o secundaria)
-    area:        S.tipoArea || pc.area, // fallback singular
+    areas:       [pc.area].filter(Boolean),
+    area:        pc.area, // fallback singular
     esJefe:      pc.esJefe, // es jefe la persona del ticket, no quien lo carga
     teatro:      S.teatro,
     fecha:       S.fecha,
