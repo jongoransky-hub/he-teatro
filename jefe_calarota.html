@@ -201,8 +201,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
   </div>
 
   <div class="pp-vistas" role="tablist">
-    <button id="vista-ticket" class="active" onclick="setVista('ticket')">Por ticket</button>
-    <button id="vista-persona" onclick="setVista('persona')">Por persona</button>
+    <button id="vista-ticket" onclick="setVista('ticket')">Por ticket</button>
+    <button id="vista-persona" class="active" onclick="setVista('persona')">Por persona</button>
   </div>
 
   <div class="filters">
@@ -214,7 +214,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 
   <div class="buscar-row">
     <input type="search" id="buscar" placeholder="🔍 Buscar persona, producción o descripción…" oninput="buscar=this.value;renderTickets();actualizarResumen()">
-    <select id="orden" onchange="orden=this.value;renderTickets()" title="Cómo ordenar los tickets">
+    <select id="orden" style="display:none" onchange="orden=this.value;renderTickets()" title="Cómo ordenar los tickets">
       <option value="estado">Pendientes primero</option>
       <option value="persona">Por persona</option>
       <option value="fecha">Por fecha</option>
@@ -270,7 +270,7 @@ let tickets = [];
 let filtro = 'todos';
 let buscar = '';        // texto del buscador
 let orden = 'estado';   // 'estado' | 'persona' | 'fecha'
-let vista = 'ticket';   // 'ticket' (una tarjeta por ticket) | 'persona' (agrupado, con aprobación en grupo)
+let vista = 'persona';   /* Jon 5/11/26: por defecto, por persona */ //   // 'ticket' (una tarjeta por ticket) | 'persona' (agrupado, con aprobación en grupo)
 let _solapan = new Set(); // ids de cargas que se superponen con otra de la misma persona y día
 
 function setVista(v){
