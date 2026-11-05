@@ -370,7 +370,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
     <span>Personal</span>
     <span class="nbadge amber" id="nb-sinval" style="display:none"></span>
   </div>
-  <div class="nav-item" id="nav-registros" onclick="showView('registros');setVistaReg('ticket')">Todos los registros</div>
+  <div class="nav-item" id="nav-registros" onclick="showView('registros');setVistaReg('persona')">Todos los registros</div>
   <div class="nav-item" id="nav-porpersona" onclick="showView('registros');setVistaReg('persona');document.getElementById('nav-registros').classList.remove('active');document.getElementById('nav-porpersona').classList.add('active')">Aprobar por persona</div>
 </div>
 
@@ -546,10 +546,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 <!-- ═══ REGISTROS ═══ -->
 <div class="view" id="view-registros">
   <div class="pp-vistas" role="tablist">
-    <button id="vista-ticket" class="active" onclick="setVistaReg('ticket')">Por ticket</button>
-    <button id="vista-persona" onclick="setVistaReg('persona')">Por persona</button>
+    <button id="vista-persona" class="active" onclick="setVistaReg('persona')">Por persona</button>
+    <button id="vista-obra" onclick="setVistaReg('obra')">Por obra</button>
+    <button id="vista-ticket" onclick="setVistaReg('ticket')">Por ticket</button>
   </div>
-  <div id="reg-por-persona" style="display:none">
+  <div id="reg-por-persona">
     <div class="pp-ppfiltros">
       <div class="filters" id="f-pp-estado" style="margin:0">
         <div class="fp active" onclick="ppFiltroEstado('PENDIENTE',this)">Pendientes</div>
@@ -562,7 +563,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
     </div>
     <div id="pp-contenedor"></div>
   </div>
-  <div id="reg-por-ticket">
+  <div id="reg-por-ticket" style="display:none">
   <div class="export-row">
     <button class="btn primary" onclick="exportXLSX()">Exportar XLSX</button>
     <button class="btn ghost" onclick="exportPDF()">Exportar PDF</button>
@@ -2283,14 +2284,13 @@ function guardarPersona(){
 // Mes: el del selector de período de arriba. Aprobar/rechazar acá escribe
 // lo mismo que el panel del jefe (columnas "Aprobado Jefe", quién y nota).
 // ═══════════════════════════════════════════════
-let vistaReg = 'ticket', ppEstado = 'PENDIENTE', ppBuscar = '';
+let vistaReg = 'persona', ppEstado = 'PENDIENTE', ppBuscar = '';
 function setVistaReg(v){
-  vistaReg = v;
-  document.getElementById('vista-ticket').classList.toggle('active', v === 'ticket');
-  document.getElementById('vista-persona').classList.toggle('active', v === 'persona');
+  vistaReg = v; ppPor = v === 'obra' ? 'obra' : 'persona'; ppAbiertas = new Set(); ppSel = new Set();
+  ['ticket','persona','obra'].forEach(x => { const b = document.getElementById('vista-' + x); if (b) b.classList.toggle('active', v === x); });
   document.getElementById('reg-por-ticket').style.display = v === 'ticket' ? '' : 'none';
-  document.getElementById('reg-por-persona').style.display = v === 'persona' ? '' : 'none';
-  if (v === 'persona') buildRegistros();
+  document.getElementById('reg-por-persona').style.display = v === 'ticket' ? 'none' : '';
+  if (v !== 'ticket') buildRegistros();
 }
 function ppFiltroEstado(e, el){
   ppEstado = e;
@@ -2323,6 +2323,8 @@ function mkNombreD(mk){const[y,m]=mk.split('-').map(Number);return new Date(y,m-
 // adentro de un iframe (Portal MET) algunos navegadores los bloquean, así
 // que las confirmaciones y avisos son de la propia página.
 // ═══════════════════════════════════════════════════════════════
+let ppPor = 'persona';      // 'persona' | 'obra' (Jon 5/11/26: también agrupado por obra)
+function ppGK(t){ return ppPor === 'obra' ? (t.obra || 'Sin producción') : t.nombre; }
 let ppAbiertas = new Set();   // personas desplegadas (por nombre)
 let ppSel = new Set();        // ids tildados
 let ppOcupado = false;        // hay un pedido en curso
@@ -2396,7 +2398,7 @@ function ppRender(){
   const solapan = ppSolapes(PP_ADAPTER.todasDelMes());
   if (!lista.length) { cont.innerHTML = `<div class="pp-vacio">${PP_ADAPTER.vacio()}</div>`; return; }
   const personas = {};
-  lista.forEach(t => (personas[t.nombre] = personas[t.nombre] || []).push(t));
+  lista.forEach(t => (personas[ppGK(t)] = personas[ppGK(t)] || []).push(t));
   const orden = Object.keys(personas).map(n => {
     const ts = personas[n].sort((a,b) => a.fecha.localeCompare(b.fecha) || String(a.desde).localeCompare(String(b.desde)));
     return {n, ts, pend: ts.filter(t => t.estado === 'PENDIENTE').length, total: ts.reduce((a,t) => a + t.total, 0), sol: ts.some(t => solapan.has(t.id))};
@@ -2440,7 +2442,7 @@ function ppCargaHTML(t, solapa){
     <label class="pp-check">${cerrado?'<span class="pp-lock">🔒</span>':`<input type="checkbox" ${ppSel.has(t.id)?'checked':''} onchange="ppTildar('${idq}',this.checked)">`}</label>
     <div class="pp-cinfo">
       <div class="pp-cl1"><b>${ppFecha(t.fecha)}</b> · ${ppEsc(t.desde||'—')}→${ppEsc(t.hasta||'—')} <span class="pp-cmonto">${ppMonto(t.total)}</span></div>
-      <div class="pp-cl2">${ppEsc(t.tipo||'—')}${t.obra?' · '+ppEsc(t.obra):''}</div>
+      <div class="pp-cl2">${ppPor==='obra'?'<b>'+ppEsc(t.nombre)+'</b> · ':''}${ppEsc(t.tipo||'—')}${t.obra&&ppPor!=='obra'?' · '+ppEsc(t.obra):''}</div>
       ${t.desc?`<div class="pp-cl3">${ppEsc(t.desc)}</div>`:''}
       ${solapa?'<div class="pp-csol">⚠ Se superpone en horario con otra carga del mismo día — posible duplicado</div>':''}
       ${t.nota?`<div class="pp-cnota">Nota: ${ppEsc(t.nota)}</div>`:''}
@@ -2461,7 +2463,7 @@ function ppToggle(key){ const n = decodeURIComponent(key); ppAbiertas.has(n) ? p
 function ppTildar(idq, v){ const id = decodeURIComponent(idq); v ? ppSel.add(id) : ppSel.delete(id); ppRender(); }
 function ppTodas(key, v){
   const n = decodeURIComponent(key);
-  PP_ADAPTER.lista().filter(t => t.nombre === n && !PP_ADAPTER.cerrado(t)).forEach(t => v ? ppSel.add(t.id) : ppSel.delete(t.id));
+  PP_ADAPTER.lista().filter(t => ppGK(t) === n && !PP_ADAPTER.cerrado(t)).forEach(t => v ? ppSel.add(t.id) : ppSel.delete(t.id));
   ppRender();
 }
 function ppEditar(idq){ const t = PP_ADAPTER.lista().find(x => x.id === decodeURIComponent(idq)); if (t) PP_ADAPTER.editar(t); }
@@ -2480,7 +2482,7 @@ async function ppUno(idq, estado){
 async function ppLote(key, estado){
   if (ppOcupado) return;
   const n = decodeURIComponent(key);
-  const sel = PP_ADAPTER.lista().filter(t => t.nombre === n && ppSel.has(t.id) && !PP_ADAPTER.cerrado(t));
+  const sel = PP_ADAPTER.lista().filter(t => ppGK(t) === n && ppSel.has(t.id) && !PP_ADAPTER.cerrado(t));
   if (!sel.length) return;
   const tot = sel.reduce((a,t) => a + t.total, 0);
   const cargas = sel.length === 1 ? '1 carga' : `${sel.length} cargas`;
@@ -2513,7 +2515,7 @@ async function ppEnviar(lista, estado, nota){
 
 
 function buildRegistros(){
-  if (vistaReg === 'persona') { const pm = document.getElementById('pp-mes'); if (pm && PERIODO) pm.textContent = 'Mes: ' + mkNombreD(PERIODO) + ' (se cambia en el selector de arriba)'; ppRender(); }
+  if (vistaReg !== 'ticket') { const pm = document.getElementById('pp-mes'); if (pm && PERIODO) pm.textContent = 'Mes: ' + mkNombreD(PERIODO) + ' (se cambia en el selector de arriba)'; ppRender(); }
   let data=filtroReg==='todos'?registros:registros.filter(r=>r.teatro===filtroReg||(r.areas||[]).includes(filtroReg));
   data=data.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
   document.getElementById('tbody-registros').innerHTML=data.map(r=>{

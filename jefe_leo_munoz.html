@@ -201,8 +201,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
   </div>
 
   <div class="pp-vistas" role="tablist">
-    <button id="vista-ticket" class="active" onclick="setVista('ticket')">Por ticket</button>
-    <button id="vista-persona" onclick="setVista('persona')">Por persona</button>
+    <button id="vista-persona" class="active" onclick="setVista('persona')">Por persona</button>
+    <button id="vista-obra" onclick="setVista('obra')">Por obra</button>
+    <button id="vista-ticket" onclick="setVista('ticket')">Por ticket</button>
   </div>
 
   <div class="filters">
@@ -214,7 +215,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 
   <div class="buscar-row">
     <input type="search" id="buscar" placeholder="🔍 Buscar persona, producción o descripción…" oninput="buscar=this.value;renderTickets();actualizarResumen()">
-    <select id="orden" onchange="orden=this.value;renderTickets()" title="Cómo ordenar los tickets">
+    <select id="orden" style="display:none" onchange="orden=this.value;renderTickets()" title="Cómo ordenar los tickets">
       <option value="estado">Pendientes primero</option>
       <option value="persona">Por persona</option>
       <option value="fecha">Por fecha</option>
@@ -270,14 +271,13 @@ let tickets = [];
 let filtro = 'todos';
 let buscar = '';        // texto del buscador
 let orden = 'estado';   // 'estado' | 'persona' | 'fecha'
-let vista = 'ticket';   // 'ticket' (una tarjeta por ticket) | 'persona' (agrupado, con aprobación en grupo)
+let vista = 'persona';   /* Jon 5/11/26: arranca por persona; también por obra */ //   // 'ticket' (una tarjeta por ticket) | 'persona' (agrupado, con aprobación en grupo)
 let _solapan = new Set(); // ids de cargas que se superponen con otra de la misma persona y día
 
 function setVista(v){
-  vista = v;
-  document.getElementById('vista-ticket').classList.toggle('active', v === 'ticket');
-  document.getElementById('vista-persona').classList.toggle('active', v === 'persona');
-  document.getElementById('orden').style.display = v === 'persona' ? 'none' : '';
+  vista = v; ppPor = v === 'obra' ? 'obra' : 'persona'; ppAbiertas = new Set(); ppSel = new Set();
+  ['ticket','persona','obra'].forEach(x => { const b = document.getElementById('vista-' + x); if (b) b.classList.toggle('active', v === x); });
+  document.getElementById('orden').style.display = v === 'ticket' ? '' : 'none';
   renderTickets();
 }
 
@@ -468,7 +468,7 @@ async function cargarTickets() {
 function renderTickets() {
   const container = document.getElementById('tickets-container');
   _solapan = ppSolapes(tickets.filter(t => t.mes === mesSel).map(ppNorm));
-  if (vista === 'persona') { ppRender(); return; }
+  if (vista !== 'ticket') { ppRender(); return; }
   const prioridad = {PENDIENTE:0, RECHAZADO:1, APROBADO:2};
   const porEstado  = (a,b) => (prioridad[a.aprobJefe]||0) - (prioridad[b.aprobJefe]||0) || b.fecha.localeCompare(a.fecha);
   const porPersona = (a,b) => a.nombre.localeCompare(b.nombre) || a.fecha.localeCompare(b.fecha) || String(a.horaDesde).localeCompare(String(b.horaDesde));
@@ -708,6 +708,8 @@ const PP_ADAPTER = {
 // adentro de un iframe (Portal MET) algunos navegadores los bloquean, así
 // que las confirmaciones y avisos son de la propia página.
 // ═══════════════════════════════════════════════════════════════
+let ppPor = 'persona';      // 'persona' | 'obra' (Jon 5/11/26: también agrupado por obra)
+function ppGK(t){ return ppPor === 'obra' ? (t.obra || 'Sin producción') : t.nombre; }
 let ppAbiertas = new Set();   // personas desplegadas (por nombre)
 let ppSel = new Set();        // ids tildados
 let ppOcupado = false;        // hay un pedido en curso
@@ -781,7 +783,7 @@ function ppRender(){
   const solapan = ppSolapes(PP_ADAPTER.todasDelMes());
   if (!lista.length) { cont.innerHTML = `<div class="pp-vacio">${PP_ADAPTER.vacio()}</div>`; return; }
   const personas = {};
-  lista.forEach(t => (personas[t.nombre] = personas[t.nombre] || []).push(t));
+  lista.forEach(t => (personas[ppGK(t)] = personas[ppGK(t)] || []).push(t));
   const orden = Object.keys(personas).map(n => {
     const ts = personas[n].sort((a,b) => a.fecha.localeCompare(b.fecha) || String(a.desde).localeCompare(String(b.desde)));
     return {n, ts, pend: ts.filter(t => t.estado === 'PENDIENTE').length, total: ts.reduce((a,t) => a + t.total, 0), sol: ts.some(t => solapan.has(t.id))};
@@ -825,7 +827,7 @@ function ppCargaHTML(t, solapa){
     <label class="pp-check">${cerrado?'<span class="pp-lock">🔒</span>':`<input type="checkbox" ${ppSel.has(t.id)?'checked':''} onchange="ppTildar('${idq}',this.checked)">`}</label>
     <div class="pp-cinfo">
       <div class="pp-cl1"><b>${ppFecha(t.fecha)}</b> · ${ppEsc(t.desde||'—')}→${ppEsc(t.hasta||'—')} <span class="pp-cmonto">${ppMonto(t.total)}</span></div>
-      <div class="pp-cl2">${ppEsc(t.tipo||'—')}${t.obra?' · '+ppEsc(t.obra):''}</div>
+      <div class="pp-cl2">${ppPor==='obra'?'<b>'+ppEsc(t.nombre)+'</b> · ':''}${ppEsc(t.tipo||'—')}${t.obra&&ppPor!=='obra'?' · '+ppEsc(t.obra):''}</div>
       ${t.desc?`<div class="pp-cl3">${ppEsc(t.desc)}</div>`:''}
       ${solapa?'<div class="pp-csol">⚠ Se superpone en horario con otra carga del mismo día — posible duplicado</div>':''}
       ${t.nota?`<div class="pp-cnota">Nota: ${ppEsc(t.nota)}</div>`:''}
@@ -846,7 +848,7 @@ function ppToggle(key){ const n = decodeURIComponent(key); ppAbiertas.has(n) ? p
 function ppTildar(idq, v){ const id = decodeURIComponent(idq); v ? ppSel.add(id) : ppSel.delete(id); ppRender(); }
 function ppTodas(key, v){
   const n = decodeURIComponent(key);
-  PP_ADAPTER.lista().filter(t => t.nombre === n && !PP_ADAPTER.cerrado(t)).forEach(t => v ? ppSel.add(t.id) : ppSel.delete(t.id));
+  PP_ADAPTER.lista().filter(t => ppGK(t) === n && !PP_ADAPTER.cerrado(t)).forEach(t => v ? ppSel.add(t.id) : ppSel.delete(t.id));
   ppRender();
 }
 function ppEditar(idq){ const t = PP_ADAPTER.lista().find(x => x.id === decodeURIComponent(idq)); if (t) PP_ADAPTER.editar(t); }
@@ -865,7 +867,7 @@ async function ppUno(idq, estado){
 async function ppLote(key, estado){
   if (ppOcupado) return;
   const n = decodeURIComponent(key);
-  const sel = PP_ADAPTER.lista().filter(t => t.nombre === n && ppSel.has(t.id) && !PP_ADAPTER.cerrado(t));
+  const sel = PP_ADAPTER.lista().filter(t => ppGK(t) === n && ppSel.has(t.id) && !PP_ADAPTER.cerrado(t));
   if (!sel.length) return;
   const tot = sel.reduce((a,t) => a + t.total, 0);
   const cargas = sel.length === 1 ? '1 carga' : `${sel.length} cargas`;
