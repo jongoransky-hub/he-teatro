@@ -876,7 +876,7 @@ function ccDeAlta(tipoObra, teatro, obra, area, nombre) {
   if (norm(nombre).includes("GAMBETTA")) return sala;
   const areas = String(area || "").split(/[,+]/).map(norm).filter(Boolean);
   if (!areas.length) return sala;
-  return areas.some(x => ["SALA","BOLETERIA","MANTENIMIENTO","LIMPIEZA"].includes(x)) ? sala : "krental";
+  return areas.some(x => ["SALA","BOLETERIA","MANTENIMIENTO","LIMPIEZA"].includes(x)) ? sala : "kprod";
 }
 
 function perfilCarga() {

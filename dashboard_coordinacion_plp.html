@@ -157,7 +157,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .cc-sel:focus{outline:none;border-color:var(--ac)}
 
 /* IMPUTAR */
-.imp-row{display:grid;grid-template-columns:22px 150px 1fr 88px 230px 150px 104px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}
+.imp-row{display:grid;grid-template-columns:22px 170px 1fr 96px 300px 34px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}
 .imp-row.sel{background:var(--ambg)}
 .imp-row input.chk-sel,.imp-tools input[type=checkbox]{width:16px;height:16px;cursor:pointer}
 .imp-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
@@ -464,9 +464,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
   </div>
   <div class="filters" id="f-consolidado">
     <div class="fp active" onclick="fConsolid('todos',this)">Todas</div>
-    <div class="fp" onclick="fConsolid('PROPIA',this)">Propias</div>
+    <div class="fp" onclick="fConsolid('SALA',this)">Sala</div>
+    <div class="fp" onclick="fConsolid('K',this)">K Rental</div>
+    <div class="fp" onclick="fConsolid('PROPIA',this)">Obras propias</div>
     <div class="fp" onclick="fConsolid('TERCERO',this)">Terceros</div>
-    <div class="fp" onclick="fConsolid('ASUME',this)">Sala asume</div>
     <span class="fsep">|</span>
     <div class="fp" onclick="fConsolid('MET',this)">MET</div>
     <div class="fp" onclick="fConsolid('PLP',this)">PLP</div>
@@ -488,6 +489,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
       <option value="MANTENIMIENTO">Mantenimiento</option>
       <option value="LIMPIEZA">Limpieza</option>
     </select>
+    <select class="cc-sel" style="width:auto;min-width:220px" id="orden-consolid" onchange="buildConsolidado()" title="Cómo agrupar y ordenar">
+      <option value="obra-monto">Por obra · personas por monto</option>
+      <option value="obra-nombre">Por obra · personas A–Z</option>
+      <option value="obra-fecha">Por obra · por fecha</option>
+      <option value="persona">Por persona (A–Z) · por fecha</option>
+      <option value="area">Por área / rol · personas A–Z</option>
+      <option value="dia">Por día · resumen de cada día</option>
+      <option value="fecha">Todo por fecha</option>
+    </select>
     <div class="fp" id="btn-clear-consolid2" style="display:none" onclick="document.getElementById('filtro-obra-consolid').value='';document.getElementById('filtro-persona-consolid').value='';document.getElementById('filtro-area-consolid').value='';buildConsolidado()">✕ Limpiar</div>
   </div>
   <div id="consolidado-body"></div>
@@ -498,11 +508,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 <div class="view" id="view-imputar">
   <div class="card">
     <div class="card-head">
-      <span class="card-title">Imputar producción y centro de costo</span>
+      <span class="card-title">Imputar: ¿quién paga cada HE?</span>
       <div class="btn-row">
-        <button class="btn ghost" onclick="abrirPasarKRental()" title="Las HE de técnicos cargadas al teatro (no a una obra) pasan a K Producciones Rental. Solo meses abiertos.">Pasar técnicos de teatro a K Producciones Rental</button>
-        <button class="btn ghost" onclick="aplicarDefaults()">Aplicar defaults</button>
-        <button class="btn primary" onclick="guardarImput()">Guardar</button>
       </div>
     </div>
     <div class="card-body" id="imputar-body"></div>
@@ -859,7 +866,7 @@ const OBRAS_META = {
   'Othelo':                    {tipo:'PROPIA', teatro:'PLP',cc:'rosepa'},
   'Edificio / Mant. MET':      {tipo:'PROPIA', teatro:'MET',cc:'vitama'},
   'Edificio / Mant. PLP':      {tipo:'PROPIA', teatro:'PLP',cc:'rosepa'},
-  'K Rental':                  {tipo:'TERCERO',teatro:'MET',cc:'krental'},
+  'K Rental':                  {tipo:'TERCERO',teatro:'MET',cc:'kprod'},
   'K Prod. Comercial':         {tipo:'TERCERO',teatro:'MET',cc:'kprod'},
   'Bossi Live':                {tipo:'TERCERO',teatro:'MET',cc:'bossi'},
   'Petroleo':                  {tipo:'TERCERO',teatro:'PLP',cc:'petroleo'},
@@ -870,8 +877,8 @@ const OBRAS_META = {
 const OBRAS_LIST = Object.keys(OBRAS_META);
 
 const CC_LABEL = {
-  vitama:'Vitama (MET)',rosepa:'Rosepa (PLP)',kprod:'K Producciones',
-  krental:'K Producciones Rental',sala_asume:'Sala asume',otro_tercero:'Tercero / cooperativa',
+  vitama:'Vitama (MET)',rosepa:'Rosepa (PLP)',kprod:'K Producciones Rental',
+  krental:'K Producciones Rental', /* clave vieja: es lo mismo que kprod (Jon 7/11/26) */ sala_asume:'Sala asume',otro_tercero:'Tercero / cooperativa',
   bossi:'Bossi Live',petroleo:'Petroleo',juampi:'Juampi González',
   eventos_met:'Eventos MET',eventos_plp:'Eventos PLP',
 };
@@ -952,7 +959,7 @@ function detalleCortoHTML(rs,{conObra=false}={}){
 function escH(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function agruparFicha(regs){
   const porObra={};
-  sinAnulados(regs).forEach(r=>{const o=r.obra||'Sin producción';(porObra[o]=porObra[o]||[]).push(r);});
+  sinAnulados(regs).forEach(r=>{const o=pagaNombre(r)||'Sin producción';(porObra[o]=porObra[o]||[]).push(r);});
   return Object.keys(porObra).sort((a,b)=>a.localeCompare(b)).map(obra=>{
     const rs=porObra[obra];
     const porPersona={};rs.forEach(r=>{(porPersona[r.nombre]=porPersona[r.nombre]||[]).push(r);});
@@ -1055,13 +1062,40 @@ function esPersonalDeSala(area,nombre){
   if(!a.length)return null;
   return a.some(x=>AREAS_DE_SALA.includes(x));
 }
+function esK(r){return r.cc==='kprod'||r.cc==='krental';}
+// A quién se le carga una HE (Jon 7/11/26): hay tres respuestas posibles —
+// la OBRA que la paga, la SALA (Vitama/Rosepa) o K PRODUCCIONES RENTAL.
+// En la planilla, sala y K comparten la obra «Teatro Metropolitan (Vitama)» /
+// «Paseo La Plaza (Rosepa)» y se distinguen por el CC; acá se muestran separadas.
+const K_NOMBRE='K Producciones Rental';
+function pagaNombre(r){
+  if(r.salaAsume)return salaObraDe(r.teatro);
+  if(esObraDeTeatro(r.obra))return esK(r)?K_NOMBRE:(r.obra||salaObraDe(r.teatro));
+  return r.obra;
+}
+function salaObraDe(teatro){
+  const re=teatro==='PLP'?/\brosepa\b/i:/\bvitama\b/i;
+  return (typeof OBRAS_LIST!=='undefined'&&OBRAS_LIST.find(o=>re.test(o)))||(teatro==='PLP'?'Paseo La Plaza (Rosepa)':'Teatro Metropolitan (Vitama)');
+}
+// SALA | K | PROPIA | TERCERO — para filtrar por quién paga
+function catPaga(r){
+  if(r.salaAsume)return 'SALA';
+  if(esObraDeTeatro(r.obra))return esK(r)?'K':'SALA';
+  return esTercero(r)?'TERCERO':'PROPIA';
+}
+const CAT_LBL={SALA:'Sala',K:'K Producciones Rental',PROPIA:'Obras propias',TERCERO:'Terceros / cooperativas'};
+function pagaValor(r){
+  if(r.salaAsume)return '@sala';
+  if(esObraDeTeatro(r.obra))return esK(r)?'@k':'@sala';
+  return r.obra;
+}
 function getCCDefault(area,teatro,obraNombre,nombre){
   const sala=teatro==='PLP'?'rosepa':'vitama';
   if(!esObraDeTeatro(obraNombre)){
     const meta=OBRAS_META[obraNombre];
     return meta?meta.cc:sala;
   }
-  return esPersonalDeSala(area,nombre)===false?'krental':sala;
+  return esPersonalDeSala(area,nombre)===false?'kprod':sala;
 }
 
 // ════════════════════════════════════════════
@@ -1796,7 +1830,7 @@ function poblarFiltrosConsolidado(){
   const selPersona=document.getElementById('filtro-persona-consolid');
   if(selObra && selObra.options.length<=1){
     const vObra=selObra.value;
-    selObra.innerHTML='<option value="">Todas las obras</option>'+OBRAS_LIST.map(o=>`<option value="${o}">${o} [${OBRAS_META[o]?.tipo||'—'}]</option>`).join('');
+    selObra.innerHTML='<option value="">Todas las obras</option>'+`<option value="${K_NOMBRE}">${K_NOMBRE}</option>`+OBRAS_LIST.map(o=>`<option value="${o}">${o} [${OBRAS_META[o]?.tipo||'—'}]</option>`).join('');
     selObra.value=vObra;
   }
   if(selPersona && selPersona.options.length<=1){
@@ -1821,10 +1855,10 @@ function pasaFiltroConsolid(r){
   const fArea=document.getElementById('filtro-area-consolid')?.value||'';
   {
     if(r.sinValidar)return false;
-    const tipo=esTercero(r)?'TERCERO':'PROPIA'; // el filtro "Terceros" incluye cooperativas
+    const tipo=catPaga(r); // SALA | K | PROPIA | TERCERO (terceros incluye cooperativas)
     const f=filtroConsolid;
     if(f!=='todos'&&f!==tipo&&f!==r.teatro&&!(f==='ASUME'&&r.salaAsume))return false;
-    if(fObra&&r.obra!==fObra)return false;
+    if(fObra&&pagaNombre(r)!==fObra)return false;
     if(fPersona&&r.nombre!==fPersona)return false;
     if(fArea&&!(r.areas||[]).includes(fArea))return false;
     return true;
@@ -1838,9 +1872,18 @@ function buildConsolidado(){
   document.getElementById('btn-clear-consolid2').style.display=(fObra||fPersona||fArea)?'block':'none';
   const filtrados=registrosConsolidadoFiltrados();
   const byObra={};
-  filtrados.forEach(r=>{const k=r.obra||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,asumido:0,teatro:r.teatro,tipo:tipoObraDe(r)};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].asumido+=r.total||0;});
+  filtrados.forEach(r=>{const k=pagaNombre(r)||'Sin asignar';if(!byObra[k])byObra[k]={rows:[],total:0,asumido:0,teatro:r.teatro,tipo:tipoObraDe(r)};byObra[k].rows.push(r);byObra[k].total+=r.total||0;if(r.salaAsume)byObra[k].asumido+=r.total||0;});
   let tP=0,tT=0,tS=0,html='';
-  Object.entries(byObra).sort((a,b)=>b[1].total-a[1].total).forEach(([obra,data])=>{
+  // Cómo se ordena (Carla 7/11/26): por obra con personas por monto (como
+  // siempre) o A–Z, por obra en orden de fecha, por persona, o todo por fecha.
+  const orden=document.getElementById('orden-consolid')?.value||'obra-monto';
+  const porNombre=orden!=='obra-monto';
+  const tkHTML=(r,extra)=>{const cant=cantTicket(r);return `<div class="obra-tk">
+          <span class="tk-cuando">${cuandoTicket(r)}${extra?`<small style="font-weight:700;color:var(--tx)">${escH(extra)}</small>`:''}<small>${horarioTicket(r)}${cant?` · ${cant}`:''}</small><small>${dondeTicket(r)}${r.cc?` · CC ${ccCorto(r.cc)}`:''}</small></span>
+          <span><span class="tk-tipo">${r.tipoLabel||'—'}</span><span class="tk-desc">${r.descripcion?String(r.descripcion).replace(/</g,'&lt;'):'<em>sin descripción cargada</em>'}</span></span>
+          <span class="tk-monto">$${fmt2(r.total)}</span>
+        </div>`;};
+  Object.entries(byObra).sort((a,b)=>porNombre?a[0].localeCompare(b[0]):b[1].total-a[1].total).forEach(([obra,data])=>{
     const{tipo,teatro}=data;
     // Cada registro cae en UNA bolsa. (Antes, con un solo registro marcado
     // "Sala asume", toda la producción pasaba a "asumido por sala".)
@@ -1850,15 +1893,12 @@ function buildConsolidado(){
     // Desglose por persona dentro de la obra — clickeable a su detalle mensual
     const byPersona={};data.rows.forEach(r=>{if(!byPersona[r.nombre])byPersona[r.nombre]={total:0,n:0,teatro:r.teatro};byPersona[r.nombre].total+=r.total||0;byPersona[r.nombre].n++;});
     const tCls=salaAsume?'asume':tipo.toLowerCase();const tLbl=salaAsume?'Sala asume':tipo==='PROPIA'?'Propia':tipo==='COOPERATIVA'?'Cooperativa':'Tercero';
-    const personaRows=Object.entries(byPersona).sort((a,b)=>b[1].total-a[1].total)
+    const personaRows=orden==='obra-fecha'?data.rows.slice().sort((a,b)=>ordenTicket(a,b)||a.nombre.localeCompare(b.nombre)).map(r=>tkHTML(r,r.nombre)).join(''):
+      Object.entries(byPersona).sort((a,b)=>porNombre?a[0].localeCompare(b[0]):b[1].total-a[1].total)
       .map(([n,d])=>{
         // Debajo de cada persona, sus HE en ESTA producción: día, horario, horas, tipo y tarea
         const suyas=data.rows.filter(r=>r.nombre===n).sort(ordenTicket);
-        const detalle=suyas.map(r=>{const cant=cantTicket(r);return `<div class="obra-tk">
-          <span class="tk-cuando">${cuandoTicket(r)}<small>${horarioTicket(r)}${cant?` · ${cant}`:''}</small><small>${dondeTicket(r)}</small></span>
-          <span><span class="tk-tipo">${r.tipoLabel||'—'}</span><span class="tk-desc">${r.descripcion?String(r.descripcion).replace(/</g,'&lt;'):'<em>sin descripción cargada</em>'}</span></span>
-          <span class="tk-monto">$${fmt2(r.total)}</span>
-        </div>`;}).join('');
+        const detalle=suyas.map(r=>tkHTML(r)).join('');
         return `<div class="obra-row persona" style="cursor:pointer" onclick="abrirDetallPersona('${n.replace(/'/g,"\\'")}','${d.teatro}')" title="Ver todos los tickets de ${n} del mes">
         <span class="obra-rl">${n} <span class="mono" style="color:var(--mu);font-size:10px">(${d.n})</span></span>
         <span class="obra-rr">$${fmt2(d.total)}</span>
@@ -1874,12 +1914,36 @@ function buildConsolidado(){
       </div>
     </div>`;
   });
+  if(orden==='persona'||orden==='fecha'||orden==='dia'||orden==='area'){
+    // Bloques por persona (A–Z), o un solo bloque con todo en orden de fecha;
+    // en cada HE se ve a qué obra va.
+    const grupos={};
+    filtrados.forEach(r=>{const k=orden==='persona'?r.nombre:orden==='area'?areaPpal(r):orden==='dia'?(r.fecha||'Sin fecha'):'Todas las HE por fecha';(grupos[k]=grupos[k]||[]).push(r);});
+    html=Object.entries(grupos).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,rows])=>{
+      const tot=rows.reduce((a,r)=>a+(r.total||0),0);
+      const filas=rows.slice().sort((a,b)=>orden==='area'?(a.nombre.localeCompare(b.nombre)||ordenTicket(a,b)):(ordenTicket(a,b)||a.nombre.localeCompare(b.nombre))).map(r=>tkHTML(r,orden==='persona'?(pagaNombre(r)||'Sin asignar'):`${r.nombre} — ${pagaNombre(r)||'Sin asignar'}`)).join('');
+      const p=orden==='persona'?findPersonal(k):null;
+      return `<div class="obra-block">
+      <div class="obra-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div class="obra-meta"><span class="obra-nom">${orden==='dia'&&/^\d{4}-/.test(k)?`${diaSemana(k)} ${fmtF(k)}`:escH(k)}</span><span class="mono" style="color:var(--mu);font-size:10px">${rows.length} HE${p?` · ${escH((p.areas||[]).join('+'))}`:''}${orden==='area'?` · ${new Set(rows.map(r=>r.nombre)).size} personas`:''}${orden==='dia'?` · ${new Set(rows.map(r=>r.nombre)).size} personas · ${[...new Set(rows.map(r=>pagaNombre(r)))].slice(0,3).map(escH).join(', ')}${new Set(rows.map(r=>pagaNombre(r))).size>3?'…':''}`:''}</span></div>
+        <span class="obra-tot">$${fmt2(tot)}</span>
+      </div>
+      <div class="obra-rows">${filas}
+        <div class="obra-row" style="background:var(--s2)"><span class="obra-rl fw">Total</span><span class="obra-rr fw">$${fmt2(tot)}</span></div>
+      </div></div>`;}).join('');
+  }
   document.getElementById('consolidado-body').innerHTML=html||'<div class="empty">Sin registros para este filtro.</div>';
-  document.getElementById('consolidado-totales').innerHTML=`
-    <div class="obra-row"><span class="obra-rl">Producciones propias</span><span class="obra-rr" style="color:var(--green);font-weight:700">$${fmt2(tP)}</span></div>
-    <div class="obra-row"><span class="obra-rl">A descontar a terceros</span><span class="obra-rr" style="color:var(--amber);font-weight:700">$${fmt2(tT)}</span></div>
-    <div class="obra-row"><span class="obra-rl">Asumido por sala</span><span class="obra-rr" style="color:var(--purple);font-weight:700">$${fmt2(tS)}</span></div>
-    <div class="obra-row" style="border-top:2px solid var(--bd);margin-top:6px"><span class="obra-rl fw">TOTAL GENERAL</span><span class="obra-rr" style="font-size:16px;font-weight:700">$${fmt2(tP+tT+tS)}</span></div>`;
+  {
+    const sum=f=>filtrados.filter(f).reduce((a,r)=>a+(r.total||0),0);
+    const deTeatro=r=>r.salaAsume||esObraDeTeatro(r.obra);
+    const tSala=sum(r=>deTeatro(r)&&!(esK(r)&&!r.salaAsume)), tK=sum(r=>!r.salaAsume&&esObraDeTeatro(r.obra)&&esK(r));
+    const tProp=sum(r=>!deTeatro(r)&&!esTercero(r)), tTer=sum(r=>!deTeatro(r)&&esTercero(r));
+    const fila=(l,v,c)=>`<div class="obra-row"><span class="obra-rl">${l}</span><span class="obra-rr" style="color:${c};font-weight:700">$${fmt2(v)}</span></div>`;
+    document.getElementById('consolidado-totales').innerHTML=
+      fila('Sala (Vitama / Rosepa)',tSala,'var(--purple)')+fila(K_NOMBRE,tK,'var(--blue)')+
+      fila('Obras propias',tProp,'var(--green)')+fila('A descontar a terceros / cooperativas',tTer,'var(--amber)')+
+      `<div class="obra-row" style="border-top:2px solid var(--bd);margin-top:6px"><span class="obra-rl fw">TOTAL GENERAL</span><span class="obra-rr" style="font-size:16px;font-weight:700">$${fmt2(tSala+tK+tProp+tTer)}</span></div>`;
+  }
 }
 function fConsolid(f,el){document.querySelectorAll('#f-consolidado .fp').forEach(p=>p.classList.remove('active'));el.classList.add('active');filtroConsolid=f;buildConsolidado();}
 
@@ -1887,32 +1951,37 @@ function fConsolid(f,el){document.querySelectorAll('#f-consolidado .fp').forEach
 // IMPUTAR — con obras específicas
 // ════════════════════════════════════════════
 function ccPorDefecto(r){return getCCDefault(r.areas,r.teatro,r.obra,r.nombre);}
-function ccCorto(cc){return({vitama:'Vitama',rosepa:'Rosepa',kprod:'K Prod.',krental:'K Rental'})[cc]||CC_LABEL[cc]?.split(' ')[0]||cc||'—';}
+function ccCorto(cc){return({vitama:'Vitama',rosepa:'Rosepa',kprod:'K Prod.',krental:'K Prod.'})[cc]||CC_LABEL[cc]?.split(' ')[0]||cc||'—';}
 const TIPO_LBL={PROPIA:'Propia',COOPERATIVA:'Cooperativa',TERCERO:'Tercero'};
 
 // Estado de la vista Imputar (sobrevive a los refrescos del panel)
 let impSel=new Set();     // IDs de los registros tildados
 let impBuscar='';         // texto del buscador
-let impOrden='carga';     // 'carga' | 'persona' | 'fecha' | 'obra'
+let impOrden='carga';     // 'carga' | 'persona' | 'area' | 'fecha' | 'obra'
+let impArea='', impCat='';  // filtros de "tomar lista": área y quién paga
 let impBulkObra='';       // producción elegida en la barra de selección múltiple
 
 // Texto para comparar: sin acentos ni mayúsculas
 function normTxt(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
 
 // Índices (en `registros`) de las filas que pasan el buscador, ya ordenados
+function areaPpal(r){return sinTildesMay((r.areas||[])[0]||(findPersonal(r.nombre)?.areas||[])[0]||'')||'SIN ÁREA';}
 function impVisibles(){
   const q=normTxt(impBuscar).trim();
   const palabras=q?q.split(/\s+/):[];
   let idx=registros.map((r,i)=>i).filter(i=>{
-    if(!palabras.length)return true;
     const r=registros[i];
+    if(impArea&&!(r.areas||[]).map(sinTildesMay).includes(impArea))return false;
+    if(impCat&&catPaga(r)!==impCat)return false;
+    if(!palabras.length)return true;
     const donde=normTxt([r.nombre,r.obra,r.obraOriginal,r.descripcion,r.tipoLabel,fmtF(r.fecha)].join(' '));
     return palabras.every(p=>donde.includes(p));
   });
   const R=i=>registros[i];
   const porFecha=(a,b)=>String(R(a).fecha).localeCompare(String(R(b).fecha))||String(R(a).horaDesde).localeCompare(String(R(b).horaDesde));
   if(impOrden==='persona')idx.sort((a,b)=>R(a).nombre.localeCompare(R(b).nombre)||porFecha(a,b));
-  else if(impOrden==='obra')idx.sort((a,b)=>String(R(a).obra).localeCompare(String(R(b).obra))||R(a).nombre.localeCompare(R(b).nombre)||porFecha(a,b));
+  else if(impOrden==='obra')idx.sort((a,b)=>String(pagaNombre(R(a))).localeCompare(String(pagaNombre(R(b))))||R(a).nombre.localeCompare(R(b).nombre)||porFecha(a,b));
+  else if(impOrden==='area')idx.sort((a,b)=>areaPpal(R(a)).localeCompare(areaPpal(R(b)))||R(a).nombre.localeCompare(R(b).nombre)||porFecha(a,b));
   else if(impOrden==='fecha')idx.sort((a,b)=>porFecha(a,b)||R(a).nombre.localeCompare(R(b).nombre));
   return idx; // 'carga': el orden en que se fueron cargando
 }
@@ -1923,17 +1992,24 @@ function buildImputar(){
   // La barra de herramientas se arma una sola vez — si se regenerara en cada
   // refresco, se perdería el foco mientras alguien escribe en el buscador.
   if(!document.getElementById('imp-buscar')){
-    body.innerHTML=`<p style="font-size:11px;color:var(--mu);margin-bottom:12px;font-family:'DM Mono',monospace;line-height:1.5">
-      <strong>Producción</strong>: a qué obra va el costo. Si alguien cargó "Vitama" pero la HE fue para Desde el Jardín, se cambia acá y pasa a sumar en Desde el Jardín (consolidado, mails y Excel).<br>
-      <strong>CC</strong>: centro de costo contable; se acomoda solo según la producción, cambialo únicamente si corresponde otro. <strong>Sala asume</strong>: la sala absorbe el costo y no se le descuenta a nadie. Cada cambio se guarda al toque.<br>
-      <strong>Varios a la vez</strong>: tildá los registros (o buscá a la persona y tildá "los que se ven") y elegí la producción en la barra que aparece abajo.</p>
+    body.innerHTML=`<p style="font-size:12px;color:var(--mu);margin-bottom:12px;line-height:1.55">
+      Cada HE la paga uno solo: <strong>la obra</strong> (Desde el Jardín, una producción o cooperativa), <strong>la sala</strong> (Vitama / Rosepa) o <strong>K Producciones Rental</strong>. Elegilo en el desplegable de cada fila; se guarda al toque.<br>
+      Si una HE de sala o de K fue por una obra, igual va a la sala o a K: la obra queda solo de referencia («cargado como…») y no aparece en la planilla de esa obra.<br>
+      <strong>Varias a la vez:</strong> buscá a la persona, tildá y elegí quién paga en la barra de abajo. <strong>✎</strong> abre el ticket para corregir o anotar en la descripción.</p>
     <div class="imp-tools">
       <input type="search" id="imp-buscar" placeholder="🔍 Buscar por persona, producción o descripción…" oninput="impBuscar=this.value;buildImputarLista()">
       <select class="cc-sel" id="imp-orden" onchange="impOrden=this.value;buildImputarLista()" title="Cómo ordenar la lista">
         <option value="carga">Orden de carga</option>
-        <option value="persona">Agrupar por persona</option>
-        <option value="obra">Agrupar por producción</option>
+        <option value="persona">Agrupar por persona (A–Z)</option>
+        <option value="area">Agrupar por área</option>
+        <option value="obra">Agrupar por quién paga</option>
         <option value="fecha">Por fecha</option>
+      </select>
+      <select class="cc-sel" id="imp-area" onchange="impArea=this.value;buildImputarLista()" title="Ver solo un área">
+        <option value="">Todas las áreas</option>${['SALA','BOLETERIA','SONIDO','ILUMINACION','MAQUINARIA','MANTENIMIENTO','LIMPIEZA'].map(a=>`<option value="${a}">${a.charAt(0)+a.slice(1).toLowerCase()}</option>`).join('')}
+      </select>
+      <select class="cc-sel" id="imp-cat" onchange="impCat=this.value;buildImputarLista()" title="Ver solo lo que paga uno">
+        <option value="">Paga: todos</option>${Object.entries(CAT_LBL).map(([k,v])=>`<option value="${k}">Paga: ${v}</option>`).join('')}
       </select>
       <label><input type="checkbox" id="imp-todos" onchange="impSelTodos(this.checked)"> <span id="imp-todos-lbl"></span></label>
     </div>
@@ -1941,6 +2017,7 @@ function buildImputar(){
     <div class="imp-bulk" id="imp-bulk" style="display:none"></div>`;
     document.getElementById('imp-buscar').value=impBuscar;
     document.getElementById('imp-orden').value=impOrden;
+    document.getElementById('imp-area').value=impArea;document.getElementById('imp-cat').value=impCat;
   }
   buildImputarLista();
 }
@@ -1952,19 +2029,12 @@ function impFilaHTML(i){
     <div class="imp-row ${movido?'movido':''} ${impSel.has(r._id)?'sel':''}" data-i="${i}">
       <input type="checkbox" class="chk-sel" ${impSel.has(r._id)?'checked':''} onchange="impToggle(${i},this.checked)" title="Seleccionar para imputar varios a la vez">
       <div class="imp-name">${r.nombre}${r.sinValidar?` <span class="tag warn" style="font-size:9px">?</span>`:''}</div>
-      <div class="imp-info">${fmtF(r.fecha)} · ${r.tipoLabel.slice(0,28)}${r.tipoLabel.length>28?'…':''}<br>${movido?`<span class="imp-orig">↩ cargado como: ${r.obraOriginal}</span>`:`<span style="font-size:10px;color:var(--dm)">${r.descripcion?String(r.descripcion).slice(0,48):'—'}</span>`}</div>
+      <div class="imp-info">${fmtF(r.fecha)} · ${r.tipoLabel.slice(0,28)}${r.tipoLabel.length>28?'…':''}${!esObraDeTeatro(r.obra)&&esK(r)?` <span class="tag warn" style="font-size:9px" title="Está cargada a una obra pero con CC de K. Elegí quién paga para dejarlo prolijo.">revisar: ¿K o obra?</span>`:''}<br>${movido?`<span class="imp-orig">↩ cargado como: ${r.obraOriginal}</span>`:`<span style="font-size:10px;color:var(--dm)">${r.descripcion?String(r.descripcion).slice(0,48):'—'}</span>`}</div>
       <div class="imp-monto">$${fmt2(r.total)}</div>
-      <select class="cc-sel" id="ob-sel-${i}" onchange="imputarObra(${i}, this.value)" title="Producción a la que se imputa este costo">
-        ${OBRAS_LIST.map(o=>`<option value="${o.replace(/"/g,'&quot;')}" ${r.obra===o?'selected':''}>${o} [${TIPO_LBL[OBRAS_META[o]?.tipo]||'—'}]</option>`).join('')}
+      <select class="cc-sel" id="paga-sel-${i}" onchange="asignarPaga(${i}, this.value)" ${r.fecha&&mesCerrado(r.fecha.slice(0,7),r.teatro)?'disabled title="Mes cerrado: para cambiarlo hay que reabrirlo con el PIN"':'title="¿Quién paga esta HE? La obra, la sala o K Producciones Rental"'}>
+        ${pagaOpcionesHTML(r.teatro,pagaValor(r))}
       </select>
-      <select class="cc-sel" id="cc-sel-${i}" onchange="cambiarCC(${i}, this.value)" title="Centro de costo contable" ${r.salaAsume?'disabled':''}>
-        ${['vitama','rosepa','kprod','krental','otro_tercero','sala_asume'].map(c=>`<option value="${c}" ${r.cc===c?'selected':''}>${CC_LABEL[c]}</option>`).join('')}
-        ${r.cc&&!['vitama','rosepa','kprod','krental','otro_tercero','sala_asume'].includes(r.cc)?`<option value="${r.cc}" selected>${CC_LABEL[r.cc]||r.cc}</option>`:''}
-      </select>
-      <label style="font-size:12px;color:var(--mu);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
-        <input type="checkbox" class="chk-asume" ${r.salaAsume?'checked':''} onchange="cambiarCC(${i}, this.checked?'sala_asume':ccPorDefecto(registros[${i}]))">
-        Sala asume
-      </label>
+      <button class="btn ghost" style="padding:3px 7px;font-size:12px" onclick="abrirEdit(${i})" title="Editar este ticket: descripción (para dejar a qué se imputa), fecha, horario, monto o producción">✎</button>
     </div>`;
 }
 
@@ -1976,10 +2046,10 @@ function buildImputarLista(){
   impSel.forEach(id=>{if(!vivos.has(id))impSel.delete(id);});
   const idx=impVisibles();
   if(!idx.length){
-    cont.innerHTML=`<div class="empty">Nada coincide con "${impBuscar.replace(/</g,'&lt;')}".</div>`;
-  }else if(impOrden==='persona'||impOrden==='obra'){
+    cont.innerHTML=`<div class="empty">No hay HE con estos filtros${impBuscar?` ("${impBuscar.replace(/</g,'&lt;')}")`:''}.</div>`;
+  }else if(impOrden==='persona'||impOrden==='obra'||impOrden==='area'){
     // Agrupado: encabezado con cantidad, total y un atajo para tildar el grupo entero
-    const clave=i=>impOrden==='persona'?registros[i].nombre:(registros[i].obra||'Sin asignar');
+    const clave=i=>impOrden==='persona'?registros[i].nombre:impOrden==='area'?areaPpal(registros[i]):(pagaNombre(registros[i])||'Sin asignar');
     let html='',actual=null;
     idx.forEach(i=>{
       const k=clave(i);
@@ -2032,17 +2102,56 @@ function pintarImpBulk(){
   bar.style.display='flex';
   bar.innerHTML=`<span><strong>${sel.length}</strong> seleccionado${sel.length===1?'':'s'} · $${fmt2(total)}${personas>1?` · ${personas} personas`:''}</span>
     <select id="imp-bulk-obra" onchange="impBulkObra=this.value">
-      <option value="">Imputar a…</option>
-      ${OBRAS_LIST.map(o=>`<option value="${o.replace(/"/g,'&quot;')}" ${impBulkObra===o?'selected':''}>${o} [${TIPO_LBL[OBRAS_META[o]?.tipo]||'—'}]</option>`).join('')}
+      ${pagaOpcionesHTML(sel[0].teatro,impBulkObra).replace('¿Quién paga?…','Que lo pague…')}
     </select>
-    <button class="ok" id="imp-bulk-ok" onclick="imputarSeleccionados()">Imputar</button>
+    <button class="ok" id="imp-bulk-ok" onclick="imputarSeleccionados()">Asignar</button>
     <button class="no" onclick="impLimpiarSel()">Destildar todo</button>`;
 }
 
 // Imputa todos los tildados a una misma producción. Va de a uno contra el
 // servidor (misma acción que la imputación individual), mostrando el avance;
 // si alguno falla, los demás igual quedan hechos y se avisa cuáles no.
-async function imputarSeleccionados(){
+// Opciones del desplegable "¿Quién paga?": sala, K y las obras.
+function pagaOpcionesHTML(teatro,valor){
+  const sala=salaObraDe(teatro||TEATRO_FIJO||'MET');
+  const obras=OBRAS_LIST.filter(o=>!esObraDeTeatro(o));
+  const extra=valor&&!valor.startsWith('@')&&!obras.includes(valor)?[valor]:[];
+  return `<option value="">¿Quién paga?…</option>
+    <option value="@sala" ${valor==='@sala'?'selected':''}>Sala — ${escH(sala)}</option>
+    <option value="@k" ${valor==='@k'?'selected':''}>${K_NOMBRE}</option>
+    <optgroup label="Obra (la paga la obra)">${obras.concat(extra).map(o=>`<option value="${escH(o)}" ${valor===o?'selected':''}>${escH(o)} [${TIPO_LBL[OBRAS_META[o]?.tipo]||'—'}]</option>`).join('')}</optgroup>`;
+}
+// Deja la HE a cargo de quien se eligió. Primero el servidor; la pantalla
+// cambia solo si se guardó. Si va a la sala o a K y estaba en una obra, la
+// obra queda como referencia («cargado como…»), pero ya no suma en esa obra.
+async function _asignarPaga(r,val){
+  if(!r||!r._id)return{ok:false,error:'Este registro no tiene ID de servidor.'};
+  const obraDest=val.startsWith('@')?salaObraDe(r.teatro):val;
+  const por=TEATRO_FIJO?`Coordinación ${TEATRO_FIJO}`:'Admin';
+  let ccObra=null;
+  if(r.obra!==obraDest){
+    const resp=await apiPost('imputarObra',{id:r._id,obra:obraDest,por});
+    if(!resp.ok)return resp;
+    r.obra=resp.obra||obraDest;r.tipoObra=normTipoObra(resp.tipoObra)||r.tipoObra;if(resp.cc){r.cc=resp.cc;ccObra=resp.cc;}r.obraOriginal=resp.obraOriginal||'';
+  }
+  const salaCC=r.teatro==='PLP'?'rosepa':'vitama';
+  const ccDest=val==='@k'?'kprod':val==='@sala'?salaCC:(ccObra||OBRAS_META[obraDest]?.cc||(esTercero(r)?'otro_tercero':salaCC));
+  if(r.cc!==ccDest){
+    const resp=await apiPost('actualizarCC',{id:r._id,cc:ccDest});
+    if(!resp.ok)return resp;
+    r.cc=ccDest;r.salaAsume=false;
+  }
+  return{ok:true};
+}
+async function asignarPaga(i,val){
+  const r=registros[i];const sel=document.getElementById('paga-sel-'+i);
+  if(!val||val===pagaValor(r)){if(sel)sel.value=pagaValor(r);return;}
+  if(sel)sel.disabled=true;
+  const res=await _asignarPaga(r,val);
+  if(!res.ok)alert(`No se pudo guardar: ${res.error||'error desconocido'}`);
+  buildAll();
+}
+async function imputarSeleccionados_viejo(){
   const obra=impBulkObra;
   if(!obra){alert('Elegí primero a qué producción imputar los seleccionados.');return;}
   const ids=registros.filter(r=>impSel.has(r._id)&&r.obra!==obra).map(r=>r._id);
@@ -2075,6 +2184,31 @@ async function imputarSeleccionados(){
   if(fallos.length)alert(`Se imputaron ${hechos} de ${ids.length}. No se pudo con ${fallos.length} (siguen tildados):\n\n${fallos.slice(0,8).join('\n')}${fallos.length>8?'\n…':''}`);
 }
 
+async function imputarSeleccionados(){
+  const val=impBulkObra;
+  if(!val){alert('Elegí primero quién paga los seleccionados: la sala, K Producciones Rental o una obra.');return;}
+  const nom=val==='@sala'?'la sala':val==='@k'?K_NOMBRE:`«${val}»`;
+  const lista=registros.filter(r=>impSel.has(r._id)&&pagaValor(r)!==val);
+  const yaEstaban=impSel.size-lista.length;
+  if(!lista.length){alert(`Los seleccionados ya están a cargo de ${nom}.`);return;}
+  const total=lista.reduce((a,r)=>a+(r.total||0),0);
+  if(!confirm(`¿Pasar ${lista.length} HE — $${fmt2(total)} — a cargo de ${nom}?${yaEstaban?`\n(${yaEstaban} de los seleccionados ya estaban ahí.)`:''}`))return;
+  const bar=document.getElementById('imp-bulk');
+  bar.dataset.ocupado='1';
+  bar.innerHTML=`<span id="imp-bulk-avance">Guardando 0 de ${lista.length}… no cierres esta pantalla</span>`;
+  const fallos=[];let hechos=0;
+  for(const r0 of lista){
+    const r=registros.find(x=>x._id===r0._id)||r0;
+    const res=await _asignarPaga(r,val);
+    if(res.ok){hechos++;impSel.delete(r._id);}else fallos.push(`${r.nombre} ${fmtF(r.fecha)}: ${res.error||'error desconocido'}`);
+    const av=document.getElementById('imp-bulk-avance');if(av)av.textContent=`Guardando ${hechos+fallos.length} de ${lista.length}… no cierres esta pantalla`;
+  }
+  bar.dataset.ocupado='';
+  if(!fallos.length)impSel.clear();
+  buildAll();
+  if(fallos.length)alert(`Se guardaron ${hechos} de ${lista.length}. No se pudo con ${fallos.length} (siguen tildados):\n\n${fallos.slice(0,8).join('\n')}`);
+}
+
 // Mueve el registro a otra producción. Se guarda en el servidor PRIMERO; la
 // pantalla cambia solo si el servidor confirma.
 // (Antes, elegir una producción en este desplegable no le cambiaba la
@@ -2104,9 +2238,9 @@ async function imputarObra(i, obra){
 // técnico (no de sala), corresponde K Producciones Rental.
 async function ccKRentalSiCorresponde(r){
   if(!r||!r._id||(r.cc!=='vitama'&&r.cc!=='rosepa'))return;
-  if(ccPorDefecto(r)!=='krental')return;
-  const resp=await apiPost('actualizarCC',{id:r._id,cc:'krental'});
-  if(resp.ok)r.cc='krental';
+  if(ccPorDefecto(r)!=='kprod')return;
+  const resp=await apiPost('actualizarCC',{id:r._id,cc:'kprod'});
+  if(resp.ok)r.cc='kprod';
 }
 
 // Centro de costo / "Sala asume" — mismo criterio: primero el servidor.
@@ -2141,7 +2275,11 @@ function buildMails(){
   const tP=propias.reduce((a,r)=>a+(r.total||0),0);
   const tT=terceros.reduce((a,r)=>a+(r.total||0),0);
   const tS=sala.reduce((a,r)=>a+(r.total||0),0);
-  const byObra={};delMes.forEach(r=>{const k=r.obra||'—';if(!byObra[k])byObra[k]=[];byObra[k].push(r);});
+  // Los cuatro que pagan: sala, K, obras propias y terceros (Jon 7/11/26)
+  const sumQ=f=>delMes.filter(f).reduce((a,r)=>a+(r.total||0),0);
+  const qSala=sumQ(r=>(r.salaAsume||esObraDeTeatro(r.obra))&&!(esK(r)&&!r.salaAsume)), qK=sumQ(r=>!r.salaAsume&&esObraDeTeatro(r.obra)&&esK(r));
+  const qProp=sumQ(r=>!r.salaAsume&&!esObraDeTeatro(r.obra)&&!esTercero(r)), qTer=sumQ(r=>!r.salaAsume&&!esObraDeTeatro(r.obra)&&esTercero(r));
+  const byObra={};delMes.forEach(r=>{const k=pagaNombre(r)||'—';if(!byObra[k])byObra[k]=[];byObra[k].push(r);});
   const byP={};delMes.forEach(r=>{if(!byP[r.nombre])byP[r.nombre]={total:0,areas:r.areas};byP[r.nombre].total+=r.total||0;});
   const obrasTerc=[...new Set(terceros.map(r=>r.obra))];
 
@@ -2156,7 +2294,7 @@ function buildMails(){
     // 1. RRHH — montos (el detalle va en la ficha adjunta)
     {label:'RRHH — Consolidado completo',
      adjunto:adj('Horas Extras — consolidado',delMes),
-     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Consolidado RRHH\n\nHola,\n\nResumen completo de Horas Extras — ${mesNom}.\n\nTOTAL GENERAL: $${fmt2(totGen)}\n  Producciones propias:   $${fmt2(tP)}\n  A descontar terceros:   $${fmt2(tT)}\n  Asumido por sala:       $${fmt2(tS)}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n} (${(d.areas||[]).join('+').replace(/_/g,' ')}): $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);const tp=tipoObraDe(rs[0]);return`  [${tp}] ${o}: $${fmt2(t)}`;}).join('\n')}\n\nEn el PDF adjunto va la ficha de cada HE (día, horario, lugar, horas y tarea realizada).\nSaludos`},
+     body:`ASUNTO: HE ${mesNom.toUpperCase()} — Consolidado RRHH\n\nHola,\n\nResumen completo de Horas Extras — ${mesNom}.\n\nTOTAL GENERAL: $${fmt2(totGen)}\n  Sala (Vitama / Rosepa):  $${fmt2(qSala)}\n  K Producciones Rental:   $${fmt2(qK)}\n  Obras propias:           $${fmt2(qProp)}\n  A descontar a terceros:  $${fmt2(qTer)}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n} (${(d.areas||[]).join('+').replace(/_/g,' ')}): $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);const tp=tipoObraDe(rs[0]);return`  [${tp}] ${o}: $${fmt2(t)}`;}).join('\n')}\n\nEn el PDF adjunto va la ficha de cada HE (día, horario, lugar, horas y tarea realizada).\nSaludos`},
     // 2. Admin — pago técnicos día 15
     {label:'Admin — Pago día 15',
      adjunto:adj('Horas Extras — pagos',delMes),
@@ -2169,10 +2307,23 @@ function buildMails(){
     ...obrasTerc.map(obra=>{
       const rs=terceros.filter(r=>r.obra===obra);
       const tot=rs.reduce((a,r)=>a+(r.total||0),0);
-      return{label:`Descuento — ${obra}`,produccion:obra,
+      return{label:`Descuento — ${obra}`,produccion:obra,externa:true,
         adjunto:adj(`${obra} — HE a descontar`,rs,{totalLbl:'Total a descontar',conformidad:true}),
         body:`ASUNTO: Descuento HE ${mesNom.toUpperCase()} — ${obra}\n\nHola,\n\nInformamos las Horas Extras que corresponde descontar de la liquidación de ${obra} — ${mesNom}.\n\nTOTAL A DESCONTAR: $${fmt2(tot)}\n\nDETALLE:\n\n${det(rs)}\n\nEn el PDF adjunto va la ficha completa de cada HE —lugar, tipo y tarea realizada— para su revisión.\nPor favor confirmar conformidad respondiendo este mail.\nEste descuento se procesará en la liquidación del período.\nSaludos`};
     }),
+    // 4b. K Producciones Rental, sala y obras propias: lo que le toca a cada uno
+    ...(()=>{
+      const grupos={};
+      delMes.filter(r=>!esTercero(r)||esObraDeTeatro(r.obra)).forEach(r=>{const k=pagaNombre(r);if(k)(grupos[k]=grupos[k]||[]).push(r);});
+      const orden=k=>k===K_NOMBRE?0:esObraDeTeatro(k)?1:2;
+      return Object.keys(grupos).sort((a,b)=>orden(a)-orden(b)||a.localeCompare(b)).map(k=>{
+        const rs=grupos[k],tot=rs.reduce((a,r)=>a+(r.total||0),0);
+        const quien=k===K_NOMBRE?'K Producciones Rental':esObraDeTeatro(k)?`la sala (${k})`:k;
+        return{label:`${k===K_NOMBRE?'K Rental':esObraDeTeatro(k)?'Sala':'Costo'} — ${k}`,produccion:k,
+          adjunto:adj(`${k} — HE`,rs,{totalLbl:'Total'}),
+          body:`ASUNTO: HE ${mesNom.toUpperCase()} — ${k}\n\nHola,\n\nTe paso las Horas Extras que corresponden a ${quien} — ${mesNom}.\n\nTOTAL: $${fmt2(tot)}\n\nDETALLE:\n\n${det(rs)}\n\nEn el PDF adjunto va la ficha completa de cada HE —lugar, tipo y tarea realizada—.\nSaludos`};
+      });
+    })(),
     // 5. Interno — archivo/constancia
     {label:'Interno — Archivo y constancia',
      adjunto:adj('Constancia de HE procesadas',delMes,{totalLbl:'Total procesado'}),
@@ -2195,8 +2346,10 @@ function buildMails(){
   // revise, confirme y autorice el descuento.
   const tab=(m,i)=>`<div class="mtab ${i===mailActivo?'active':''}" onclick="selMail(${i},this)">${escH(m.label)}</div>`;
   const generales=mails.map((m,i)=>m.produccion?'':tab(m,i)).join('');
-  const prods=mails.map((m,i)=>m.produccion?tab(m,i):'').join('');
+  const prods=mails.map((m,i)=>m.externa?tab(m,i):'').join('');
+  const internos=mails.map((m,i)=>m.produccion&&!m.externa?tab(m,i):'').join('');
   document.getElementById('mail-tabs').innerHTML=generales+
+    (internos?`<div class="mtabs-sep">Sala, K Producciones Rental y obras propias</div>${internos}`:'')+
     `<div class="mtabs-sep">A cada producción externa${obrasTerc.length?` · ${obrasTerc.length}`:''}</div>`+
     (prods||`<div class="mail-vacio">En ${mesNom} no hay HE imputadas a producciones externas (terceros o cooperativas), así que no hay mails de descuento para mandar. Si alguna HE de este mes corresponde a una producción externa, imputala en <a href="#" onclick="showView('imputar');return false">Imputar / CC</a> y su mail aparece acá.</div>`);
   document.getElementById('mail-pre').textContent=mails[mailActivo]?.body||'';
@@ -2716,7 +2869,7 @@ async function buildTendencias(){
   const porCC = {};
   validos.forEach(r=>{
     const cc = r["Centro de Costo"] || 'sin_imputar';
-    porCC[cc] = (porCC[cc]||0) + valorDe(r);
+    porCC[cc==='krental'?'kprod':cc] = (porCC[cc==='krental'?'kprod':cc]||0) + valorDe(r);
   });
 
   // Por día de semana
@@ -2873,7 +3026,7 @@ function etiquetaFiltroConsolidado(){
   if(fObra)partes.push(fObra);
   if(fPersona)partes.push(fPersona);
   if(fArea)partes.push(areaLabel[fArea]||fArea);
-  if(!partes.length&&filtroConsolid!=='todos')partes.push({PROPIA:'Propias',TERCERO:'Terceros',ASUME:'Sala asume',MET:'MET',PLP:'PLP'}[filtroConsolid]||filtroConsolid);
+  if(!partes.length&&filtroConsolid!=='todos')partes.push({SALA:'Sala',K:'K Producciones Rental',PROPIA:'Obras propias',TERCERO:'Terceros',ASUME:'Sala asume',MET:'MET',PLP:'PLP'}[filtroConsolid]||filtroConsolid);
   return partes.join(' — ');
 }
 // Formato moneda (separador de miles + $) para las celdas numéricas de
@@ -3041,7 +3194,7 @@ async function fmFechas(){
   }));
   fmPintar();
 }
-const fmObra=r=>r.obra||'Sin producción', fmTipo=r=>r.tipoLabel||'—', fmKey=r=>r._id||`${r.nombre}|${r.fecha}|${r.horaDesde}|${r.total}`;
+const fmObra=r=>pagaNombre(r)||'Sin producción', fmTipo=r=>r.tipoLabel||'—', fmKey=r=>r._id||`${r.nombre}|${r.fecha}|${r.horaDesde}|${r.total}`;
 function fmEnRango(){
   const vistos=new Set(),out=[];
   fmMeses(FM.desde,FM.hasta).forEach(mk=>(FM.porMes[mk]||[]).forEach(r=>{
@@ -3124,9 +3277,10 @@ function fmGenerar(tipo){
 let KR = null;
 function kreCandidato(r){
   if(!r||!r._id||!r.fecha||(r.total||0)===0)return false;
-  if(r.cc!=='vitama'&&r.cc!=='rosepa'&&r.cc)return false;   // ya imputado a otra cosa (o sala asume): no se toca
   if(mesCerrado(r.fecha.slice(0,7),r.teatro))return false;
-  return getCCDefault(r.areas,r.teatro,r.obra,r.nombre)==='krental';
+  if(r.cc==='krental')return true;                            // clave vieja de K: se unifica en kprod
+  if(r.cc!=='vitama'&&r.cc!=='rosepa'&&r.cc)return false;   // ya imputado a otra cosa (o sala asume): no se toca
+  return getCCDefault(r.areas,r.teatro,r.obra,r.nombre)==='kprod';
 }
 async function abrirPasarKRental(){
   let m=document.getElementById('modal-krental');
@@ -3177,8 +3331,8 @@ async function confirmarPasarKRental(){
   ok.disabled=true;cn.disabled=true;
   let hechos=0;const fallos=[];
   for(const r of KR.lista){
-    const resp=await apiPost('actualizarCC',{id:r._id,cc:'krental'});
-    if(resp.ok){hechos++;r.cc='krental';const loc=registros.find(x=>x._id===r._id);if(loc)loc.cc='krental';}
+    const resp=await apiPost('actualizarCC',{id:r._id,cc:'kprod'});
+    if(resp.ok){hechos++;r.cc='kprod';const loc=registros.find(x=>x._id===r._id);if(loc)loc.cc='kprod';}
     else fallos.push(`${r.nombre} ${fmtF(r.fecha)}: ${resp.error||'error desconocido'}`);
     st.textContent=`Guardando ${hechos+fallos.length} de ${KR.lista.length}… no cierres esta pantalla`;
   }
