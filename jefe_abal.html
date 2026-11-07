@@ -440,7 +440,8 @@ async function cargarTickets() {
           tipoLabel:   r["Tipo HE"] || "",
           horas:       parseFloat(r["Horas"]) || null,
           total:       parseValorJ(r["Total"]),
-          obra:        r["Obra"] || "",
+          // HE de asistentes de sala: el costo va a la sala, pero se muestra la obra para la que se hizo
+          obra:        (r["Imputado Por"] === "Regla sala (automático)" && r["Obra Original"]) ? `${r["Obra Original"]} (costo de sala)` : (r["Obra"] || ""),
           descripcion: r["Descripción"] || r["Descripcion"] || "",
           aprobJefe:   r["Aprobado Jefe"] || "PENDIENTE",
           notaJefe:    r["Nota Jefe"] || "",

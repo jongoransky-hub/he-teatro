@@ -1163,7 +1163,8 @@ async function cargarMisRegistros(nombre) {
       nombre:     r['Nombre'] || '',
       teatro:     r['Teatro'] || '',
       sala:       r['Sala'] || '',
-      obra:       r['Obra'] || '',
+      // HE de asistentes de sala: el costo va a la sala, pero se muestra la obra para la que se hizo
+      obra:       (r['Imputado Por'] === 'Regla sala (automático)' && r['Obra Original']) ? `${r['Obra Original']} (costo de sala)` : (r['Obra'] || ''),
       tipoLabel:  r['Tipo HE'] || '',
       descripcion:r['Descripción'] || '',
       total:      parseFloat(r['Total']) || 0,

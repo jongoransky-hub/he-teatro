@@ -3008,6 +3008,7 @@ function renderCierreCard(teatro, mk, mesNom, hoy){
       <div class="btn-row">
         ${sigDisponible?`<button class="btn primary" onclick="cambiarPeriodo('${sig}')">Ver ${sigNom} →</button>`:''}
         <button class="btn ghost" onclick="exportXLSX()">Exportar XLSX del mes cerrado</button>
+        ${esUltimoCerrado(teatro, mk)?`<button class="btn ghost" style="border-color:var(--red);color:var(--red)" onclick="abrirReabrir('${teatro}','${mk}')">🔓 Reabrir ${mesNom}…</button>`:''}
       </div>
       ${yaCerrado.avisoPago
         ? `<div style="margin-top:10px;font-size:12px;color:var(--green)">✓ Ya se avisó a los técnicos que pueden retirar sus HE.</div>`
@@ -3067,6 +3068,67 @@ async function avisarPagoListo(teatro, mes, btnEl){
     alert('⚠ Sin conexión al servidor — no se avisó a nadie. Probá de nuevo.');
     if(btn){ btn.disabled=false; btn.textContent='Avisar que ya se puede cobrar'; }
   }
+}
+
+// ── REABRIR UN MES CERRADO ──
+// Solo coordinación, con su PIN (lo valida el servidor) y un motivo. Se puede
+// reabrir solo el último mes cerrado de cada teatro. Al reabrir, las HE de
+// asistentes de sala de ese mes que estaban cargadas a obras pasan a la sala
+// (salvo las que coordinación imputó a mano). Sin confirm()/prompt() del
+// navegador: adentro del iframe del Portal algunos los bloquean.
+function esUltimoCerrado(teatro, mk){
+  if (!teatro || teatro === 'AMBOS') return false;
+  const ms = MESES_CERRADOS_SERVIDOR.filter(m => m.teatro === teatro).map(m => m.mes).sort();
+  return ms.length > 0 && ms[ms.length-1] === mk;
+}
+function abrirReabrir(teatro, mk){
+  let m = document.getElementById('modal-reabrir');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'modal-reabrir'; m.className = 'modal-overlay';
+    m.innerHTML = `<div class="modal" style="max-width:460px">
+      <h3 id="rea-titulo"></h3>
+      <div style="font-size:13px;color:var(--mu);line-height:1.5;margin-bottom:12px">Mientras esté abierto se puede volver a cargar y corregir, y las HE de asistentes de sala que estaban cargadas a obras pasan a la sala. Cuando lo cierres de nuevo, el resumen sale como <b>corregido</b> y a cada persona solo le llega un mail si su total cambió.</div>
+      <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Motivo de la reapertura</label>
+      <textarea id="rea-motivo" rows="3" placeholder="Ej.: pasar a Vitama las HE de asistentes de sala" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--rs);font:inherit;font-size:13px;margin-bottom:12px;resize:vertical"></textarea>
+      <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">PIN de coordinación</label>
+      <input type="password" id="rea-pin" inputmode="numeric" autocomplete="off" style="width:140px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--rs);font:inherit;font-size:15px;letter-spacing:4px">
+      <div id="rea-err" style="color:var(--red);font-size:12px;min-height:16px"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" onclick="cerrarModal('modal-reabrir')">Cancelar</button>
+        <button class="btn" id="rea-ok" style="background:var(--red);border-color:var(--red);color:#fff">Reabrir</button>
+      </div></div>`;
+    m.addEventListener('click', e => { if (e.target === m) cerrarModal('modal-reabrir'); });
+    document.body.appendChild(m);
+  }
+  const lbl = teatro==='MET'?'Teatro Metropolitan':'Paseo La Plaza';
+  document.getElementById('rea-titulo').textContent = `Reabrir ${mkNombre(mk).toUpperCase()} — ${lbl}`;
+  document.getElementById('rea-motivo').value = ''; document.getElementById('rea-pin').value = ''; document.getElementById('rea-err').textContent = '';
+  const btn = document.getElementById('rea-ok'); btn.disabled = false; btn.textContent = 'Reabrir';
+  btn.onclick = () => confirmarReabrir(teatro, mk);
+  m.style.display = 'flex';
+  setTimeout(() => document.getElementById('rea-motivo').focus(), 50);
+}
+async function confirmarReabrir(teatro, mk){
+  const motivo = document.getElementById('rea-motivo').value.trim();
+  const pin = document.getElementById('rea-pin').value.trim();
+  const err = document.getElementById('rea-err'), btn = document.getElementById('rea-ok');
+  if (motivo.length < 5) { err.textContent = 'Escribí el motivo.'; return; }
+  if (!pin) { err.textContent = 'Falta el PIN.'; return; }
+  btn.disabled = true; btn.textContent = 'Reabriendo…'; err.textContent = '';
+  try {
+    const r = await apiPost('reabrirMes', {mes: mk, teatro, pin, motivo, usuario: TEATRO_FIJO ? `Coordinación ${teatro}` : 'Admin'});
+    if (!r.ok) {
+      btn.disabled = false; btn.textContent = 'Reabrir';
+      err.textContent = /acci[oó]n|desconocid/i.test(r.error||'') ? 'Falta actualizar el Apps Script a la versión 3.7.' : (r.error || 'No se pudo reabrir.');
+      return;
+    }
+    cerrarModal('modal-reabrir');
+    await cargarMesesCerrados();
+    PERIODO_MANUAL = true;
+    await recargarDatos();
+    alert(`✓ ${mkNombre(mk).toUpperCase()} reabierto.` + (r.movidosSala ? `\n${r.movidosSala} HE de asistentes de sala pasaron a la sala.` : '') + `\nCuando termines de corregir, cerralo de nuevo desde acá.`);
+  } catch(e) { btn.disabled = false; btn.textContent = 'Reabrir'; err.textContent = 'Sin conexión al servidor — no se reabrió nada.'; }
 }
 
 async function confirmarCierreMes(teatro){
