@@ -860,6 +860,25 @@ function perfilDe(nombre) {
 
 // Datos de la persona a cuyo nombre queda el ticket: la persona elegida si se
 // carga por otro, o el propio perfil. Nunca mezclar con los datos de quien carga.
+// Centro de costo con el que entra la HE (misma regla que el panel de
+// coordinación, Jon 7/11/26). Obra de terceros/cooperativa → otro_tercero;
+// obra propia → Vitama/Rosepa. Si se cargó al teatro (Teatro Metropolitan
+// (Vitama) / Paseo La Plaza (Rosepa)), los técnicos que no son de sala
+// (todos salvo sala, boletería, mantenimiento, limpieza y Gambetta) van a
+// K Producciones Rental.
+function ccDeAlta(tipoObra, teatro, obra, area, nombre) {
+  if (tipoObra === "tercero" || tipoObra === "cooperativa") return "otro_tercero";
+  const sala = teatro === "PLP" ? "rosepa" : "vitama";
+  const o = String(obra || "").trim();
+  const deTeatro = !o || /\b(vitama|rosepa)\b/i.test(o) || /^edificio/i.test(o);
+  if (!deTeatro) return sala;
+  const norm = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+  if (norm(nombre).includes("GAMBETTA")) return sala;
+  const areas = String(area || "").split(/[,+]/).map(norm).filter(Boolean);
+  if (!areas.length) return sala;
+  return areas.some(x => ["SALA","BOLETERIA","MANTENIMIENTO","LIMPIEZA"].includes(x)) ? sala : "krental";
+}
+
 function perfilCarga() {
   if (S.proxyActivo && S.proxyPerfil) return S.proxyPerfil;
   return { nombre:S.nombre, area:S.area, esJefe:S.esJefe, esPatino:S.esPatino };
@@ -1434,10 +1453,9 @@ async function enviar() {
   // Obtener tipo de obra para el CC
   const obraObj = OBRAS.find(o => o.n === S.obra);
   const tipoObra = obraObj?.tipo?.toLowerCase() || "propia";
-  const cc = (tipoObra === "tercero" || tipoObra === "cooperativa") ? "otro_tercero" : // cooperativa = tercero
-             S.teatro === "PLP" ? "rosepa" : "vitama";
-
   const pc = perfilCarga(); // datos de la persona a cuyo nombre queda el ticket
+  const cc = ccDeAlta(tipoObra, S.teatro, S.obra, pc.area, nombreReal);
+
   const ticket = {
     nombre:      nombreReal,
     areas:       [pc.area].filter(Boolean),

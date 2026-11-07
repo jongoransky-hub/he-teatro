@@ -500,6 +500,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
     <div class="card-head">
       <span class="card-title">Imputar producción y centro de costo</span>
       <div class="btn-row">
+        <button class="btn ghost" onclick="abrirPasarKRental()" title="Las HE de técnicos cargadas al teatro (no a una obra) pasan a K Producciones Rental. Solo meses abiertos.">Pasar técnicos de teatro a K Producciones Rental</button>
         <button class="btn ghost" onclick="aplicarDefaults()">Aplicar defaults</button>
         <button class="btn primary" onclick="guardarImput()">Guardar</button>
       </div>
@@ -870,7 +871,7 @@ const OBRAS_LIST = Object.keys(OBRAS_META);
 
 const CC_LABEL = {
   vitama:'Vitama (MET)',rosepa:'Rosepa (PLP)',kprod:'K Producciones',
-  krental:'K Rental',sala_asume:'Sala asume',otro_tercero:'Tercero / cooperativa',
+  krental:'K Producciones Rental',sala_asume:'Sala asume',otro_tercero:'Tercero / cooperativa',
   bossi:'Bossi Live',petroleo:'Petroleo',juampi:'Juampi González',
   eventos_met:'Eventos MET',eventos_plp:'Eventos PLP',
 };
@@ -1030,10 +1031,37 @@ function xlsxFicha({archivo,regs,totalLbl='Total'}){
 }
 function slugArchivo(t){return String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,'');}
 
-function getCCDefault(area,teatro,obraNombre){
-  const meta=OBRAS_META[obraNombre];
-  if(meta)return meta.cc;
-  return teatro==='PLP'?'rosepa':'vitama';
+// Regla de CC (Jon 7/11/26). Una HE cargada a una obra va al CC de esa obra.
+// Una HE "de teatro" (Teatro Metropolitan (Vitama), Paseo La Plaza (Rosepa) o
+// sin obra) se reparte así:
+//   · asistentes de sala, boletería, mantenimiento, limpieza y Gambetta → la
+//     sala: Vitama (MET) / Rosepa (PLP)
+//   · el resto de los técnicos (sonido, iluminación, maquinaria…) → K
+//     Producciones Rental, la unidad que maneja el rental.
+const AREAS_DE_SALA=['SALA','BOLETERIA','MANTENIMIENTO','LIMPIEZA'];
+const NOMBRES_DE_SALA=['GAMBETTA']; // Juan Gambetta, jefe de maquinaria MET
+function sinTildesMay(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();}
+function esObraDeTeatro(obra){const o=String(obra||'').trim();return !o||/\b(vitama|rosepa)\b/i.test(o)||/^edificio/i.test(o);}
+function areasDe(area,nombre){
+  let a=(Array.isArray(area)?area:String(area||'').split(/[,+]/)).map(sinTildesMay).filter(Boolean);
+  if(!a.length&&nombre){const p=findPersonal(nombre);if(p)a=(p.areas||[]).map(sinTildesMay);}
+  return a;
+}
+// null = no se sabe el área (no se mueve a K Producciones Rental por las dudas)
+function esPersonalDeSala(area,nombre){
+  const n=sinTildesMay(nombre);
+  if(NOMBRES_DE_SALA.some(x=>n.includes(x)))return true;
+  const a=areasDe(area,nombre);
+  if(!a.length)return null;
+  return a.some(x=>AREAS_DE_SALA.includes(x));
+}
+function getCCDefault(area,teatro,obraNombre,nombre){
+  const sala=teatro==='PLP'?'rosepa':'vitama';
+  if(!esObraDeTeatro(obraNombre)){
+    const meta=OBRAS_META[obraNombre];
+    return meta?meta.cc:sala;
+  }
+  return esPersonalDeSala(area,nombre)===false?'krental':sala;
 }
 
 // ════════════════════════════════════════════
@@ -1170,7 +1198,7 @@ async function cambiarPeriodo(mk){
   if(res.ok&&Array.isArray(res.data)){
     registros=res.data.map(mapRegistroRow);
     normalizarNombresRegistros();
-    registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});
+    registros.forEach(r=>{if(!r.cc)r.cc=ccPorDefecto(r);});
   }else{
     alert(`No se pudieron traer los registros de ${mkNombre(mk)}. Tocá "Actualizar" para reintentar.`);
   }
@@ -1324,7 +1352,7 @@ window.onload = async () => {
     }
 
     // Imputar CC defaults a registros que no tienen
-    registros.forEach(r => { if(!r.cc) r.cc = getCCDefault((r.areas||[''])[0], r.teatro, r.obra); });
+    registros.forEach(r => { if(!r.cc) r.cc = ccPorDefecto(r); });
 
     mostrarEstadoBackend(true);
     document.getElementById('tb-badge').style.display = 'none';
@@ -1332,7 +1360,7 @@ window.onload = async () => {
   } catch(e) {
     console.warn("Backend no disponible:", e);
     registros = []; // Sin conexión — sin datos demo
-    registros.forEach(r => { if(!r.cc) r.cc = getCCDefault((r.areas||[''])[0], r.teatro, r.obra); });
+    registros.forEach(r => { if(!r.cc) r.cc = ccPorDefecto(r); });
     mostrarEstadoBackend(false);
     document.getElementById('tb-badge').style.display = 'none';
   }
@@ -1417,7 +1445,7 @@ async function recargarDatos(){
       if (TEATRO_FIJO) PERSONAL = PERSONAL.filter(p => p.teatro === TEATRO_FIJO || p.teatro === 'AMBOS');
     }
     normalizarNombresRegistros();
-    registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});
+    registros.forEach(r=>{if(!r.cc)r.cc=ccPorDefecto(r);});
     buildAll();
     btn.textContent = '✓ Actualizado';
     setTimeout(()=>{btn.textContent='↻ Actualizar';btn.disabled=false;}, 2000);
@@ -1858,7 +1886,8 @@ function fConsolid(f,el){document.querySelectorAll('#f-consolidado .fp').forEach
 // ════════════════════════════════════════════
 // IMPUTAR — con obras específicas
 // ════════════════════════════════════════════
-function ccPorDefecto(r){return getCCDefault((r.areas||[''])[0],r.teatro,r.obra);}
+function ccPorDefecto(r){return getCCDefault(r.areas,r.teatro,r.obra,r.nombre);}
+function ccCorto(cc){return({vitama:'Vitama',rosepa:'Rosepa',kprod:'K Prod.',krental:'K Rental'})[cc]||CC_LABEL[cc]?.split(' ')[0]||cc||'—';}
 const TIPO_LBL={PROPIA:'Propia',COOPERATIVA:'Cooperativa',TERCERO:'Tercero'};
 
 // Estado de la vista Imputar (sobrevive a los refrescos del panel)
@@ -2031,7 +2060,7 @@ async function imputarSeleccionados(){
     const resp=await apiPost('imputarObra',{id,obra,por});
     const r=registros.find(x=>x._id===id); // se busca de nuevo: un refresco automático pudo haber reemplazado la lista
     if(resp.ok){
-      if(r){r.obra=resp.obra||obra;r.tipoObra=normTipoObra(resp.tipoObra)||r.tipoObra;if(resp.cc)r.cc=resp.cc;r.obraOriginal=resp.obraOriginal||'';}
+      if(r){r.obra=resp.obra||obra;r.tipoObra=normTipoObra(resp.tipoObra)||r.tipoObra;if(resp.cc)r.cc=resp.cc;r.obraOriginal=resp.obraOriginal||'';await ccKRentalSiCorresponde(r);}
       impSel.delete(id);
       hechos++;
     }else{
@@ -2068,7 +2097,16 @@ async function imputarObra(i, obra){
   r.tipoObra=normTipoObra(resp.tipoObra)||r.tipoObra;
   if(resp.cc)r.cc=resp.cc;
   r.obraOriginal=resp.obraOriginal||'';
+  await ccKRentalSiCorresponde(r);
   buildAll();
+}
+// El servidor, al imputar a la obra de teatro, deja Vitama/Rosepa. Si es un
+// técnico (no de sala), corresponde K Producciones Rental.
+async function ccKRentalSiCorresponde(r){
+  if(!r||!r._id||(r.cc!=='vitama'&&r.cc!=='rosepa'))return;
+  if(ccPorDefecto(r)!=='krental')return;
+  const resp=await apiPost('actualizarCC',{id:r._id,cc:'krental'});
+  if(resp.ok)r.cc='krental';
 }
 
 // Centro de costo / "Sala asume" — mismo criterio: primero el servidor.
@@ -2085,7 +2123,7 @@ async function cambiarCC(i, valor){
   r.salaAsume=(valor==='sala_asume');
   buildAll();
 }
-function aplicarDefaults(){registros.forEach(r=>{if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra);});buildAll();}
+function aplicarDefaults(){registros.forEach(r=>{if(!r.cc)r.cc=ccPorDefecto(r);});buildAll();}
 function guardarImput(){buildAll();alert('Los cambios de imputación ya se guardan al toque, cada vez que cambiás un CC — no hace falta este botón, pero lo dejamos por si preferís revisar todo antes de irte de la pantalla.');}
 
 // ════════════════════════════════════════════
@@ -2563,7 +2601,7 @@ function buildRegistros(){
       <td style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.tipoLabel}">${r.tipoLabel}</td>
       <td class="mono" style="text-align:center">${r.horas!=null?r.horas+'h':r.cantidad!=null?r.cantidad+'×':'—'}</td>
       <td class="monto ok">$${fmt2(r.total)}</td>
-      <td style="font-size:10px;color:var(--mu)">${CC_LABEL[r.cc]?.split(' ')[0]||r.cc||'—'}</td>
+      <td style="font-size:10px;color:var(--mu)">${ccCorto(r.cc)}</td>
       <td>${flags.join(' ')}</td>
       <td style="white-space:nowrap">
         <button class="btn ghost" style="padding:3px 8px;font-size:11px" onclick="abrirEdit(${i})">Editar</button>
@@ -2996,7 +3034,7 @@ async function fmFechas(){
       const rows=await _regsDeMes(mk,TEATRO_FIJO);
       FM.porMes[mk]=sinAnulados(rows.map(mapRegistroRow).map(r=>{
         const p=r.nombre&&findPersonal(r.nombre); if(p&&p.n!==r.nombre)r.nombre=p.n;
-        if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra); return r;
+        if(!r.cc)r.cc=ccPorDefecto(r); return r;
       }).filter(r=>FM.cabe(r)));
     }catch(e){FM.porMes[mk]=[];FM.errMes=mk;}
     FM.cargando.delete(mk);
@@ -3076,6 +3114,78 @@ function fmGenerar(tipo){
     const suf=mesCompleto?'':`_${FM.desde.slice(5).replace('-','')}-${FM.hasta.slice(5).replace('-','')}`;
     xlsxFicha({archivo:`${FM.archivo}${suf}${desc?'_recorte':''}.xlsx`,regs,totalLbl:FM.totalLbl});
   }
+}
+
+// ════════════════════════════════════════════
+// PASAR TÉCNICOS DE TEATRO A K PRODUCCIONES RENTAL (Jon 7/11/26)
+// Revisa todos los meses abiertos (no solo el que se está mirando), muestra
+// qué va a cambiar y, si se confirma, lo guarda registro por registro.
+// ════════════════════════════════════════════
+let KR = null;
+function kreCandidato(r){
+  if(!r||!r._id||!r.fecha||(r.total||0)===0)return false;
+  if(r.cc!=='vitama'&&r.cc!=='rosepa'&&r.cc)return false;   // ya imputado a otra cosa (o sala asume): no se toca
+  if(mesCerrado(r.fecha.slice(0,7),r.teatro))return false;
+  return getCCDefault(r.areas,r.teatro,r.obra,r.nombre)==='krental';
+}
+async function abrirPasarKRental(){
+  let m=document.getElementById('modal-krental');
+  if(!m){
+    m=document.createElement('div'); m.id='modal-krental'; m.className='modal-overlay';
+    m.addEventListener('click',e=>{if(e.target===m&&!(KR&&KR.guardando))cerrarModal('modal-krental');});
+    document.body.appendChild(m);
+  }
+  m.innerHTML=`<div class="modal" style="max-width:620px"><h3>Pasar técnicos de teatro a K Producciones Rental</h3><div id="kr-body" style="font-size:13px">⏳ Revisando los meses abiertos…</div></div>`;
+  m.style.display='flex';
+  KR={lista:[],guardando:false};
+  const meses=[];for(let mk=PRIMER_MES;mk<=mkHoy();mk=mkSumar(mk,1))meses.push(mk);
+  const abiertos=meses.filter(mk=>teatrosEnVista().some(t=>!mesCerrado(mk,t)));
+  const vistos=new Set();
+  for(const mk of abiertos){
+    let rs;
+    if(mk===PERIODO)rs=registros;
+    else{
+      try{rs=(await _regsDeMes(mk,TEATRO_FIJO)).map(mapRegistroRow).map(r=>{const p=r.nombre&&findPersonal(r.nombre);if(p&&p.n!==r.nombre)r.nombre=p.n;if(!r.cc)r.cc=ccPorDefecto(r);return r;});}
+      catch(e){rs=[];}
+    }
+    rs.filter(r=>r.fecha&&r.fecha.startsWith(mk)&&kreCandidato(r)).forEach(r=>{if(!vistos.has(r._id)){vistos.add(r._id);KR.lista.push(r);}});
+  }
+  krPintar(abiertos);
+}
+function krPintar(abiertos){
+  const b=document.getElementById('kr-body'); if(!b)return;
+  const cerrados=teatrosEnVista().flatMap(t=>getMesesCerrados(t).map(x=>`${mkNombre(x.mes)} ${t}`));
+  const nota=`<div style="font-size:11px;color:var(--mu);margin:6px 0 10px">Regla: en las HE cargadas al teatro (no a una obra), asistentes de sala, boletería, mantenimiento, limpieza y Gambetta quedan en Vitama / Rosepa; el resto de los técnicos va a K Producciones Rental. Lo cargado a una obra no se toca.${cerrados.length?` Meses cerrados, que no se tocan: ${cerrados.join(', ')}.`:''}</div>`;
+  if(!KR.lista.length){
+    b.innerHTML=nota+`<p>No hay nada para pasar: en los meses abiertos${abiertos.length?` (${abiertos.map(mkNombre).join(', ')})`:''} no queda ninguna HE de técnicos cargada al teatro fuera de K Producciones Rental.</p><div class="modal-actions"><button class="btn primary" onclick="cerrarModal('modal-krental')">Listo</button></div>`;
+    return;
+  }
+  const grupos={};
+  KR.lista.slice().sort((a,c)=>(a.teatro||'').localeCompare(c.teatro||'')||a.fecha.localeCompare(c.fecha)||(a.nombre||'').localeCompare(c.nombre||'')).forEach(r=>{const k=`${r.teatro}|${r.fecha.slice(0,7)}`;(grupos[k]=grupos[k]||[]).push(r);});
+  const total=KR.lista.reduce((a,r)=>a+(r.total||0),0);
+  b.innerHTML=nota+`<div style="max-height:46vh;overflow-y:auto;border:1px solid var(--bd);border-radius:var(--rs)">`+
+    Object.entries(grupos).map(([k,rs])=>{const[t,mk]=k.split('|');const st=rs.reduce((a,r)=>a+(r.total||0),0);
+      return`<div style="padding:8px 10px;background:var(--s2);font-weight:700;display:flex;justify-content:space-between"><span>${t==='PLP'?'Paseo La Plaza':'Teatro Metropolitan'} · ${mkNombre(mk)} · ${rs.length} HE</span><span class="mono">$${fmt2(st)}</span></div>`+
+      rs.map(r=>`<div style="display:flex;gap:10px;padding:5px 10px;border-bottom:1px solid var(--bd);font-size:12px"><span class="mono" style="white-space:nowrap">${cuandoTicket(r)}</span><span>${escH(r.nombre)}</span><span style="color:var(--mu)">${escH((r.areas||[]).join('+'))} · ${escH(CC_LABEL[r.cc]||r.cc||'—')} → K Producciones Rental</span><span class="mono" style="margin-left:auto">$${fmt2(r.total)}</span></div>`).join('');}).join('')+
+    `</div><div id="kr-estado" style="margin-top:10px;font-size:13px">Van a pasar <b>${KR.lista.length} HE</b> por <b>$${fmt2(total)}</b>.</div>
+    <div class="modal-actions"><button class="btn ghost" id="kr-cancel" onclick="cerrarModal('modal-krental')">Cancelar</button><button class="btn primary" id="kr-ok" onclick="confirmarPasarKRental()">Pasar ${KR.lista.length} a K Producciones Rental</button></div>`;
+}
+async function confirmarPasarKRental(){
+  if(!KR||KR.guardando)return;
+  KR.guardando=true;
+  const ok=document.getElementById('kr-ok'),cn=document.getElementById('kr-cancel'),st=document.getElementById('kr-estado');
+  ok.disabled=true;cn.disabled=true;
+  let hechos=0;const fallos=[];
+  for(const r of KR.lista){
+    const resp=await apiPost('actualizarCC',{id:r._id,cc:'krental'});
+    if(resp.ok){hechos++;r.cc='krental';const loc=registros.find(x=>x._id===r._id);if(loc)loc.cc='krental';}
+    else fallos.push(`${r.nombre} ${fmtF(r.fecha)}: ${resp.error||'error desconocido'}`);
+    st.textContent=`Guardando ${hechos+fallos.length} de ${KR.lista.length}… no cierres esta pantalla`;
+  }
+  KR.guardando=false;
+  st.innerHTML=fallos.length?`Se pasaron <b>${hechos}</b> de ${KR.lista.length}. No se pudo con ${fallos.length}:<br><span style="font-size:11px;color:var(--red)">${fallos.slice(0,8).map(escH).join('<br>')}</span>`:`✓ Listo: <b>${hechos} HE</b> pasaron a K Producciones Rental.`;
+  ok.style.display='none';cn.disabled=false;cn.textContent='Cerrar';
+  buildAll();
 }
 
 // ════════════════════════════════════════════
@@ -3390,7 +3500,7 @@ function abrirDetallPersona(nombre, teatroPersona, filtroActivo) {
         </div>
         <div style="font-weight:600;font-size:13px;margin-bottom:2px">${r.tipoLabel||'—'}</div>
         <div style="font-size:12px;color:var(--mu)">${r.descripcion||'—'}</div>
-        <div style="font-size:11px;color:var(--dm);margin-top:4px;font-family:'DM Mono',monospace">${r.teatro||''}·${r.sala||''} · ${r.obra||'—'} · CC: ${CC_LABEL[r.cc]?.split(' ')[0]||r.cc||'—'}</div>
+        <div style="font-size:11px;color:var(--dm);margin-top:4px;font-family:'DM Mono',monospace">${r.teatro||''}·${r.sala||''} · ${r.obra||'—'} · CC: ${ccCorto(r.cc)}</div>
         <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           ${aprobBadge(r)}
           ${r.notaJefe?`<span style="font-size:11px;color:var(--amber)">Nota jefe: "${r.notaJefe}"</span>`:''}
