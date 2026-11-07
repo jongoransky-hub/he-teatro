@@ -220,6 +220,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.fm-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mu);margin:10px 0 6px}
+.fm-lbl a,#fm-toggle-unas{color:var(--ac)}
+.fm-lbl a{font-weight:500;text-transform:none;letter-spacing:0;font-size:11px}
+.fm-in{padding:6px 8px;border:1px solid var(--bd);border-radius:var(--rs);font:inherit;font-size:13px}
+.fm-atajo{padding:4px 10px;border:1px solid var(--bd);border-radius:20px;background:transparent;font:inherit;font-size:11px;cursor:pointer;color:var(--tx)}
+.fm-atajo:hover{border-color:var(--ac);color:var(--ac)}
+.fm-chips{display:flex;flex-wrap:wrap;gap:6px}
+.fm-chip{display:flex;align-items:center;gap:5px;padding:4px 10px 4px 6px;border:1px solid var(--bd);border-radius:20px;font-size:12px;cursor:pointer;opacity:.55}
+.fm-chip.on{opacity:1;border-color:var(--ac)}
+.fm-chip span{color:var(--mu);font-size:11px}
+.fm-una{display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--bd);font-size:12px;cursor:pointer}
+.fm-una.off{opacity:.45;text-decoration:line-through}
 .modal{background:var(--sf);border-radius:var(--r);padding:24px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto}
 .modal h3{font-size:15px;font-weight:600;margin-bottom:16px}
 .mf{margin-bottom:14px}
@@ -448,6 +460,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
   <div class="export-row">
     <button class="btn primary" onclick="exportXLSX()">Exportar XLSX</button>
     <button class="btn ghost" onclick="exportPDF()">Exportar PDF</button>
+    <button class="btn ghost" onclick="abrirFichaMedida('consolidado')" title="Elegir fechas, personas, producción, tipo de HE o HE sueltas antes de sacar el PDF o el Excel">✂️ A medida…</button>
   </div>
   <div class="filters" id="f-consolidado">
     <div class="fp active" onclick="fConsolid('todos',this)">Todas</div>
@@ -517,6 +530,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
         <div class="btn-row" style="margin:0">
           <button class="btn primary" id="btn-adj-pdf" onclick="adjuntoMail('pdf')">PDF para adjuntar</button>
           <button class="btn green" id="btn-adj-xlsx" onclick="adjuntoMail('xlsx')">Excel para adjuntar</button>
+          <button class="btn ghost" onclick="abrirFichaMedida('mail')" title="Recortar la ficha de este mail por fechas, personas, tipo de HE o HE sueltas">✂️ A medida…</button>
         </div>
       </div>
     </div>
@@ -985,7 +999,7 @@ function pdfFicha({titulo,subtitulo,regs,totalLbl='Total',conformidad=false}){
     @media print{body{margin:14px}tr{page-break-inside:avoid}}
     </style></head><body>
     <h1>${escH(titulo)}</h1><div class="sub">${escH(subtitulo||'')}</div>
-    <div class="kpis"><div>${escH(totalLbl)}<b>$${fmt2(total)}</b></div><div>Horas extras<b>${nHE}</b></div><div>Horas<b>${horas?fmtHs(horas):'—'}</b></div><div>Personas<b>${nPers}</b></div></div>
+    <div class="kpis"><div>${escH(totalLbl)}<b>$${fmt2(total)}</b></div><div>HE<b>${nHE}</b></div><div>Horas<b>${horas?fmtHs(horas):'—'}</b></div><div>Personas<b>${nPers}</b></div></div>
     ${resumen}${cuerpo||'<p>Sin registros.</p>'}${firma}
     <div class="pie">Generado el ${fmtF(new Date().toLocaleDateString('sv-SE'))} · Sistema HE — ${TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza'}</div>
     <script>window.onload=()=>window.print()<\/script></body></html>`;
@@ -1768,12 +1782,17 @@ function poblarFiltrosConsolidado(){
 // tipo/teatro (pills) + obra + persona (selects). Se reutiliza para
 // construir la vista y para exportar exactamente lo que se está viendo.
 function registrosConsolidadoFiltrados(){
-  const hoy=new Date();const mk=PERIODO;
+  const mk=PERIODO;
+  return registros.filter(r=>r.fecha?.startsWith(mk)&&pasaFiltroConsolid(r));
+}
+// Los filtros del consolidado (tipo, obra, persona, área) sin el del mes:
+// la ficha a medida los usa también para traer días de otros meses.
+function pasaFiltroConsolid(r){
   const fObra=document.getElementById('filtro-obra-consolid')?.value||'';
   const fPersona=document.getElementById('filtro-persona-consolid')?.value||'';
   const fArea=document.getElementById('filtro-area-consolid')?.value||'';
-  return registros.filter(r=>{
-    if(!r.fecha?.startsWith(mk)||r.sinValidar)return false;
+  {
+    if(r.sinValidar)return false;
     const tipo=esTercero(r)?'TERCERO':'PROPIA'; // el filtro "Terceros" incluye cooperativas
     const f=filtroConsolid;
     if(f!=='todos'&&f!==tipo&&f!==r.teatro&&!(f==='ASUME'&&r.salaAsume))return false;
@@ -1781,7 +1800,7 @@ function registrosConsolidadoFiltrados(){
     if(fPersona&&r.nombre!==fPersona)return false;
     if(fArea&&!(r.areas||[]).includes(fArea))return false;
     return true;
-  });
+  }
 }
 function buildConsolidado(){
   poblarFiltrosConsolidado();
@@ -2889,7 +2908,174 @@ function exportXLSX(){
 function exportPDF(){
   const etiqueta=etiquetaFiltroConsolidado();
   const mesNom=mkNombre(PERIODO);
-  pdfFicha({titulo:`Horas Extras — ${mesNom}${etiqueta?` — ${etiqueta}`:''}`,subtitulo:TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza',regs:registrosConsolidadoFiltrados()});
+  pdfFicha({titulo:`HE — ${mesNom}${etiqueta?` — ${etiqueta}`:''}`,subtitulo:TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza',regs:registrosConsolidadoFiltrados()});
+}
+
+// ════════════════════════════════════════════
+// FICHA A MEDIDA (Jon 6/11/26): sacar el PDF o el Excel solo con lo que
+// se quiera mandar — un rango de fechas (puede incluir días de otro mes),
+// algunas personas, producciones o tipos de HE, o quitar HE sueltas.
+// ════════════════════════════════════════════
+let FM = null;
+function fmUltimoDia(mk){const[y,m]=mk.split('-').map(Number);return`${mk}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;}
+function fmMeses(d1,d2){const out=[];let[y,m]=d1.slice(0,7).split('-').map(Number);const[y2,m2]=d2.slice(0,7).split('-').map(Number);while((y<y2||(y===y2&&m<=m2))&&out.length<13){out.push(`${y}-${String(m).padStart(2,'0')}`);if(++m>12){m=1;y++;}}return out;}
+function fmSumarDias(iso,n){const[y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d+n).toLocaleDateString('sv-SE');}
+function abrirFichaMedida(origen){
+  if(!PERIODO)return;
+  const lblT=TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza';
+  let base,titulo,subtitulo=lblT,totalLbl='Total',conformidad=false,archivo,cabe;
+  if(origen==='mail'){
+    const m=window._mails&&window._mails[mailActivo]; if(!m||!m.adjunto)return;
+    const a=m.adjunto; base=a.regs; titulo=a.nombre; subtitulo=a.subtitulo||lblT; totalLbl=a.totalLbl||'Total'; conformidad=!!a.conformidad;
+    archivo=a.archivo||`HE_${PERIODO}`;
+    const obras=new Set(sinAnulados(base).map(r=>r.obra||''));
+    cabe=r=>!r.sinValidar&&obras.has(r.obra||'');   // días de otro mes: solo de la(s) misma(s) producción(es)
+  }else{
+    const et=etiquetaFiltroConsolidado(); base=registrosConsolidadoFiltrados();
+    titulo=`HE — ${mkNombre(PERIODO)}${et?` — ${et}`:''}`;
+    archivo=`HE_${PERIODO}${et?'_'+et.replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g,'_'):''}`;
+    cabe=r=>pasaFiltroConsolid(r);
+  }
+  archivo=String(archivo).replace(/\.xlsx$/i,'');
+  FM={origen,titulo,subtitulo,totalLbl,conformidad,archivo,cabe,
+      porMes:{[PERIODO]:sinAnulados(base)},cargando:new Set(),
+      desde:`${PERIODO}-01`,hasta:fmUltimoDia(PERIODO),
+      off:{obra:new Set(),pers:new Set(),tipo:new Set(),id:new Set()},verUnas:false};
+  let m=document.getElementById('modal-medida');
+  if(!m){
+    m=document.createElement('div'); m.id='modal-medida'; m.className='modal-overlay';
+    m.addEventListener('click',e=>{if(e.target===m)cerrarModal('modal-medida');});
+    document.body.appendChild(m);
+  }
+  m.innerHTML=`<div class="modal" style="max-width:640px">
+    <h3 style="margin-bottom:2px">✂️ Ficha a medida</h3>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">${escH(titulo)}</div>
+    <div class="fm-lbl">Fechas</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:12px">del</span><input type="date" id="fm-desde" class="fm-in" value="${FM.desde}" onchange="fmFechas()">
+      <span style="font-size:12px">al</span><input type="date" id="fm-hasta" class="fm-in" value="${FM.hasta}" onchange="fmFechas()">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+      <button class="fm-atajo" onclick="fmAtajo('mes')">Mes completo</button>
+      <button class="fm-atajo" onclick="fmAtajo('q1')">1–15</button>
+      <button class="fm-atajo" onclick="fmAtajo('q2')">16 a fin de mes</button>
+      <button class="fm-atajo" onclick="fmAtajo('sig3')">+ primeros 3 días del mes siguiente</button>
+    </div>
+    <div id="fm-aviso" style="font-size:11px;color:var(--mu);min-height:15px;margin-bottom:8px"></div>
+    <div id="fm-grupos"></div>
+    <div style="margin:10px 0 4px"><a href="#" id="fm-toggle-unas" onclick="FM.verUnas=!FM.verUnas;fmPintar();return false" style="font-size:12px;font-weight:600">Elegir HE una por una</a></div>
+    <div id="fm-unas"></div>
+    <div id="fm-res" style="margin-top:12px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--rs);font-size:13px"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cerrarModal('modal-medida')">Cancelar</button>
+      <button class="btn green" id="fm-xlsx" onclick="fmGenerar('xlsx')">Excel</button>
+      <button class="btn primary" id="fm-pdf" onclick="fmGenerar('pdf')">PDF</button>
+    </div></div>`;
+  m.style.display='flex';
+  fmPintar();
+}
+function fmAtajo(k){
+  const ini=`${PERIODO}-01`,fin=fmUltimoDia(PERIODO);
+  if(k==='mes'){FM.desde=ini;FM.hasta=fin;}
+  if(k==='q1'){FM.desde=ini;FM.hasta=`${PERIODO}-15`;}
+  if(k==='q2'){FM.desde=`${PERIODO}-16`;FM.hasta=fin;}
+  if(k==='sig3'){FM.hasta=fmSumarDias(fin,3);if(FM.desde>FM.hasta)FM.desde=ini;}
+  document.getElementById('fm-desde').value=FM.desde;document.getElementById('fm-hasta').value=FM.hasta;
+  fmFechas();
+}
+async function fmFechas(){
+  let d=document.getElementById('fm-desde').value, h=document.getElementById('fm-hasta').value;
+  if(!d||!h)return;
+  if(d>h){const t=d;d=h;h=t;document.getElementById('fm-desde').value=d;document.getElementById('fm-hasta').value=h;}
+  FM.desde=d;FM.hasta=h;
+  const faltan=fmMeses(d,h).filter(mk=>!FM.porMes[mk]&&!FM.cargando.has(mk));
+  fmPintar();
+  await Promise.all(faltan.map(async mk=>{
+    FM.cargando.add(mk);fmPintar();
+    try{
+      const rows=await _regsDeMes(mk,TEATRO_FIJO);
+      FM.porMes[mk]=sinAnulados(rows.map(mapRegistroRow).map(r=>{
+        const p=r.nombre&&findPersonal(r.nombre); if(p&&p.n!==r.nombre)r.nombre=p.n;
+        if(!r.cc)r.cc=getCCDefault((r.areas||[''])[0],r.teatro,r.obra); return r;
+      }).filter(r=>FM.cabe(r)));
+    }catch(e){FM.porMes[mk]=[];FM.errMes=mk;}
+    FM.cargando.delete(mk);
+  }));
+  fmPintar();
+}
+const fmObra=r=>r.obra||'Sin producción', fmTipo=r=>r.tipoLabel||'—', fmKey=r=>r._id||`${r.nombre}|${r.fecha}|${r.horaDesde}|${r.total}`;
+function fmEnRango(){
+  const vistos=new Set(),out=[];
+  fmMeses(FM.desde,FM.hasta).forEach(mk=>(FM.porMes[mk]||[]).forEach(r=>{
+    if(!r.fecha||r.fecha<FM.desde||r.fecha>FM.hasta)return;
+    const k=fmKey(r); if(vistos.has(k))return; vistos.add(k); out.push(r);
+  }));
+  return out;
+}
+function fmPasa(r,salvo){
+  const o=FM.off;
+  if(salvo!=='obra'&&o.obra.has(fmObra(r)))return false;
+  if(salvo!=='pers'&&o.pers.has(r.nombre))return false;
+  if(salvo!=='tipo'&&o.tipo.has(fmTipo(r)))return false;
+  return true;
+}
+function fmSeleccion(){return fmEnRango().filter(r=>fmPasa(r)&&!FM.off.id.has(fmKey(r)));}
+function fmToggle(cual,val,on){const s=FM.off[cual];on?s.delete(val):s.add(val);fmPintar();}
+function fmTodos(cual,on,vals){vals.forEach(v=>on?FM.off[cual].delete(v):FM.off[cual].add(v));fmPintar();}
+function fmPintar(){
+  if(!FM)return;
+  const rango=fmEnRango();
+  const cargando=[...FM.cargando].map(mkNombre);
+  document.getElementById('fm-aviso').innerHTML=cargando.length?`⏳ Trayendo ${cargando.join(', ')}…`:
+    (FM.errMes?`<span style="color:var(--red)">No se pudo traer ${mkNombre(FM.errMes)}.</span>`:
+    (fmMeses(FM.desde,FM.hasta).length>1?`Incluye días de ${fmMeses(FM.desde,FM.hasta).filter(m=>m!==PERIODO).map(mkNombre).join(', ')}${FM.origen==='mail'?' (solo de esta producción)':''}.`:''));
+  const grupo=(cual,titulo,fnVal)=>{
+    const tot={};rango.filter(r=>fmPasa(r,cual)).forEach(r=>{const v=fnVal(r);tot[v]=(tot[v]||0)+(r.total||0);});
+    const vals=Object.keys(tot).sort((a,b)=>a.localeCompare(b));
+    if(vals.length<2&&!vals.some(v=>FM.off[cual].has(v)))return'';
+    const js=JSON.stringify(vals).replace(/"/g,'&quot;');
+    return`<div class="fm-lbl">${titulo} <a href="#" onclick="fmTodos('${cual}',true,${js});return false">todos</a> · <a href="#" onclick="fmTodos('${cual}',false,${js});return false">ninguno</a></div>
+      <div class="fm-chips">${vals.map(v=>{const on=!FM.off[cual].has(v);const vj=JSON.stringify(v).replace(/"/g,'&quot;');
+        return`<label class="fm-chip ${on?'on':''}"><input type="checkbox" ${on?'checked':''} onchange="fmToggle('${cual}',${vj},this.checked)">${escH(v)} <span>$${fmt2(tot[v])}</span></label>`;}).join('')}</div>`;
+  };
+  document.getElementById('fm-grupos').innerHTML=grupo('obra','Producción',fmObra)+grupo('pers','Personas',r=>r.nombre)+grupo('tipo','Tipo de HE',fmTipo);
+  const tg=document.getElementById('fm-toggle-unas');
+  const visibles=rango.filter(r=>fmPasa(r)).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')||ordenTicket(a,b));
+  const quitadas=visibles.filter(r=>FM.off.id.has(fmKey(r))).length;
+  tg.textContent=(FM.verUnas?'▾ ':'▸ ')+`Elegir HE una por una (${visibles.length}${quitadas?` · ${quitadas} quitada${quitadas>1?'s':''}`:''})`;
+  document.getElementById('fm-unas').innerHTML=FM.verUnas?`<div style="max-height:240px;overflow-y:auto;border:1px solid var(--bd);border-radius:var(--rs)">${visibles.map(r=>{const k=fmKey(r),on=!FM.off.id.has(k),kj=JSON.stringify(k).replace(/"/g,'&quot;');
+    return`<label class="fm-una ${on?'':'off'}"><input type="checkbox" ${on?'checked':''} onchange="fmToggle('id',${kj},this.checked)"><span class="mono">${cuandoTicket(r)}</span><span>${escH(r.nombre)}</span><span style="color:var(--mu)">${escH(fmTipo(r))} · ${escH(fmObra(r))}</span><span class="mono" style="margin-left:auto">$${fmt2(r.total)}</span></label>`;}).join('')||'<div style="padding:10px;font-size:12px;color:var(--mu)">No hay HE en ese recorte.</div>'}</div>`:'';
+  const sel=fmSeleccion(), tot=sel.reduce((a,r)=>a+(r.total||0),0), hs=sel.reduce((a,r)=>a+horasDe(r),0), np=new Set(sel.map(r=>r.nombre)).size;
+  document.getElementById('fm-res').innerHTML=sel.length?`Sale: <b>${sel.length} HE</b>${hs?` · ${fmtHs(hs)}`:''} · ${np} persona${np>1?'s':''} · <b>$${fmt2(tot)}</b><div style="font-size:11px;color:var(--mu);margin-top:3px">${escH(fmDescripcion()||'Sin recortes: igual que la ficha completa.')}</div>`:'<span style="color:var(--red)">No queda ninguna HE con esos filtros.</span>';
+  ['fm-pdf','fm-xlsx'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!sel.length||FM.cargando.size>0;});
+}
+function fmLista(set,todos){const v=[...todos].filter(x=>!set.has(x));return v.length<=3?v.join(', '):`${v.length} de ${todos.size}`;}
+function fmDescripcion(){
+  const partes=[],rango=fmEnRango();
+  if(!(FM.desde===`${PERIODO}-01`&&FM.hasta===fmUltimoDia(PERIODO)))partes.push(FM.desde===FM.hasta?`Solo el ${fmtF(FM.desde)}`:`Del ${fmtF(FM.desde)} al ${fmtF(FM.hasta)}`);
+  const conj=f=>new Set(rango.map(f));
+  if([...FM.off.obra].some(v=>conj(fmObra).has(v)))partes.push(`Producción: ${fmLista(FM.off.obra,conj(fmObra))}`);
+  if([...FM.off.pers].some(v=>conj(r=>r.nombre).has(v)))partes.push(`Personas: ${fmLista(FM.off.pers,conj(r=>r.nombre))}`);
+  if([...FM.off.tipo].some(v=>conj(fmTipo).has(v)))partes.push(`Tipo de HE: ${fmLista(FM.off.tipo,conj(fmTipo))}`);
+  const q=rango.filter(r=>fmPasa(r)&&FM.off.id.has(fmKey(r))).length;
+  if(q)partes.push(`${q} HE quitada${q>1?'s':''} a mano`);
+  return partes.join(' · ');
+}
+function fmGenerar(tipo){
+  const regs=fmSeleccion(); if(!regs.length)return;
+  const desc=fmDescripcion();
+  const mesCompleto=FM.desde===`${PERIODO}-01`&&FM.hasta===fmUltimoDia(PERIODO);
+  let titulo=FM.titulo;
+  if(!mesCompleto){
+    const r=FM.desde===FM.hasta?fmtF(FM.desde):`${fmtF(FM.desde)} al ${fmtF(FM.hasta)}`;
+    titulo=titulo.includes(mkNombre(PERIODO))?titulo.replace(mkNombre(PERIODO),r):`${titulo} — ${r}`;
+  }
+  const subtitulo=desc?`${FM.subtitulo} · ${desc}`:FM.subtitulo;
+  if(tipo==='pdf')pdfFicha({titulo,subtitulo,regs,totalLbl:FM.totalLbl,conformidad:FM.conformidad});
+  else{
+    const suf=mesCompleto?'':`_${FM.desde.slice(5).replace('-','')}-${FM.hasta.slice(5).replace('-','')}`;
+    xlsxFicha({archivo:`${FM.archivo}${suf}${desc?'_recorte':''}.xlsx`,regs,totalLbl:FM.totalLbl});
+  }
 }
 
 // ════════════════════════════════════════════
