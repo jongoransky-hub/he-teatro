@@ -987,7 +987,7 @@ function pdfFicha({titulo,subtitulo,regs,totalLbl='Total',conformidad=false}){
     <h1>${escH(titulo)}</h1><div class="sub">${escH(subtitulo||'')}</div>
     <div class="kpis"><div>${escH(totalLbl)}<b>$${fmt2(total)}</b></div><div>Horas extras<b>${nHE}</b></div><div>Horas<b>${horas?fmtHs(horas):'—'}</b></div><div>Personas<b>${nPers}</b></div></div>
     ${resumen}${cuerpo||'<p>Sin registros.</p>'}${firma}
-    <div class="pie">Generado el ${fmtF(new Date().toISOString().split('T')[0])} · Sistema HE — ${TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza'}</div>
+    <div class="pie">Generado el ${fmtF(new Date().toLocaleDateString('sv-SE'))} · Sistema HE — ${TEATRO_FIJO?(TEATRO_FIJO==='MET'?'Teatro Metropolitan':'Paseo La Plaza'):'Teatro Metropolitan / Paseo La Plaza'}</div>
     <script>window.onload=()=>window.print()<\/script></body></html>`;
   const w=window.open('','_blank');
   if(!w){alert('El navegador bloqueó la ventana del PDF. Permití las ventanas emergentes para este sitio y probá de nuevo.');return;}
@@ -1230,7 +1230,7 @@ function mapRegistroRow(r) {
 
 window.onload = async () => {
   const hoy = new Date();
-  document.getElementById('tb-date').textContent = fmtF(hoy.toISOString().split('T')[0]);
+  document.getElementById('tb-date').textContent = fmtF(hoy.toLocaleDateString('sv-SE'));
 
   // Vista de coordinación: el teatro ya está fijo, así que los selectores
   // de teatro (que acá solo confundirían) se ocultan, y el título lo dice.
@@ -2119,7 +2119,7 @@ function buildMails(){
     // 5. Interno — archivo/constancia
     {label:'Interno — Archivo y constancia',
      adjunto:adj('Constancia de HE procesadas',delMes,{totalLbl:'Total procesado'}),
-     body:`ASUNTO: [ARCHIVO INTERNO] HE ${mesNom.toUpperCase()} — Constancia de procesamiento\n\nRegistro interno de HE procesadas — ${mesNom}.\nFecha de procesamiento: ${fmtF(new Date().toISOString().split('T')[0])}\n\nTOTAL PROCESADO: $${fmt2(totGen)}\nRegistros: ${delMes.length}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA/CC:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);return`  ${o}: $${fmt2(t)}`;}).join('\n')}\n\nDETALLE:\n\n${det(delMes,{conObra:true})}\n\nFicha completa de cada HE (lugar, tipo y tarea realizada) en el PDF adjunto.\n[Archivado por: Administración Teatro]`},
+     body:`ASUNTO: [ARCHIVO INTERNO] HE ${mesNom.toUpperCase()} — Constancia de procesamiento\n\nRegistro interno de HE procesadas — ${mesNom}.\nFecha de procesamiento: ${fmtF(new Date().toLocaleDateString('sv-SE'))}\n\nTOTAL PROCESADO: $${fmt2(totGen)}\nRegistros: ${delMes.length}\n\nPOR PERSONA:\n${Object.entries(byP).map(([n,d])=>`  ${n}: $${fmt2(d.total)}`).join('\n')}\n\nPOR OBRA/CC:\n${Object.entries(byObra).map(([o,rs])=>{const t=rs.reduce((a,r)=>a+(r.total||0),0);return`  ${o}: $${fmt2(t)}`;}).join('\n')}\n\nDETALLE:\n\n${det(delMes,{conObra:true})}\n\nFicha completa de cada HE (lugar, tipo y tarea realizada) en el PDF adjunto.\n[Archivado por: Administración Teatro]`},
   ];
 
   // Versión texto y versión HTML de cada mail
@@ -3143,7 +3143,7 @@ async function confirmarCierreMes(teatro){
   const delMes=registros.filter(r=>r.fecha?.startsWith(mk)&&!r.sinValidar&&r.teatro===teatro);
   const total=delMes.reduce((a,r)=>a+(r.total||0),0);
   const personas=new Set(delMes.map(r=>r.nombre)).size;
-  const fechaCierre=hoy.toISOString().split('T')[0];
+  const fechaCierre=hoy.toLocaleDateString('sv-SE');
 
   try{
     const r=await apiPost('cerrarMes',{mes:mk,teatro,mesNom,fechaCierre,total,cantRegistros:delMes.length,personas,cerradoPor:TEATRO_FIJO?`Coordinación ${teatro}`:'Admin'});

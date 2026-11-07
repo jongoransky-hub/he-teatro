@@ -1062,7 +1062,7 @@ async function quitarAjusteP3(desde){
     const r=await apiPost("quitarAjuste",{desde,pin,usuario:"Director"});
     if(!r.ok){ if(/PIN/.test(r.error||'')) _pinValores=null; alert(`⚠ No se quitó: ${r.error||'error desconocido'}`); return; }
     AJUSTES=normAjustes(r.ajustes);
-    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'programado',pct:null,desde,hasta:'',nota:`Se quitó el incremento de ${desde} (${a.pct}%)`});
+    HISTORIAL.unshift({fecha:new Date().toLocaleDateString('sv-SE'),tipo:'programado',pct:null,desde,hasta:'',nota:`Se quitó el incremento de ${desde} (${a.pct}%)`});
     actualizarVigDisplay();buildValores();buildHistorial();
   }catch(e){ alert('⚠ Sin conexión al Sheet — no se quitó nada.'); }
 }
@@ -1090,7 +1090,7 @@ async function aplicarGeneral(){
     const r = await apiPost("programarAjuste",{pct:p,desde:mes,nota,usuario:"Director",pin});
     if(!r.ok){ if(/PIN/.test(r.error||'')) _pinValores=null; alert(`⚠ No se guardó: ${r.error||'error desconocido'}`); return; }
     AJUSTES=normAjustes(r.ajustes);
-    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'programado',pct:p,desde:mes,hasta:'',nota});
+    HISTORIAL.unshift({fecha:new Date().toLocaleDateString('sv-SE'),tipo:'programado',pct:p,desde:mes,hasta:'',nota});
     actualizarVigDisplay();buildValores();buildHistorial();
     document.getElementById('pct-general').value='';
     document.getElementById('preview-general').style.display='none';
@@ -1111,7 +1111,7 @@ async function aplicarGeneralInmediato(){
     const r = await apiPost("updateValores",{pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`,usuario:"Director",pin});
     if(!r.ok){ _pinValores=null; alert(`⚠ No se guardó: ${r.error||'error desconocido'}`); return; }
     VALORES.forEach(v=>v.v=Math.round(v.v*(1+p/100)*100)/100);
-    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'general',pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`});
+    HISTORIAL.unshift({fecha:new Date().toLocaleDateString('sv-SE'),tipo:'general',pct:p,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`Incremento general ${p}%`});
     buildValores();buildEditable();buildHistorial();
     document.getElementById('pct-general').value='';
     document.getElementById('preview-general').style.display='none';
@@ -1136,7 +1136,7 @@ async function confirmarIndividual(){
     const r = await apiPost("updateValores", payload);
     if(!r.ok){ _pinValores=null; alert(`⚠ No se guardó: ${r.error||'error desconocido'}`); return; }
     cambios.forEach(c=>{ const v=VALORES.find(x=>x.id===c.id); if(v) v.v=c.despues; });
-    HISTORIAL.unshift({fecha:new Date().toISOString().split('T')[0],tipo:'individual',cambios,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`${cambios.length} concepto(s) actualizado(s)`});
+    HISTORIAL.unshift({fecha:new Date().toLocaleDateString('sv-SE'),tipo:'individual',cambios,desde:VIG_DESDE,hasta:VIG_HASTA,nota:`${cambios.length} concepto(s) actualizado(s)`});
     buildValores();buildHistorial();
     alert(`✓ ${cambios.length} concepto(s) actualizado(s). Guardado en Google Sheets.`);
   } catch(e) { alert(`⚠ Sin conexión al Sheet — no se aplicó nada.`); }
@@ -1276,7 +1276,7 @@ async function toggleObra(i){
   let r;
   if(activa){
     if(!confirm(`¿Dar de baja "${OBRAS[i].n}"? Va a seguir disponible para cargas con fecha de este mes, y deja de aparecer en el formulario para fechas posteriores.`))return;
-    const hasta=new Date().toISOString().slice(0,7);
+    const hasta=new Date().toLocaleDateString('sv-SE').slice(0,7);
     OBRAS[i].hasta=hasta;
     buildObras();
     r=await apiPost("editObra",{nombre:OBRAS[i].n,teatro:OBRAS[i].teatro,hasta,activa:true});
